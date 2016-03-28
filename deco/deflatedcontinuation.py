@@ -1,14 +1,14 @@
 from operatordeflation import ShiftedDeflation
 from parallellayout import ranktoteamno, teamnotoranks
 from parametertools import parameterstofloats, parameterstoconstants
-from tasks import QuitTask, ContinuationTask, DeflationTask
+from tasks import QuitTask, ContinuationTask, DeflationTask, Response
 
 from mpi4py import MPI
 from petsc4py import PETSc
 
 import math
 import threading
-
+import time
 
 class DeflatedContinuation(object):
     """
@@ -44,30 +44,33 @@ class DeflatedContinuation(object):
         self.rank = self.worldcomm.rank
 
         # Assert even divisibility of team sizes
-        assert (self.worldcomm.size - 1) % teamsize == 0
-        self.nteams = (self.worldcomm.size - 1) / self.teamsize
+        assert self.worldcomm.size % teamsize == 0
+        self.nteams = self.worldcomm.size / self.teamsize
 
         # Create local communicator for the team I will join
         self.teamno = ranktoteamno(self.rank, self.teamsize)
         self.teamcomm = self.worldcomm.Split(self.teamno, key=0)
+        self.teamrank = self.teamcomm.rank
+
+        # An MPI tag to indicate response messages
+        self.responsetag = 121
 
         # We also need to create a communicator for rank 0 to talk to each
         # team (except for team 0, which it already has, as it is a member)
         if self.rank == 0:
-            self.teamcomms = []
-            for teamno in range(0, self.nteams):
+            self.teamcomms = [self.teamcomm]
+            for teamno in range(1, self.nteams):
                 teamcommpluszero = self.worldcomm.Split(teamno, key=0)
                 self.teamcomms.append(teamcommpluszero)
         else:
-            for teamno in range(0, self.nteams):
+            if self.teamno == 0:
+                self.mastercomm = self.teamcomm
+
+            for teamno in range(1, self.nteams):
                 if teamno == self.teamno:
                     self.mastercomm = self.worldcomm.Split(self.teamno, key=0)
                 else:
                     self.worldcomm.Split(MPI.UNDEFINED, key=0)
-
-        # Some MPI tags
-        self.mastertoworker = 121
-        self.workertomaster = 144
 
         # Take some data from the problem
         self.mesh = problem.mesh(PETSc.Comm(self.teamcomm))
@@ -103,16 +106,52 @@ class DeflatedContinuation(object):
         assert freeparam is not None
 
         values = free[freeparam[1]]
-        args = (freeindex, values)
+
+        # Fetch the initial guesses to start us off
+        if self.teamno == 0:
+            initialparams = parameterstofloats(self.parameters, freeindex, values[0])
+            initialguesses = self.problem.guesses(self.function_space, None, None, initialparams)
 
         if self.rank == 0:
+            # Argh. MPI is so ugly. I can't have one thread on rank 0 bcasting
+            # to rank 0's team (in the master), and have another thread on rank 0 bcasting
+            # to receive it (in the worker). So I have to have a completely different
+            # message passing mechanism for master to rank 0, compared to everyone else.
+            self.zerotask = None
+
             # fork the master coordinating thread
-            self.master(*args)
+            args = (freeindex, values, initialguesses)
+            thread = threading.Thread(target=self.master, args=args)
+            thread.start()
+
+            # and get to work yourself
+            self.worker()
+            thread.join()
         else:
             # join a worker team
             self.worker()
 
-    def master(self, freeindex, values):
+    def send_task(self, task, idleteam):
+        # Special case for rank 0 communicating with itself
+        if idleteam == 0:
+            self.zerotask = task
+
+        teamcomm = self.teamcomms[idleteam].bcast(task)
+
+    def fetch_task(self):
+        # Special case for rank 0 communicating with itself
+        if self.rank == 0:
+            while self.zerotask is None:
+                time.sleep(0.01)
+            task = self.zerotask
+            self.zerotask = None
+            return task
+
+        else:
+            task = self.mastercomm.bcast()
+            return task
+
+    def master(self, freeindex, values, initialguesses):
         """
         The master coordinating routine.
 
@@ -124,21 +163,20 @@ class DeflatedContinuation(object):
         """
 
         # Initialise data structures.
+        stat = MPI.Status()
 
         # First, set the list of idle teams to all of them.
         idleteams = range(self.nteams)
-        stat = MPI.Status()
 
         # Task id counter
         taskid = 0
 
         # Next, seed the list of tasks to perform with the initial search
         newtasks = []  # tasks yet to be sent out
-        waittasks = [] # tasks sent out, waiting to hear back about
+        waittasks = {} # tasks sent out, waiting to hear back about
 
         initialparams = parameterstofloats(self.parameters, freeindex, values[0])
-        guesses = self.problem.guesses(self.function_space, None, None, initialparams)
-        for guess in guesses:
+        for guess in initialguesses:
             newtasks.append(DeflationTask(taskid=taskid, oldparams=None, branchid=taskid,
                                        newparams=initialparams, knownbranches=[]))
             taskid += 1
@@ -147,18 +185,26 @@ class DeflatedContinuation(object):
         while len(newtasks) + len(waittasks) > 0:
 
             # If there are any tasks to send out, send them.
-            while len(newtasks) > 0:
+            while len(newtasks) > 0 and len(idleteams) > 0:
                 idleteam = idleteams.pop(0)
                 task     = newtasks.pop(0)
-                self.teamcomms[idleteam].bcast(task)
-                # append to waittasks
+                self.send_task(task, idleteam)
+                waittasks[task.taskid] = task
 
-            # ... wait for responses and deal with consequences
+            # We can't send out any more tasks, either because we have no
+            # tasks to send out or we have no free processors.
+            # If we aren't waiting for anything to finish, we'll exit the loop
+            # here. otherwise, we wait for responses and deal with consequences.
+            if len(waittasks) > 0:
+                response = self.worldcomm.recv(status=stat, source=MPI.ANY_SOURCE, tag=self.responsetag)
+
+                del waittasks[response.taskid]
+                idleteams.append(stat.source)
 
         # All continuation tasks have been finished. Tell the workers to quit.
         quit = QuitTask()
         for teamno in range(self.nteams):
-            self.teamcomms[teamno].bcast(quit)
+            self.send_task(quit, teamno)
 
     def worker(self):
         """
@@ -168,11 +214,14 @@ class DeflatedContinuation(object):
         """
 
         while True:
-            task = self.mastercomm.bcast()
+            task = self.fetch_task()
 
             if isinstance(task, QuitTask):
                 return
             else:
                 print "(%s, %s): task: %s" % (self.rank, self.teamno, task)
-                import time; time.sleep(1)
+                time.sleep(1)
+                response = Response(task.taskid, success=True)
+                if self.teamrank == 0:
+                    self.worldcomm.send(response, dest=0, tag=self.responsetag)
 

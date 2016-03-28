@@ -18,9 +18,7 @@ import math
 from mpi4py import MPI
 
 def ranktoteamno(rank, teamsize):
-    if rank == 0:
-        return MPI.COMM_WORLD.size
-    return int(math.floor((rank - 1)/float(teamsize)))
+    return int(math.floor((rank)/float(teamsize)))
 
 def teamnotoranks(teamno, teamsize):
     return range(teamno*teamsize, (teamno+1)*teamsize)

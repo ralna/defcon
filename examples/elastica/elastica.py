@@ -90,7 +90,7 @@ if __name__ == "__main__":
     #io = FileIO("output")
     io = None
 
-    dc = DeflatedContinuation(problem=ElasticaProblem(), io=io, teamsize=2)
+    dc = DeflatedContinuation(problem=ElasticaProblem(), io=io, teamsize=1)
     dc.run(free={"lambda": linspace(0, 4*pi, 100)}, fixed={"mu": 0.5})
 
     #dc.bifurcationdiagram("signedL2", fixed={"mu": 0.5})

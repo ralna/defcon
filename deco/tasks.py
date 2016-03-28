@@ -60,3 +60,11 @@ class DeflationTask(Task):
 
     def __str__(self):
         return "DeflationTask(taskid=%s, oldparams=%s, branchid=%s, newparams=%s, knownbranches=%s)" % (self.taskid, self.oldparams, self.branchid, self.newparams, self.knownbranches)
+
+class Response(object):
+    """
+    A class that encapsulates whether a given task was successful or not."
+    """
+    def __init__(self, taskid, success):
+        self.taskid = taskid
+        self.success = success
