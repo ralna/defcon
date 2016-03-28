@@ -4,6 +4,7 @@ from parametertools import parameterstofloats, parameterstoconstants
 from tasks import QuitTask, ContinuationTask, DeflationTask
 
 from mpi4py import MPI
+from petsc4py import PETSc
 
 import math
 import threading
@@ -59,6 +60,9 @@ class DeflatedContinuation(object):
                 teamcommpluszero = self.worldcomm.Split(teamno, key=0)
                 self.teamcomms.append(teamcommpluszero)
         else:
+            if self.teamno == 0:
+                self.mastercomm = self.teamcomm
+
             for teamno in range(1, self.nteams):
                 if teamno == self.teamno:
                     self.mastercomm = self.worldcomm.Split(self.teamno, key=0)
@@ -70,11 +74,11 @@ class DeflatedContinuation(object):
         self.workertomaster = 144
 
         # Take some data from the problem
-        self.mesh = problem.mesh(self.teamcomm)
+        self.mesh = problem.mesh(PETSc.Comm(self.teamcomm))
         self.function_space = problem.function_space(self.mesh)
         self.parameters = problem.parameters()
 
-    def run(free, fixed={}):
+    def run(self, free, fixed={}):
         """
         The main execution routine.
 
@@ -110,7 +114,7 @@ class DeflatedContinuation(object):
         # so let's get the guesses here
 
         if self.teamno == 0:
-            self.guesses = problem.guesses(self.function_space, None, None,
+            self.guesses = self.problem.guesses(self.function_space, None, None,
                             parameterstofloats(self.parameters, freeindex, values[0]))
             assert len(self.guesses) > 0
         else:
@@ -163,7 +167,7 @@ class DeflatedContinuation(object):
             while len(newtasks) > 0:
                 idleteam = idleteams.pop(0)
                 task     = newtasks.pop(0)
-                self.teamcomms[idleteam].bcast(task, tag=self.mastertoworker)
+                self.teamcomms[idleteam].bcast(task)
                 # append to waittasks
 
             # ... wait for responses and deal with consequences
@@ -171,7 +175,7 @@ class DeflatedContinuation(object):
         # All continuation tasks have been finished. Tell the workers to quit.
         quit = QuitTask()
         for teamno in range(self.nteams):
-            self.teamcomms[teamno].bcast(quit, tag=self.mastertoworker)
+            self.teamcomms[teamno].bcast(quit)
 
     def worker(self):
         """
@@ -181,7 +185,7 @@ class DeflatedContinuation(object):
         """
 
         while True:
-            task = self.mastercomm.bcast(tag=self.mastertoworker)
+            task = self.mastercomm.bcast()
 
             if isinstance(task, QuitTask):
                 return
