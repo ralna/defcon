@@ -63,7 +63,7 @@ class ElasticaProblem(BifurcationProblem):
         return [(signedL2, "signedL2", tex)]
 
     def guesses(self, V, oldparams, oldstates, newparams):
-        if len(oldstates) == 0:
+        if oldparams is None:
             newguesses = [Function(V)]
             newguesses[0].label = "initial-guess-0"
         else:
@@ -86,15 +86,16 @@ class ElasticaProblem(BifurcationProblem):
         return inner(a, b)*dx + inner(grad(a), grad(b))*dx
 
 if __name__ == "__main__":
-    io = FileIO("output")
+    #io = FileIO("output")
+    io = None
 
     dc = DeflatedContinuation(problem=ElasticaProblem(), io=io)
     dc.run(fixed={"mu": 0.5}, free={"lambda": linspace(0, 4*pi, 100)})
 
-    dc.bifurcationdiagram("signedL2")
-    plt.title(r"Buckling of an Euler elastica, $\mu = 1/2$")
-    plt.grid()
-    plt.savefig("bifurcation.pdf")
+    #dc.bifurcationdiagram("signedL2", fixed={"mu": 0.5})
+    #plt.title(r"Buckling of an Euler elastica, $\mu = 1/2$")
+    #plt.grid()
+    #plt.savefig("bifurcation.pdf")
 
     # Maybe you could also do:
     #dc.run(fixed={"lambda": 4*pi}, free={"mu": linspace(0.5, 0.0, 6)})

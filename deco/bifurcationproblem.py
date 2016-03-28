@@ -136,7 +136,7 @@ class BifurcationProblem(object):
         In the simplest case, this just returns oldstates again.
 
         There is one special case that must be handled. If oldparams = None and
-        len(oldstates) == 0, then this routine should return the initial guesses
+        oldstates = None, then this routine should return the initial guesses
         to be used for the initial solve (when no solutions are available).
 
         Each guess in the returned list should have a label attribute
@@ -145,11 +145,11 @@ class BifurcationProblem(object):
         *Arguments*
           function_space (:py:class:`dolfin.FunctionSpace`)
             the function space returned by function_space()
-          oldparams (tuple of :py:class:`dolfin.Constant`)
+          oldparams (tuple of :py:class:`float`)
             old parameters to use, in the same order returned by parameters()
           oldstates (list of :py:class:`dolfin.Function`)
             solutions known at the old parameter values
-          newparams (tuple of :py:class:`dolfin.Constant`)
+          newparams (tuple of :py:class:`float`)
             new parameters to use, in the same order returned by parameters()
 
         *Returns*
@@ -166,7 +166,7 @@ class BifurcationProblem(object):
         Otherwise the routine should return float("inf").
 
         *Arguments*
-          params (tuple of :py:class:`dolfin.Constant`)
+          params (tuple of :py:class:`float`)
             parameters to use, in the same order returned by parameters()
 
         *Returns*

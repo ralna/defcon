@@ -30,7 +30,7 @@ class ContinuationTask(Task):
         self.branchid  = branchid
         self.newparams = newparams
 
-class DeflationTask(Task)
+class DeflationTask(Task):
     """
     A task that seeks new, unknown solutions for a given parameter
     value.
@@ -39,14 +39,14 @@ class DeflationTask(Task)
       taskid (int)
         Global identifier for this task
       oldparams (dict)
-        Parameter values to continue from
+        Parameter values to continue from. If None, this means use the initial guesses
       branchid (int)
-        Which branch to continue (int)
+        Which branch to continue (int). If oldparams is None, this is the number of the
+        to use
       newparams (dict)
         Parameter values to continue to
       knownbranches (list)
         Branch ids that have known solutions for newparams
-
     """
     def __init__(self, taskid, oldparams, branchid, newparams, knownbranches):
         self.taskid    = taskid
