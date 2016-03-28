@@ -44,8 +44,8 @@ class DeflatedContinuation(object):
         self.rank = self.worldcomm.rank
 
         # Assert even divisibility of team sizes
-        assert self.worldcomm.size % teamsize == 0
-        self.nteams = self.worldcomm.size / self.teamsize
+        assert (self.worldcomm.size - 1) % teamsize == 0
+        self.nteams = (self.worldcomm.size - 1) / self.teamsize
 
         # Create local communicator for the team I will join
         self.teamno = ranktoteamno(self.rank, self.teamsize)
@@ -54,16 +54,12 @@ class DeflatedContinuation(object):
         # We also need to create a communicator for rank 0 to talk to each
         # team (except for team 0, which it already has, as it is a member)
         if self.rank == 0:
-            self.teamcomms = [self.teamcomm]
-            self.mastercomm = self.teamcomm
-            for teamno in range(1, self.nteams):
+            self.teamcomms = []
+            for teamno in range(0, self.nteams):
                 teamcommpluszero = self.worldcomm.Split(teamno, key=0)
                 self.teamcomms.append(teamcommpluszero)
         else:
-            if self.teamno == 0:
-                self.mastercomm = self.teamcomm
-
-            for teamno in range(1, self.nteams):
+            for teamno in range(0, self.nteams):
                 if teamno == self.teamno:
                     self.mastercomm = self.worldcomm.Split(self.teamno, key=0)
                 else:
@@ -107,25 +103,11 @@ class DeflatedContinuation(object):
         assert freeparam is not None
 
         values = free[freeparam[1]]
-
         args = (freeindex, values)
-
-        # We'll definitely be looking for initial guesses with team zero,
-        # so let's get the guesses here
-
-        if self.teamno == 0:
-            self.guesses = self.problem.guesses(self.function_space, None, None,
-                            parameterstofloats(self.parameters, freeindex, values[0]))
-            assert len(self.guesses) > 0
-        else:
-            self.guesses = None
 
         if self.rank == 0:
             # fork the master coordinating thread
-            thread = threading.Thread(target=self.master, args=args)
-            thread.start()
-            self.worker()
-            thread.join()
+            self.master(*args)
         else:
             # join a worker team
             self.worker()
@@ -155,7 +137,8 @@ class DeflatedContinuation(object):
         waittasks = [] # tasks sent out, waiting to hear back about
 
         initialparams = parameterstofloats(self.parameters, freeindex, values[0])
-        for guess in self.guesses: # guaranteed to exist from code in self.run
+        guesses = self.problem.guesses(self.function_space, None, None, initialparams)
+        for guess in guesses:
             newtasks.append(DeflationTask(taskid=taskid, oldparams=None, branchid=taskid,
                                        newparams=initialparams, knownbranches=[]))
             taskid += 1

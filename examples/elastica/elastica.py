@@ -64,8 +64,9 @@ class ElasticaProblem(BifurcationProblem):
 
     def guesses(self, V, oldparams, oldstates, newparams):
         if oldparams is None:
-            newguesses = [Function(V)]
+            newguesses = [Function(V), Function(V)]
             newguesses[0].label = "initial-guess-0"
+            newguesses[1].label = "initial-guess-0"
         else:
             newguesses = oldstates
             for (i, soln) in enumerate(oldstates):

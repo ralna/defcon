@@ -30,6 +30,9 @@ class ContinuationTask(Task):
         self.branchid  = branchid
         self.newparams = newparams
 
+    def __str__(self):
+        return "ContinuationTask(taskid=%s, oldparams=%s, branchid=%s, newparams=%s)" % (self.taskid, self.oldparams, self.branchid, self.newparams)
+
 class DeflationTask(Task):
     """
     A task that seeks new, unknown solutions for a given parameter
@@ -54,3 +57,6 @@ class DeflationTask(Task):
         self.branchid  = branchid
         self.newparams = newparams
         self.knownbranches = knownbranches
+
+    def __str__(self):
+        return "DeflationTask(taskid=%s, oldparams=%s, branchid=%s, newparams=%s, knownbranches=%s)" % (self.taskid, self.oldparams, self.branchid, self.newparams, self.knownbranches)
