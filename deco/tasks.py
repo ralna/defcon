@@ -48,18 +48,15 @@ class DeflationTask(Task):
         to use
       newparams (dict)
         Parameter values to continue to
-      knownbranches (list)
-        Branch ids that have known solutions for newparams
     """
-    def __init__(self, taskid, oldparams, branchid, newparams, knownbranches):
+    def __init__(self, taskid, oldparams, branchid, newparams):
         self.taskid    = taskid
         self.oldparams = oldparams
         self.branchid  = branchid
         self.newparams = newparams
-        self.knownbranches = knownbranches
 
     def __str__(self):
-        return "DeflationTask(taskid=%s, oldparams=%s, branchid=%s, newparams=%s, knownbranches=%s)" % (self.taskid, self.oldparams, self.branchid, self.newparams, self.knownbranches)
+        return "DeflationTask(taskid=%s, oldparams=%s, branchid=%s, newparams=%s)" % (self.taskid, self.oldparams, self.branchid, self.newparams)
 
 class Response(object):
     """

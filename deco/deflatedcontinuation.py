@@ -5,6 +5,8 @@ from newton import newton
 from tasks import QuitTask, ContinuationTask, DeflationTask, Response
 
 import dolfin
+from deflation import ForwardProblem
+from petscsnessolver import PetscSnesSolver
 
 from mpi4py import MPI
 from petsc4py import PETSc
@@ -195,7 +197,6 @@ class DeflatedContinuation(object):
     def load_solution(self, oldparams, branchid, newparams):
         if (oldparams, branchid) == self.state_id:
             # We already have it in memory
-            print "Short-circuiting because we have the solution you want in memory already"
             return
 
         if oldparams is None:
@@ -244,22 +245,27 @@ class DeflatedContinuation(object):
 
         initialparams = parameterstofloats(self.parameters, freeindex, values[0])
         for guess in initialguesses:
-            newtasks.append(DeflationTask(taskid=taskid, oldparams=None, branchid=taskid,
-                                       newparams=initialparams, knownbranches=[]))
+            newtasks.append(DeflationTask(taskid=taskid,
+                                          oldparams=None,
+                                          branchid=taskid,
+                                          newparams=initialparams))
             taskid += 1
 
         # Here comes the main master loop.
         while len(newtasks) + len(waittasks) > 0:
-            print "newtasks: ", newtasks
-            print "waittasks: ", waittasks
-            print "idleteams: ", idleteams
-
             # If there are any tasks to send out, send them.
             while len(newtasks) > 0 and len(idleteams) > 0:
-                idleteam = idleteams.pop(0)
                 task     = newtasks.pop(0)
+
+                # Before we send it out, let's check we really want to.
+                if isinstance(task, DeflationTask):
+                    if len(self.io.known_branches(task.newparams)) == self.problem.number_solutions(task.newparams):
+                    # We've found all the branches the user's asked us for, let's roll
+                        print "Master not dispatching %s because we have enough solutions" % task
+                        continue
+
+                idleteam = idleteams.pop(0)
                 self.send_task(task, idleteam)
-                print "master sending task %s to %s" % (task, idleteam)
                 waittasks[task.taskid] = (task, idleteam)
 
             # We can't send out any more tasks, either because we have no
@@ -267,7 +273,6 @@ class DeflatedContinuation(object):
             # If we aren't waiting for anything to finish, we'll exit the loop
             # here. otherwise, we wait for responses and deal with consequences.
             if len(waittasks) > 0:
-                print "master waiting for response"
                 response = self.worldcomm.recv(status=stat, source=MPI.ANY_SOURCE, tag=self.responsetag)
 
                 (task, team) = waittasks[response.taskid]
@@ -297,8 +302,7 @@ class DeflatedContinuation(object):
                         newtask = DeflationTask(taskid=taskid,
                                                 oldparams=task.oldparams,
                                                 branchid=task.branchid,
-                                                newparams=task.newparams,
-                                                knownbranches=self.io.known_branches(task.newparams))
+                                                newparams=task.newparams)
                         taskid += 1
                         newtasks.append(newtask)
                     else:
@@ -321,8 +325,7 @@ class DeflatedContinuation(object):
                             newtask = DeflationTask(taskid=taskid,
                                                     oldparams=task.oldparams,
                                                     branchid=task.branchid,
-                                                    newparams=task.newparams,
-                                                    knownbranches=self.io.known_branches(task.newparams).union({branchid}))
+                                                    newparams=task.newparams)
                             newtasks.append(newtask)
                             taskid += 1
 
@@ -367,12 +370,22 @@ class DeflatedContinuation(object):
                 # Set up the problem
                 self.load_solution(task.oldparams, task.branchid, task.newparams)
                 self.load_parameters(task.newparams)
-                other_solutions = self.io.fetch_solutions(task.newparams, task.knownbranches)
-                self.deflation.deflate(other_solutions)
+                other_solutions = self.io.fetch_solutions(task.newparams, self.io.known_branches(task.newparams))
                 bcs = self.problem.boundary_conditions(self.function_space, task.newparams)
 
+                p = ForwardProblem(self.residual, self.function_space, self.state, bcs, power=2, shift=1)
+                for o in other_solutions:
+                    p.deflate(o)
+                solver = PetscSnesSolver()
+
+                try:
+                    solver.solve(p, self.state.vector())
+                    success = True
+                except:
+                    success = False
+
                 # Try to solve it
-                success = newton(self.residual, self.state, bcs, deflation=self.deflation)
+                #success = newton(self.residual, self.state, bcs, deflation=self.deflation)
                 self.state_id = (None, None) # not sure if it is a solution we care about yet
 
                 response = Response(task.taskid, success=success)
