@@ -1,7 +1,10 @@
 from operatordeflation import ShiftedDeflation
 from parallellayout import ranktoteamno, teamnotoranks
 from parametertools import parameterstofloats, parameterstoconstants, nextparameters
+from newton import newton
 from tasks import QuitTask, ContinuationTask, DeflationTask, Response
+
+import dolfin
 
 from mpi4py import MPI
 from petsc4py import PETSc
@@ -76,9 +79,15 @@ class DeflatedContinuation(object):
         self.function_space = problem.function_space(self.mesh)
         self.parameters = problem.parameters()
         self.functionals = problem.functionals()
+        self.state = dolfin.Function(self.function_space)
+        self.residual = problem.residual(self.state, parameterstoconstants(self.parameters), dolfin.TestFunction(self.function_space))
 
         io.setup(self.parameters, self.functionals, self.function_space)
         self.io = io
+
+        # We keep track of what solution we actually have in memory in self.state
+        # for efficiency
+        self.state_id = (None, None)
 
     def run(self, free, fixed={}):
         """
@@ -178,8 +187,28 @@ class DeflatedContinuation(object):
         funcs = []
         for functional in self.functionals:
             func = functional[0]
-            funcs.append(func(solution, params))
+            j = func(solution, params)
+            assert isinstance(j, float)
+            funcs.append(j)
         return funcs
+
+    def load_ic(self, oldparams, branchid, newparams):
+        if (oldparams, branchid) == self.state_id:
+            # We already have it in memory
+            return
+
+        if oldparams is None:
+            # We're dealing with an initial guess
+            guesses = self.problem.guesses(self.function_space, None, None, newparams)
+            self.state.assign(guesses[branchid])
+            self.state_id = (oldparams, branchid)
+            return
+
+        # We need to load from disk.
+        fetched = self.io.fetch_solutions(oldparams, [branchid])
+        self.state.assign(fetched[0])
+        self.state_id = (oldparams, branchid)
+        return
 
     def master(self, freeindex, values, initialguesses):
         """
@@ -265,7 +294,7 @@ class DeflatedContinuation(object):
                         if task.oldparams is not None:
                             newtask = DeflationTask(taskid=taskid, oldparams=task.oldparams,
                                                     branchid=task.branchid, newparams=task.newparams,
-                                                    knownbranches=self.io.known_branches(task.newparams).union({branchid}))
+                                                    knownbranches=self.io.knownbranches(task.newparams).union({branchid}))
                             newtasks.append(newtask)
                             taskid += 1
 
@@ -307,19 +336,31 @@ class DeflatedContinuation(object):
             elif isinstance(task, DeflationTask):
                 print "(%s, %s): task: %s" % (self.rank, self.teamno, task)
 
-                import dolfin
-                solution = dolfin.Function(self.function_space)
-                time.sleep(1)
-                response = Response(task.taskid, success=True)
+                # Set up the problem
+                self.load_ic(task.oldparams, task.branchid, task.newparams)
+                other_solutions = self.io.fetch_solutions(task.newparams, task.knownbranches)
+                self.deflation.deflate(other_solutions)
+                bcs = self.problem.boundary_conditions(self.function_space, task.newparams)
+
+                # Try to solve it
+                success = newton(self.residual, self.state, bcs, deflation=self.deflation)
+                self.state_id = (None, None) # not sure if it is a solution we care about yet
+
+                response = Response(task.taskid, success=success)
                 if self.teamrank == 0:
                     self.worldcomm.send(response, dest=0, tag=self.responsetag)
 
                 branchid = self.fetch_branchid()
                 if branchid is not None:
-                    functionals = self.compute_functionals(solution, task.newparams)
-                    self.io.save_solution(solution, task.newparams, branchid)
+                    # We do care about this solution, so record the fact we have it in memory
+                    self.state_id = (task.newparams, branchid)
+
+                    # Save it to disk with the I/O module
+                    functionals = self.compute_functionals(self.state, task.newparams)
+                    self.io.save_solution(self.state, task.newparams, branchid)
                     self.io.save_functionals(functionals, task.newparams, branchid)
 
+                    # Automatically start onto the continuation
                     newparams = nextparameters(values, freeindex, task.newparams)
                     if newparams is not None:
                         task = ContinuationTask(taskid=task.taskid,

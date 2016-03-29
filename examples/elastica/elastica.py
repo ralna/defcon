@@ -26,6 +26,9 @@ args = [sys.argv[0]] + """
 parameters.parse(args)
 
 class ElasticaProblem(BifurcationProblem):
+    def __init__(self):
+        self.bcs = None
+
     def mesh(self, comm):
         return IntervalMesh(comm, 10000, 0, 1)
 
@@ -51,13 +54,17 @@ class ElasticaProblem(BifurcationProblem):
         return F
 
     def boundary_conditions(self, V, params):
-        return [DirichletBC(V, 0.0, "on_boundary")]
+        # The boundary conditions are independent of parameters, so only
+        # evaluate them once for efficiency.
+        if self.bcs is None:
+            self.bcs = [DirichletBC(V, 0.0, "on_boundary")]
+        return self.bcs
 
     def functionals(self):
         def signedL2(theta, params):
             j = sqrt(assemble(inner(theta, theta)*dx))
             g = project(grad(theta)[0], theta.function_space())
-            return j*g
+            return j*g((0.0,))
         tex = r"\theta'(0) \|\theta\|"
 
         return [(signedL2, "signedL2", tex)]

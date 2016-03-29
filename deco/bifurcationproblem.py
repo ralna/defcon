@@ -54,10 +54,6 @@ class BifurcationProblem(object):
 
         to the top of the Python script to use UTF characters.
 
-        Wherever other methods take in parameters, it is as a tuple of
-        :py:class:`dolfin.Constant`s, in the same order as returned by this
-        method.
-
         The values in the Constants are irrelevant; they are initialised in the
         continuation.
 

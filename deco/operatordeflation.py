@@ -21,7 +21,7 @@ class DeflationOperator(object):
     def derivative(self):
         raise NotImplementedError
 
-class ShiftedDeflation(object):
+class ShiftedDeflation(DeflationOperator):
     """
     The shifted deflation operator presented in doi:10.1137/140984798.
     """

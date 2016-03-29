@@ -48,6 +48,7 @@ class FileIO(IO):
 
     def fetch_solutions(self, params, branchids):
         solns = [Function(self.function_space, self.dir(params) + "solution-%d.xml.gz" % branchid) for branchid in branchids]
+        return solns
 
     def known_branches(self, params):
         filenames = glob.glob(self.dir(params) + "solution-*.xml.gz")
