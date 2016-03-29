@@ -14,6 +14,7 @@ from petsc4py import PETSc
 import math
 import threading
 import time
+from Queue import PriorityQueue
 
 class DeflatedContinuation(object):
     """
@@ -240,22 +241,22 @@ class DeflatedContinuation(object):
         branchid = 0
 
         # Next, seed the list of tasks to perform with the initial search
-        newtasks = []  # tasks yet to be sent out
+        newtasks = PriorityQueue()  # tasks yet to be sent out
         waittasks = {} # tasks sent out, waiting to hear back about
 
         initialparams = parameterstofloats(self.parameters, freeindex, values[0])
         for guess in initialguesses:
-            newtasks.append(DeflationTask(taskid=taskid,
+            newtasks.put((-1, DeflationTask(taskid=taskid,
                                           oldparams=None,
                                           branchid=taskid,
-                                          newparams=initialparams))
+                                          newparams=initialparams)))
             taskid += 1
 
         # Here comes the main master loop.
-        while len(newtasks) + len(waittasks) > 0:
+        while newtasks.qsize() + len(waittasks) > 0:
             # If there are any tasks to send out, send them.
-            while len(newtasks) > 0 and len(idleteams) > 0:
-                task     = newtasks.pop(0)
+            while newtasks.qsize() > 0 and len(idleteams) > 0:
+                (priority, task) = newtasks.get()
 
                 # Before we send it out, let's check we really want to.
                 if isinstance(task, DeflationTask):
@@ -304,7 +305,7 @@ class DeflatedContinuation(object):
                                                 branchid=task.branchid,
                                                 newparams=task.newparams)
                         taskid += 1
-                        newtasks.append(newtask)
+                        newtasks.put((newtask.newparams[freeindex], newtask))
                     else:
                         # We tried to continue a branch, but the continuation died. Oh well.
                         # The team is now idle.
@@ -326,7 +327,7 @@ class DeflatedContinuation(object):
                                                     oldparams=task.oldparams,
                                                     branchid=task.branchid,
                                                     newparams=task.newparams)
-                            newtasks.append(newtask)
+                            newtasks.put((newtask.newparams[freeindex], newtask))
                             taskid += 1
 
                         # 3. Record that the worker team is now continuing that branch,
