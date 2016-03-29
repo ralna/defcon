@@ -57,7 +57,7 @@ class FileIO(IO):
 
     def save_functionals(self, funcs, params, branchid):
         f = file(self.dir(params) + "functional-%d.txt" % branchid, "w")
-        s = parameterstostring(self.functionals, funcs).replace('-', '\n')
+        s = parameterstostring(self.functionals, funcs).replace('|', '\n')
         f.write(s)
 
     def fetch_functionals(self, params, branchids):

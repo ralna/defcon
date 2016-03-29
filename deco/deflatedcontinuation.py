@@ -192,9 +192,10 @@ class DeflatedContinuation(object):
             funcs.append(j)
         return funcs
 
-    def load_ic(self, oldparams, branchid, newparams):
+    def load_solution(self, oldparams, branchid, newparams):
         if (oldparams, branchid) == self.state_id:
             # We already have it in memory
+            print "Short-circuiting because we have the solution you want in memory already"
             return
 
         if oldparams is None:
@@ -209,6 +210,10 @@ class DeflatedContinuation(object):
         self.state.assign(fetched[0])
         self.state_id = (oldparams, branchid)
         return
+
+    def load_parameters(self, params):
+        for (param, value) in zip(self.parameters, params):
+            param[0].assign(value)
 
     def master(self, freeindex, values, initialguesses):
         """
@@ -274,7 +279,17 @@ class DeflatedContinuation(object):
                         #newtask = DeflationTask(taskid=taskid, oldparams=task.oldparams, ...
                         #taskid += 1
                         #newtasks.append(newtask)
-                        pass
+
+                        # The worker will keep continuing, record that fact
+                        newparams = nextparameters(values, freeindex, task.newparams)
+                        if newparams is not None:
+                            conttask = ContinuationTask(taskid=task.taskid,
+                                                        oldparams=task.newparams,
+                                                        branchid=branchid,
+                                                        newparams=newparams)
+                            waittasks[task.taskid] = ((conttask, team))
+                        else:
+                            idleteams.append(team)
                     else:
                         # We tried to continue a branch, but the continuation died. Oh well.
                         # The team is now idle.
@@ -337,7 +352,8 @@ class DeflatedContinuation(object):
                 print "(%s, %s): task: %s" % (self.rank, self.teamno, task)
 
                 # Set up the problem
-                self.load_ic(task.oldparams, task.branchid, task.newparams)
+                self.load_solution(task.oldparams, task.branchid, task.newparams)
+                self.load_parameters(task.newparams)
                 other_solutions = self.io.fetch_solutions(task.newparams, task.knownbranches)
                 self.deflation.deflate(other_solutions)
                 bcs = self.problem.boundary_conditions(self.function_space, task.newparams)
@@ -372,8 +388,35 @@ class DeflatedContinuation(object):
 
             elif isinstance(task, ContinuationTask):
                 print "(%s, %s): task: %s" % (self.rank, self.teamno, task)
-                time.sleep(1)
-                response = Response(task.taskid, success=False)
+
+                # Set up the problem
+                self.load_solution(task.oldparams, task.branchid, task.newparams)
+                self.load_parameters(task.newparams)
+                self.deflation.deflate([])
+                bcs = self.problem.boundary_conditions(self.function_space, task.newparams)
+
+                # Try to solve it
+                success = newton(self.residual, self.state, bcs, deflation=self.deflation)
+
+                if success:
+                    self.state_id = (task.newparams, task.branchid)
+
+                    # Save it to disk with the I/O module
+                    functionals = self.compute_functionals(self.state, task.newparams)
+                    self.io.save_solution(self.state, task.newparams, branchid)
+                    self.io.save_functionals(functionals, task.newparams, branchid)
+                else:
+                    self.state_id = (None, None)
+
+                response = Response(task.taskid, success=success)
                 if self.teamrank == 0:
                     self.worldcomm.send(response, dest=0, tag=self.responsetag)
-                task = self.fetch_task()
+
+                newparams = nextparameters(values, freeindex, task.newparams)
+                if success and newparams is not None:
+                    task = ContinuationTask(taskid=task.taskid,
+                                            oldparams=task.newparams,
+                                            branchid=task.branchid,
+                                            newparams=newparams)
+                else:
+                    task = self.fetch_task()

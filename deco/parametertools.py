@@ -37,5 +37,5 @@ def nextparameters(values, freeindex, oldparams):
 def parameterstostring(parameters, values):
     s = ""
     for (param, value) in zip(parameters, values):
-        s += "%s=%14.12e-" % (param[1], value)
+        s += "%s=%14.12e|" % (param[1], value)
     return s[:-1]
