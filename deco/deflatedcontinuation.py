@@ -1,6 +1,6 @@
 from operatordeflation import ShiftedDeflation
 from parallellayout import ranktoteamno, teamnotoranks
-from parametertools import parameterstofloats, parameterstoconstants
+from parametertools import parameterstofloats, parameterstoconstants, nextparameters
 from tasks import QuitTask, ContinuationTask, DeflationTask, Response
 
 from mpi4py import MPI
@@ -118,6 +118,7 @@ class DeflatedContinuation(object):
             # to receive it (in the worker). So I have to have a completely different
             # message passing mechanism for master to rank 0, compared to everyone else.
             self.zerotask = None
+            self.zerobranchid = None
 
             # fork the master coordinating thread
             args = (freeindex, values, initialguesses)
@@ -125,18 +126,18 @@ class DeflatedContinuation(object):
             thread.start()
 
             # and get to work yourself
-            self.worker()
+            self.worker(values)
             thread.join()
         else:
             # join a worker team
-            self.worker()
+            self.worker(values)
 
-    def send_task(self, task, idleteam):
+    def send_task(self, task, team):
         # Special case for rank 0 communicating with itself
-        if idleteam == 0:
+        if team == 0:
             self.zerotask = task
 
-        teamcomm = self.teamcomms[idleteam].bcast(task)
+        teamcomm = self.teamcomms[team].bcast(task)
 
     def fetch_task(self):
         # Special case for rank 0 communicating with itself
@@ -150,6 +151,25 @@ class DeflatedContinuation(object):
         else:
             task = self.mastercomm.bcast()
             return task
+
+    def send_branchid(self, branchid, team):
+        if team == 0:
+            self.zerobranchid = branchid
+
+        teamcomm = self.teamcomms[team].bcast(branchid)
+
+    def fetch_task(self):
+        # Special case for rank 0 communicating with itself
+        if self.rank == 0:
+            while self.zerobranchid is None:
+                time.sleep(0.01)
+            branchid = self.zerobranchid
+            self.zerobranchid = None
+            return branchid
+
+        else:
+            branchid = self.mastercomm.bcast()
+            return branchid
 
     def master(self, freeindex, values, initialguesses):
         """
@@ -171,6 +191,9 @@ class DeflatedContinuation(object):
         # Task id counter
         taskid = 0
 
+        # Branch id counter
+        branchid = 0
+
         # Next, seed the list of tasks to perform with the initial search
         newtasks = []  # tasks yet to be sent out
         waittasks = {} # tasks sent out, waiting to hear back about
@@ -189,7 +212,7 @@ class DeflatedContinuation(object):
                 idleteam = idleteams.pop(0)
                 task     = newtasks.pop(0)
                 self.send_task(task, idleteam)
-                waittasks[task.taskid] = task
+                waittasks[task.taskid] = (task, idleteam)
 
             # We can't send out any more tasks, either because we have no
             # tasks to send out or we have no free processors.
@@ -198,15 +221,63 @@ class DeflatedContinuation(object):
             if len(waittasks) > 0:
                 response = self.worldcomm.recv(status=stat, source=MPI.ANY_SOURCE, tag=self.responsetag)
 
+                (task, team) = waittasks[response.taskid]
                 del waittasks[response.taskid]
-                idleteams.append(stat.source)
+
+                # Here comes the core logic of what happens for success or failure for the two
+                # kinds of tasks.
+                if isinstance(task, ContinuationTask):
+                    if response.success:
+                        # In this case, we want the master to insert a deflation
+                        # task from the old parameter value to the new one,
+                        # and expect the worker team to keep going:
+                        # hence, we won't add it to idleteams.
+                        #newtask = DeflationTask(taskid=taskid, oldparams=task.oldparams, ...
+                        #taskid += 1
+                        #newtasks.append(newtask)
+                        pass
+                    else:
+                        # We tried to continue a branch, but the continuation died. Oh well.
+                        # The team is now idle.
+                        idleteams.append(team)
+
+                elif isinstance(task, DeflationTask):
+                    if response.success:
+                        # In this case, we want the master to
+                        # 1. allocate a new branch id for the discovered branch.
+                        self.send_branchid(branchid, team)
+
+                        # 2. insert a new deflation task, to seek again with the same settings.
+                        newtask = DeflationTask(taskid=taskid, oldparams=task.oldparams,
+                                                branchid=task.branchid, newparams=task.newparams,
+                                                knownbranches=io.known_branches(task.newparams).union({branchid}))
+                        newtasks.append(newtask)
+                        taskid += 1
+
+                        newparams = nextparameters(values, freeindex, task.newparams)
+                        if newparams is not None:
+                            # 3. record that the worker team is now continuing that branch.
+                            conttask = ContinuationTask(taskid=task.taskid, 
+                                                        oldparams=task.newparams,
+                                                        branchid=branchid, 
+                                                        newparams=nextparameters(values, freeindex, task.newparams))
+                            waittasks[task.taskid] = ((conttask, team))
+                        else:
+                            # It's at the end of the continuation, there's no more continuation
+                            # to do. Mark the team as idle.
+                            idleteams.append(team)
+
+                        branchid += 1
+                    else:
+                        # As expected, deflation found nothing interesting. The team is now idle.
+                        idleteams.append(team)
 
         # All continuation tasks have been finished. Tell the workers to quit.
         quit = QuitTask()
         for teamno in range(self.nteams):
             self.send_task(quit, teamno)
 
-    def worker(self):
+    def worker(self, values):
         """
         The main worker routine.
 
@@ -218,7 +289,7 @@ class DeflatedContinuation(object):
 
             if isinstance(task, QuitTask):
                 return
-            else:
+            elif isinstance(task, DeflationTask):
                 print "(%s, %s): task: %s" % (self.rank, self.teamno, task)
                 time.sleep(1)
                 response = Response(task.taskid, success=True)
