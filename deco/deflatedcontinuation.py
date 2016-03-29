@@ -250,12 +250,16 @@ class DeflatedContinuation(object):
 
         # Here comes the main master loop.
         while len(newtasks) + len(waittasks) > 0:
+            print "newtasks: ", newtasks
+            print "waittasks: ", waittasks
+            print "idleteams: ", idleteams
 
             # If there are any tasks to send out, send them.
             while len(newtasks) > 0 and len(idleteams) > 0:
                 idleteam = idleteams.pop(0)
                 task     = newtasks.pop(0)
                 self.send_task(task, idleteam)
+                print "master sending task %s to %s" % (task, idleteam)
                 waittasks[task.taskid] = (task, idleteam)
 
             # We can't send out any more tasks, either because we have no
@@ -263,6 +267,7 @@ class DeflatedContinuation(object):
             # If we aren't waiting for anything to finish, we'll exit the loop
             # here. otherwise, we wait for responses and deal with consequences.
             if len(waittasks) > 0:
+                print "master waiting for response"
                 response = self.worldcomm.recv(status=stat, source=MPI.ANY_SOURCE, tag=self.responsetag)
 
                 (task, team) = waittasks[response.taskid]
@@ -374,24 +379,32 @@ class DeflatedContinuation(object):
                 if self.teamrank == 0:
                     self.worldcomm.send(response, dest=0, tag=self.responsetag)
 
-                branchid = self.fetch_branchid()
-                if branchid is not None:
-                    # We do care about this solution, so record the fact we have it in memory
-                    self.state_id = (task.newparams, branchid)
+                if success:
+                    branchid = self.fetch_branchid()
+                    if branchid is not None:
+                        # We do care about this solution, so record the fact we have it in memory
+                        self.state_id = (task.newparams, branchid)
 
-                    # Save it to disk with the I/O module
-                    functionals = self.compute_functionals(self.state, task.newparams)
-                    self.io.save_solution(self.state, task.newparams, branchid)
-                    self.io.save_functionals(functionals, task.newparams, branchid)
+                        # Save it to disk with the I/O module
+                        functionals = self.compute_functionals(self.state, task.newparams)
+                        self.io.save_solution(self.state, task.newparams, branchid)
+                        self.io.save_functionals(functionals, task.newparams, branchid)
 
-                    # Automatically start onto the continuation
-                    newparams = nextparameters(values, freeindex, task.newparams)
-                    if newparams is not None:
-                        task = ContinuationTask(taskid=task.taskid,
-                                                oldparams=task.newparams,
-                                                branchid=branchid,
-                                                newparams=newparams)
+                        # Automatically start onto the continuation
+                        newparams = nextparameters(values, freeindex, task.newparams)
+                        if newparams is not None:
+                            task = ContinuationTask(taskid=task.taskid,
+                                                    oldparams=task.newparams,
+                                                    branchid=branchid,
+                                                    newparams=newparams)
+                        else:
+                            # Reached the end of the continuation, don't want to continue, move on
+                            task = self.fetch_task()
+                    else:
+                        # Branch id is None, ignore the solution and move on
+                        task = self.fetch_task()
                 else:
+                    # Deflation failed, move on
                     task = self.fetch_task()
 
             elif isinstance(task, ContinuationTask):
