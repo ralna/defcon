@@ -21,7 +21,7 @@ class DeflatedContinuation(object):
     This class is the main driver that implements deflated continuation.
     """
 
-    def __init__(self, problem, io, deflation=None, teamsize=1):
+    def __init__(self, problem, io, deflation=None, teamsize=1, verbose=False):
         """
         Constructor.
 
@@ -34,6 +34,8 @@ class DeflatedContinuation(object):
             A class defining a deflation operator.
           teamsize (:py:class:`int`)
             How many processors should coordinate to solve any individual PDE.
+          verbose (:py:class:`bool`)
+            Activate verbose output.
         """
         self.problem = problem
 
@@ -42,6 +44,7 @@ class DeflatedContinuation(object):
         self.deflation = deflation
 
         self.teamsize = teamsize
+        self.verbose = verbose
 
         # Create a unique context, so as not to confuse my messages with other
         # libraries
@@ -91,6 +94,10 @@ class DeflatedContinuation(object):
         # We keep track of what solution we actually have in memory in self.state
         # for efficiency
         self.state_id = (None, None)
+
+    def log(self, msg):
+        if self.verbose:
+            print "(%s, %s): %s" % (self.rank, self.teamno, msg)
 
     def run(self, free, fixed={}):
         """
@@ -148,6 +155,8 @@ class DeflatedContinuation(object):
             self.worker(freeindex, values)
 
     def send_task(self, task, team):
+        self.log("Sending task %s to team %s" % (task, team))
+
         # Special case for rank 0 communicating with itself
         if team == 0:
             self.zerotask = task
@@ -155,6 +164,8 @@ class DeflatedContinuation(object):
         teamcomm = self.teamcomms[team].bcast(task)
 
     def fetch_task(self):
+        self.log("Fetching task")
+
         # Special case for rank 0 communicating with itself
         if self.rank == 0:
             while self.zerotask is None:
@@ -168,12 +179,16 @@ class DeflatedContinuation(object):
             return task
 
     def send_branchid(self, branchid, team):
+        self.log("Sending branchid %s to team %s" % (branchid, team))
+
         if team == 0:
             self.zerobranchid = branchid
 
         teamcomm = self.teamcomms[team].bcast(branchid)
 
     def fetch_branchid(self):
+        self.log("Fetching branchid")
+
         # Special case for rank 0 communicating with itself
         if self.rank == 0:
             while self.zerobranchid is None:
@@ -262,7 +277,7 @@ class DeflatedContinuation(object):
                 if isinstance(task, DeflationTask):
                     if len(self.io.known_branches(task.newparams)) == self.problem.number_solutions(task.newparams):
                     # We've found all the branches the user's asked us for, let's roll
-                        print "Master not dispatching %s because we have enough solutions" % task
+                        self.log("Master not dispatching %s because we have enough solutions" % task)
                         continue
 
                 idleteam = idleteams.pop(0)
@@ -274,9 +289,11 @@ class DeflatedContinuation(object):
             # If we aren't waiting for anything to finish, we'll exit the loop
             # here. otherwise, we wait for responses and deal with consequences.
             if len(waittasks) > 0:
+                self.log("Cannot dispatch any tasks, waiting for response")
                 response = self.worldcomm.recv(status=stat, source=MPI.ANY_SOURCE, tag=self.responsetag)
 
                 (task, team) = waittasks[response.taskid]
+                self.log("Received response %s from team %s" % (response, team))
                 del waittasks[response.taskid]
 
                 # Here comes the core logic of what happens for success or failure for the two
@@ -366,7 +383,7 @@ class DeflatedContinuation(object):
             if isinstance(task, QuitTask):
                 return
             elif isinstance(task, DeflationTask):
-                print "(%s, %s): task: %s" % (self.rank, self.teamno, task)
+                self.log("Executing task %s" % task)
 
                 # Set up the problem
                 self.load_solution(task.oldparams, task.branchid, task.newparams)
@@ -391,6 +408,7 @@ class DeflatedContinuation(object):
 
                 response = Response(task.taskid, success=success)
                 if self.teamrank == 0:
+                    self.log("Sending response %s to master" % response)
                     self.worldcomm.send(response, dest=0, tag=self.responsetag)
 
                 if success:
@@ -422,7 +440,7 @@ class DeflatedContinuation(object):
                     task = self.fetch_task()
 
             elif isinstance(task, ContinuationTask):
-                print "(%s, %s): task: %s" % (self.rank, self.teamno, task)
+                self.log("Executing task %s" % task)
 
                 # Set up the problem
                 self.load_solution(task.oldparams, task.branchid, task.newparams)
@@ -445,6 +463,7 @@ class DeflatedContinuation(object):
 
                 response = Response(task.taskid, success=success)
                 if self.teamrank == 0:
+                    self.log("Sending response %s to master" % response)
                     self.worldcomm.send(response, dest=0, tag=self.responsetag)
 
                 newparams = nextparameters(values, freeindex, task.newparams)
