@@ -32,7 +32,7 @@ class ShiftedDeflation(DeflationOperator):
         self.roots = []
 
     def normsq(self, y, root):
-        return problem.inner_product(y - root, y - root)
+        return self.problem.inner_product(y - root, y - root)
 
     def evaluate(self, y):
         m = 1.0

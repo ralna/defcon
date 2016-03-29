@@ -272,24 +272,30 @@ class DeflatedContinuation(object):
                 # kinds of tasks.
                 if isinstance(task, ContinuationTask):
                     if response.success:
-                        # In this case, we want the master to insert a deflation
-                        # task from the old parameter value to the new one,
-                        # and expect the worker team to keep going:
-                        # hence, we won't add it to idleteams.
-                        #newtask = DeflationTask(taskid=taskid, oldparams=task.oldparams, ...
-                        #taskid += 1
-                        #newtasks.append(newtask)
 
                         # The worker will keep continuing, record that fact
                         newparams = nextparameters(values, freeindex, task.newparams)
                         if newparams is not None:
                             conttask = ContinuationTask(taskid=task.taskid,
                                                         oldparams=task.newparams,
-                                                        branchid=branchid,
+                                                        branchid=task.branchid,
                                                         newparams=newparams)
                             waittasks[task.taskid] = ((conttask, team))
                         else:
                             idleteams.append(team)
+
+                        # Either way, we want to add a deflation task to the
+                        # queue. FIXME: we should really wait until *all*
+                        # continuation tasks have reached this point or died,
+                        # and then insert *all* deflation tasks at once. But
+                        # that's a refinement.
+                        newtask = DeflationTask(taskid=taskid,
+                                                oldparams=task.oldparams,
+                                                branchid=task.branchid,
+                                                newparams=task.newparams,
+                                                knownbranches=self.io.known_branches(task.newparams))
+                        taskid += 1
+                        newtasks.append(newtask)
                     else:
                         # We tried to continue a branch, but the continuation died. Oh well.
                         # The team is now idle.
@@ -299,17 +305,19 @@ class DeflatedContinuation(object):
                     if response.success:
                         # In this case, we want the master to
                         # 1. Allocate a new branch id for the discovered branch.
-                        # We might want to make this more sophisticated to catch
-                        # duplicates --- in that event, send None.  But for now
-                        # we'll just accept it.
+                        # FIXME: We might want to make this more sophisticated
+                        # to catch duplicates --- in that event, send None. But
+                        # for now we'll just accept it.
                         self.send_branchid(branchid, team)
 
                         # 2. If it wasn't an initial guess, insert a new
                         # deflation task, to seek again with the same settings.
                         if task.oldparams is not None:
-                            newtask = DeflationTask(taskid=taskid, oldparams=task.oldparams,
-                                                    branchid=task.branchid, newparams=task.newparams,
-                                                    knownbranches=self.io.knownbranches(task.newparams).union({branchid}))
+                            newtask = DeflationTask(taskid=taskid,
+                                                    oldparams=task.oldparams,
+                                                    branchid=task.branchid,
+                                                    newparams=task.newparams,
+                                                    knownbranches=self.io.known_branches(task.newparams).union({branchid}))
                             newtasks.append(newtask)
                             taskid += 1
 

@@ -1,7 +1,7 @@
 """
 A module that implements the I/O backend for deflated continuation.
 
-I've tried to write this in a modular way so that it is possible to
+FIXME: I've tried to write this in a modular way so that it is possible to
 implement more efficient/scalable backends at a later time.
 """
 
@@ -52,7 +52,7 @@ class FileIO(IO):
 
     def known_branches(self, params):
         filenames = glob.glob(self.dir(params) + "solution-*.xml.gz")
-        branches = [int(filename.split('-')[-1][-7]) for filename in filenames]
+        branches = [int(filename.split('-')[-1][:-7]) for filename in filenames]
         return set(branches)
 
     def save_functionals(self, funcs, params, branchid):
