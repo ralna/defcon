@@ -28,6 +28,12 @@ def nextparameters(values, freeindex, oldparams):
         return None
     next_value = values[current_index + 1]
 
-    newparams = copy.copy(oldparams)
+    newparams = list(oldparams)
     newparams[freeindex] = next_value
-    return newparams
+    return tuple(newparams)
+
+def parameterstostring(parameters, values):
+    s = ""
+    for (param, value) in zip(parameters, values):
+        s += "%s=%14.12e-" % (param[1], value)
+    return s[:-1]

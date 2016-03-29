@@ -30,7 +30,6 @@ class DeflatedContinuation(object):
             How many processors should coordinate to solve any individual PDE.
         """
         self.problem = problem
-        self.io = io
 
         if deflation is None:
             deflation = ShiftedDeflation(problem, power=2, shift=1)
@@ -76,6 +75,10 @@ class DeflatedContinuation(object):
         self.mesh = problem.mesh(PETSc.Comm(self.teamcomm))
         self.function_space = problem.function_space(self.mesh)
         self.parameters = problem.parameters()
+        self.functionals = problem.functionals()
+
+        io.setup(self.parameters, self.functionals, self.function_space)
+        self.io = io
 
     def run(self, free, fixed={}):
         """
@@ -105,7 +108,7 @@ class DeflatedContinuation(object):
                 freeindex = index
         assert freeparam is not None
 
-        values = free[freeparam[1]]
+        values = list(free[freeparam[1]])
 
         # Fetch the initial guesses to start us off
         if self.teamno == 0:
@@ -126,11 +129,11 @@ class DeflatedContinuation(object):
             thread.start()
 
             # and get to work yourself
-            self.worker(values)
+            self.worker(freeindex, values)
             thread.join()
         else:
             # join a worker team
-            self.worker(values)
+            self.worker(freeindex, values)
 
     def send_task(self, task, team):
         # Special case for rank 0 communicating with itself
@@ -158,7 +161,7 @@ class DeflatedContinuation(object):
 
         teamcomm = self.teamcomms[team].bcast(branchid)
 
-    def fetch_task(self):
+    def fetch_branchid(self):
         # Special case for rank 0 communicating with itself
         if self.rank == 0:
             while self.zerobranchid is None:
@@ -170,6 +173,13 @@ class DeflatedContinuation(object):
         else:
             branchid = self.mastercomm.bcast()
             return branchid
+
+    def compute_functionals(self, solution, params):
+        funcs = []
+        for functional in self.functionals:
+            func = functional[0]
+            funcs.append(func(solution, params))
+        return funcs
 
     def master(self, freeindex, values, initialguesses):
         """
@@ -244,23 +254,29 @@ class DeflatedContinuation(object):
                 elif isinstance(task, DeflationTask):
                     if response.success:
                         # In this case, we want the master to
-                        # 1. allocate a new branch id for the discovered branch.
+                        # 1. Allocate a new branch id for the discovered branch.
+                        # We might want to make this more sophisticated to catch
+                        # duplicates --- in that event, send None.  But for now
+                        # we'll just accept it.
                         self.send_branchid(branchid, team)
 
-                        # 2. insert a new deflation task, to seek again with the same settings.
-                        newtask = DeflationTask(taskid=taskid, oldparams=task.oldparams,
-                                                branchid=task.branchid, newparams=task.newparams,
-                                                knownbranches=io.known_branches(task.newparams).union({branchid}))
-                        newtasks.append(newtask)
-                        taskid += 1
+                        # 2. If it wasn't an initial guess, insert a new
+                        # deflation task, to seek again with the same settings.
+                        if task.oldparams is not None:
+                            newtask = DeflationTask(taskid=taskid, oldparams=task.oldparams,
+                                                    branchid=task.branchid, newparams=task.newparams,
+                                                    knownbranches=self.io.known_branches(task.newparams).union({branchid}))
+                            newtasks.append(newtask)
+                            taskid += 1
 
+                        # 3. Record that the worker team is now continuing that branch,
+                        # if there's continuation to be done.
                         newparams = nextparameters(values, freeindex, task.newparams)
                         if newparams is not None:
-                            # 3. record that the worker team is now continuing that branch.
-                            conttask = ContinuationTask(taskid=task.taskid, 
+                            conttask = ContinuationTask(taskid=task.taskid,
                                                         oldparams=task.newparams,
-                                                        branchid=branchid, 
-                                                        newparams=nextparameters(values, freeindex, task.newparams))
+                                                        branchid=branchid,
+                                                        newparams=newparams)
                             waittasks[task.taskid] = ((conttask, team))
                         else:
                             # It's at the end of the continuation, there's no more continuation
@@ -277,22 +293,46 @@ class DeflatedContinuation(object):
         for teamno in range(self.nteams):
             self.send_task(quit, teamno)
 
-    def worker(self, values):
+    def worker(self, freeindex, values):
         """
         The main worker routine.
 
         Fetches its tasks from the master and executes them.
         """
 
+        task = self.fetch_task()
         while True:
-            task = self.fetch_task()
-
             if isinstance(task, QuitTask):
                 return
             elif isinstance(task, DeflationTask):
                 print "(%s, %s): task: %s" % (self.rank, self.teamno, task)
+
+                import dolfin
+                solution = dolfin.Function(self.function_space)
                 time.sleep(1)
                 response = Response(task.taskid, success=True)
                 if self.teamrank == 0:
                     self.worldcomm.send(response, dest=0, tag=self.responsetag)
 
+                branchid = self.fetch_branchid()
+                if branchid is not None:
+                    functionals = self.compute_functionals(solution, task.newparams)
+                    self.io.save_solution(solution, task.newparams, branchid)
+                    self.io.save_functionals(functionals, task.newparams, branchid)
+
+                    newparams = nextparameters(values, freeindex, task.newparams)
+                    if newparams is not None:
+                        task = ContinuationTask(taskid=task.taskid,
+                                                oldparams=task.newparams,
+                                                branchid=branchid,
+                                                newparams=newparams)
+                else:
+                    task = self.fetch_task()
+
+            elif isinstance(task, ContinuationTask):
+                print "(%s, %s): task: %s" % (self.rank, self.teamno, task)
+                time.sleep(1)
+                response = Response(task.taskid, success=False)
+                if self.teamrank == 0:
+                    self.worldcomm.send(response, dest=0, tag=self.responsetag)
+                task = self.fetch_task()

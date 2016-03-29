@@ -68,3 +68,6 @@ class Response(object):
     def __init__(self, taskid, success):
         self.taskid = taskid
         self.success = success
+
+    def __str__(self):
+        return "Response(taskid=%s, success=%s)" % (self.taskid, self.success)

@@ -64,9 +64,8 @@ class ElasticaProblem(BifurcationProblem):
 
     def guesses(self, V, oldparams, oldstates, newparams):
         if oldparams is None:
-            newguesses = [Function(V), Function(V)]
+            newguesses = [Function(V)]
             newguesses[0].label = "initial-guess-0"
-            newguesses[1].label = "initial-guess-0"
         else:
             newguesses = oldstates
             for (i, soln) in enumerate(oldstates):
@@ -87,9 +86,7 @@ class ElasticaProblem(BifurcationProblem):
         return inner(a, b)*dx + inner(grad(a), grad(b))*dx
 
 if __name__ == "__main__":
-    #io = FileIO("output")
-    io = None
-
+    io = FileIO("output")
     dc = DeflatedContinuation(problem=ElasticaProblem(), io=io, teamsize=1)
     dc.run(free={"lambda": linspace(0, 4*pi, 100)}, fixed={"mu": 0.5})
 
