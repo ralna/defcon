@@ -67,9 +67,16 @@ class ElasticaProblem(BifurcationProblem):
             #j = assemble(inner(theta, theta)*dx, tensor=s)**0.5
             g = project(grad(theta)[0], theta.function_space())
             return j*g((0.0,))
-        tex = r"\theta'(0) \|\theta\|"
 
-        return [(signedL2, "signedL2", tex)]
+        def max(theta, params):
+            return theta.vector().max()
+
+        def min(theta, params):
+            return theta.vector().min()
+
+        return [(signedL2, "signedL2", r"\theta'(0) \|\theta\|"),
+                (max, "max", r"\max{\theta}"),
+                (min, "min", r"\min{\theta}")]
 
     def guesses(self, V, oldparams, oldstates, newparams):
         if oldparams is None:
