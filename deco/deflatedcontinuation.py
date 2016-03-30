@@ -95,8 +95,6 @@ class DeflatedContinuation(object):
         # for efficiency
         self.state_id = (None, None)
 
-        self.solver = PetscSnesSolver()
-
     def log(self, msg):
         if self.verbose:
             print "(%s, %s): %s" % (self.rank, self.teamno, msg)
@@ -277,7 +275,7 @@ class DeflatedContinuation(object):
 
                 # Before we send it out, let's check we really want to.
                 if isinstance(task, DeflationTask):
-                    if len(self.io.known_branches(task.newparams)) == self.problem.number_solutions(task.newparams):
+                    if len(self.io.known_branches(task.newparams)) >= self.problem.number_solutions(task.newparams):
                     # We've found all the branches the user's asked us for, let's roll
                         self.log("Master not dispatching %s because we have enough solutions" % task)
                         continue
@@ -398,7 +396,8 @@ class DeflatedContinuation(object):
                     p.deflate(o)
 
                 try:
-                    self.solver.solve(p, self.state.vector())
+                    solver = PetscSnesSolver()
+                    solver.solve(p, self.state.vector())
                     success = True
                 except:
                     import traceback; traceback.print_exc()
@@ -451,7 +450,8 @@ class DeflatedContinuation(object):
                 p = ForwardProblem(self.residual, self.function_space, self.state, bcs, power=2, shift=1)
 
                 try:
-                    self.solver.solve(p, self.state.vector())
+                    solver = PetscSnesSolver()
+                    solver.solve(p, self.state.vector())
                     success = True
                 except:
                     import traceback; traceback.print_exc()

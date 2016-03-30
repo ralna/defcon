@@ -5,11 +5,12 @@ FIXME: I've tried to write this in a modular way so that it is possible to
 implement more efficient/scalable backends at a later time.
 """
 
-import os
-import glob
-
 from dolfin import *
 from parametertools import parameterstostring
+
+import os
+import glob
+import time
 
 class IO(object):
     """
@@ -44,10 +45,27 @@ class FileIO(IO):
         return self.directory + os.path.sep + parameterstostring(self.parameters, params) + os.path.sep
 
     def save_solution(self, solution, params, branchid):
-        File(self.dir(params) + "solution-%d.xml.gz" % branchid) << solution
+        File(self.function_space.mesh().mpi_comm(), self.dir(params) + "solution-%d.xml.gz" % branchid) << solution
+        assert os.stat(self.dir(params) + "solution-%d.xml.gz" % branchid).st_size > 0
 
     def fetch_solutions(self, params, branchids):
-        solns = [Function(self.function_space, self.dir(params) + "solution-%d.xml.gz" % branchid) for branchid in branchids]
+        solns = []
+        for branchid in branchids:
+            filename = self.dir(params) + "solution-%d.xml.gz" % branchid
+            failcount = 0
+            while True:
+                try:
+                    soln = Function(self.function_space, filename)
+                    break
+                except Exception:
+                    print "WTF? Loading file %s failed. Sleeping for a second and trying again." % filename
+                    failcount += 1
+                    if failcount == 5:
+                        print "Argh. Tried 5 times to load file %s. Raising exception." % filename
+                        raise
+                    time.sleep(1)
+
+            solns.append(soln)
         return solns
 
     def known_branches(self, params):
@@ -57,7 +75,7 @@ class FileIO(IO):
 
     def save_functionals(self, funcs, params, branchid):
         f = file(self.dir(params) + "functional-%d.txt" % branchid, "w")
-        s = parameterstostring(self.functionals, funcs).replace('|', '\n') + '\n'
+        s = parameterstostring(self.functionals, funcs).replace('@', '\n') + '\n'
         f.write(s)
 
     def fetch_functionals(self, params, branchids):
