@@ -305,12 +305,12 @@ class DeflatedContinuation(object):
                 # Before we send it out, let's check we really want to.
                 if len(waittasks) > 0:
                     minparam = min(wtask[0].newparams[freeindex] for wtask in waittasks.values())
-                    if priority >= minparam:
+                    if priority > minparam:
                         # We are waiting for something earlier to finish.
                         # We want to let all workers that are earlier in the diagram to
                         # complete their tasks before forking new ones.
                         # So we wait.
-                        self.log("Master not dispatching %s because earlier tasks are underway" % task, master=True)
+                        self.log("Master not dispatching %s because earlier tasks (parameter %s) are underway" % (task, minparam), master=True)
                         newtasks.put((priority, task))
                         break
 
