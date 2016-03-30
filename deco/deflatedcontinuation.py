@@ -284,6 +284,10 @@ class DeflatedContinuation(object):
         newtasks = PriorityQueue()  # tasks yet to be sent out
         waittasks = {} # tasks sent out, waiting to hear back about
 
+        # A dictionary of parameters -> branches to ensure they exist,
+        # to avoid race conditions
+        ensure_branches = dict()
+
         initialparams = parameterstofloats(self.parameters, freeindex, values[0])
         for guess in initialguesses:
             newtasks.put((-1, DeflationTask(taskid=taskid,
@@ -316,6 +320,11 @@ class DeflatedContinuation(object):
                     # We've found all the branches the user's asked us for, let's roll
                         self.log("Master not dispatching %s because we have enough solutions" % task, master=True)
                         continue
+
+                # OK, we're happy to send it out. Let's tell it any new information
+                # we've found out since we scheduled it.
+                if task.newparams in ensure_branches:
+                    task.ensure(ensure_branches[task.newparams])
 
                 idleteam = idleteams.pop(0)
                 self.send_task(task, idleteam)
@@ -380,8 +389,7 @@ class DeflatedContinuation(object):
                             newtask = DeflationTask(taskid=taskid,
                                                     oldparams=task.oldparams,
                                                     branchid=task.branchid,
-                                                    newparams=task.newparams,
-                                                    ensure_branches={branchid})
+                                                    newparams=task.newparams)
                             newtasks.put((newtask.newparams[freeindex], newtask))
                             taskid += 1
 
@@ -398,6 +406,12 @@ class DeflatedContinuation(object):
                             # It's at the end of the continuation, there's no more continuation
                             # to do. Mark the team as idle.
                             idleteams.append(team)
+
+                        # We'll also make sure that any other DeflationTasks in the queue
+                        # that have these parameters know about the existence of this branch.
+                        if task.newparams not in ensure_branches:
+                            ensure_branches[task.newparams] = set()
+                        ensure_branches[task.newparams].add(branchid)
 
                         branchid += 1
                     else:

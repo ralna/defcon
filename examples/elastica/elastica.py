@@ -29,7 +29,7 @@ class ElasticaProblem(BifurcationProblem):
         self.bcs = None
 
     def mesh(self, comm):
-        return IntervalMesh(comm, 10000, 0, 1)
+        return IntervalMesh(comm, 1000, 0, 1)
 
     def function_space(self, mesh):
         return FunctionSpace(mesh, "CG", 1)
@@ -87,7 +87,9 @@ class ElasticaProblem(BifurcationProblem):
         # This cheating allows me to calculate the bifurcation diagram
         # much more quickly. This can be disabled without changing the
         # correctness of the calculations.
-        (lmbda, mu) = map(float, params)
+        if params[0] < 3.37: return 1
+
+        (lmbda, mu) = params
         n = int(floor((lmbda/pi)))*2
         return n + 1
 

@@ -8,7 +8,8 @@ class QuitTask(Task):
     """
     A task indicating the slave should quit.
     """
-    pass
+    def __str__(self):
+        return "QuitTask"
 
 class ContinuationTask(Task):
     """
@@ -57,8 +58,11 @@ class DeflationTask(Task):
         self.branchid  = branchid
         self.newparams = newparams
 
-        if ensure_branches is None: ensure_branches = {}
+        if ensure_branches is None: ensure_branches = set()
         self.ensure_branches = ensure_branches
+
+    def ensure(self, branches):
+        self.ensure_branches.update(branches)
 
     def __str__(self):
         return "DeflationTask(taskid=%s, oldparams=%s, branchid=%s, newparams=%s)" % (self.taskid, self.oldparams, self.branchid, self.newparams)
