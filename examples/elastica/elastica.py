@@ -18,7 +18,6 @@ args = [sys.argv[0]] + """
                        --petsc.snes_converged_reason
                        --petsc.snes_linesearch_monitor
 
-                       --petsc.ksp_monitor_cancel
                        --petsc.ksp_type preonly
 
                        --petsc.inner_pc_type lu

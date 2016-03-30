@@ -14,6 +14,7 @@ from petsc4py import PETSc
 import math
 import threading
 import time
+import sys
 from Queue import PriorityQueue
 
 class DeflatedContinuation(object):
@@ -95,9 +96,33 @@ class DeflatedContinuation(object):
         # for efficiency
         self.state_id = (None, None)
 
-    def log(self, msg):
-        if self.verbose:
-            print "(%s, %s): %s" % (self.rank, self.teamno, msg)
+        # If verbose, create logfiles for each team
+        # FIXME: how do I do this for C/C++ output also?
+        if self.verbose and self.teamrank == 0:
+            sys.stdout = open("deco.log.%d" % self.teamno, "w")
+            sys.stderr = open("deco.err.%d" % self.teamno, "w")
+        else:
+            # FIXME: is there a portable way to deal with this?
+            sys.stdout = open("/dev/null", "w")
+            sys.stderr = open("/dev/null", "w")
+
+    def log(self, msg, master=False):
+        if not self.verbose: return
+        if self.teamrank != 0: return
+
+        if master:
+            fmt = BLUE  = "\033[1;37;34m%s\033[0m"
+        else:
+            fmt = GREEN = "\033[1;37;32m%s\033[0m"
+
+        if master:
+            header = "MASTER:   "
+        else:
+            header = "TEAM %3d: " % self.teamno
+
+        timestamp = "[%s] " % time.strftime("%H:%m:%s")
+
+        print fmt % (timestamp + header + msg)
 
     def run(self, free, fixed={}):
         """
@@ -155,7 +180,7 @@ class DeflatedContinuation(object):
             self.worker(freeindex, values)
 
     def send_task(self, task, team):
-        self.log("Sending task %s to team %s" % (task, team))
+        self.log("Sending task %s to team %s" % (task, team), master=True)
 
         # Special case for rank 0 communicating with itself
         if team == 0:
@@ -179,7 +204,7 @@ class DeflatedContinuation(object):
             return task
 
     def send_branchid(self, branchid, team):
-        self.log("Sending branchid %s to team %s" % (branchid, team))
+        self.log("Sending branchid %s to team %s" % (branchid, team), master=True)
 
         if team == 0:
             self.zerobranchid = branchid
@@ -274,10 +299,22 @@ class DeflatedContinuation(object):
                 (priority, task) = newtasks.get()
 
                 # Before we send it out, let's check we really want to.
+                if len(waittasks) > 0:
+                    minparam = min(wtask[0].newparams[freeindex] for wtask in waittasks.values())
+                    if priority >= minparam:
+                        # We are waiting for something earlier to finish.
+                        # We want to let all workers that are earlier in the diagram to
+                        # complete their tasks before forking new ones.
+                        # So we wait.
+                        self.log("Master not dispatching %s because earlier tasks are underway" % task, master=True)
+                        newtasks.put((priority, task))
+                        break
+
+                # And let's check if we have found enough solutions already
                 if isinstance(task, DeflationTask):
                     if len(self.io.known_branches(task.newparams)) >= self.problem.number_solutions(task.newparams):
                     # We've found all the branches the user's asked us for, let's roll
-                        self.log("Master not dispatching %s because we have enough solutions" % task)
+                        self.log("Master not dispatching %s because we have enough solutions" % task, master=True)
                         continue
 
                 idleteam = idleteams.pop(0)
@@ -289,11 +326,11 @@ class DeflatedContinuation(object):
             # If we aren't waiting for anything to finish, we'll exit the loop
             # here. otherwise, we wait for responses and deal with consequences.
             if len(waittasks) > 0:
-                self.log("Cannot dispatch any tasks, waiting for response")
+                self.log("Cannot dispatch any tasks, waiting for response", master=True)
                 response = self.worldcomm.recv(status=stat, source=MPI.ANY_SOURCE, tag=self.responsetag)
 
                 (task, team) = waittasks[response.taskid]
-                self.log("Received response %s from team %s" % (response, team))
+                self.log("Received response %s from team %s" % (response, team), master=True)
                 del waittasks[response.taskid]
 
                 # Here comes the core logic of what happens for success or failure for the two
