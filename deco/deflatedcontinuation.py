@@ -120,7 +120,7 @@ class DeflatedContinuation(object):
         else:
             header = "TEAM %3d: " % self.teamno
 
-        timestamp = "[%s] " % time.strftime("%H:%m:%s")
+        timestamp = "[%s] " % time.strftime("%H:%M:%S")
 
         print fmt % (timestamp + header + msg)
 
@@ -380,7 +380,8 @@ class DeflatedContinuation(object):
                             newtask = DeflationTask(taskid=taskid,
                                                     oldparams=task.oldparams,
                                                     branchid=task.branchid,
-                                                    newparams=task.newparams)
+                                                    newparams=task.newparams,
+                                                    ensure_branches={branchid})
                             newtasks.put((newtask.newparams[freeindex], newtask))
                             taskid += 1
 
@@ -425,7 +426,19 @@ class DeflatedContinuation(object):
                 # Set up the problem
                 self.load_solution(task.oldparams, task.branchid, task.newparams)
                 self.load_parameters(task.newparams)
-                other_solutions = self.io.fetch_solutions(task.newparams, self.io.known_branches(task.newparams))
+                knownbranches = self.io.known_branches(task.newparams)
+
+                # If there are branches that must be there, spin until they are there
+                if len(task.ensure_branches) > 0:
+                    while True:
+                        if task.ensure_branches.issubset(knownbranches):
+                            break
+                        self.log("Waiting until branches %s are available for %s. Known branches: %s" % (task.ensure_branches, task.newparams, knownbranches))
+                        time.sleep(1)
+                        knownbranches = self.io.known_branches(task.newparams)
+
+                other_solutions = self.io.fetch_solutions(task.newparams, knownbranches)
+                self.log("Deflating other branches %s" % knownbranches)
                 bcs = self.problem.boundary_conditions(self.function_space, task.newparams)
 
                 p = ForwardProblem(self.residual, self.function_space, self.state, bcs, power=2, shift=1)
@@ -457,6 +470,7 @@ class DeflatedContinuation(object):
                         functionals = self.compute_functionals(self.state, task.newparams)
                         self.io.save_solution(self.state, task.newparams, branchid)
                         self.io.save_functionals(functionals, task.newparams, branchid)
+                        self.log("Saved solution to %s to disk" % task)
 
                         # Automatically start onto the continuation
                         newparams = nextparameters(values, freeindex, task.newparams)

@@ -48,12 +48,17 @@ class DeflationTask(Task):
         to use
       newparams (dict)
         Parameter values to continue to
+      ensure_branches (set):
+        Branches that *must* be deflated; if they are not present yet, wait for them
     """
-    def __init__(self, taskid, oldparams, branchid, newparams):
+    def __init__(self, taskid, oldparams, branchid, newparams, ensure_branches=None):
         self.taskid    = taskid
         self.oldparams = oldparams
         self.branchid  = branchid
         self.newparams = newparams
+
+        if ensure_branches is None: ensure_branches = {}
+        self.ensure_branches = ensure_branches
 
     def __str__(self):
         return "DeflationTask(taskid=%s, oldparams=%s, branchid=%s, newparams=%s)" % (self.taskid, self.oldparams, self.branchid, self.newparams)
