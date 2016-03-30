@@ -62,7 +62,10 @@ class ElasticaProblem(BifurcationProblem):
 
     def functionals(self):
         def signedL2(theta, params):
-            j = sqrt(assemble(inner(theta, theta)*dx))
+            # Argh.
+            #j = sqrt(assemble(inner(theta, theta)*dx))
+            s = Scalar(theta.function_space().mesh().mpi_comm())
+            j = assemble(inner(theta, theta)*dx, tensor=s)**0.5
             g = project(grad(theta)[0], theta.function_space())
             return j*g((0.0,))
         tex = r"\theta'(0) \|\theta\|"

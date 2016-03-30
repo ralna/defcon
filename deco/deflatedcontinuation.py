@@ -95,6 +95,8 @@ class DeflatedContinuation(object):
         # for efficiency
         self.state_id = (None, None)
 
+        self.solver = PetscSnesSolver()
+
     def log(self, msg):
         if self.verbose:
             print "(%s, %s): %s" % (self.rank, self.teamno, msg)
@@ -161,7 +163,7 @@ class DeflatedContinuation(object):
         if team == 0:
             self.zerotask = task
 
-        teamcomm = self.teamcomms[team].bcast(task)
+        self.teamcomms[team].bcast(task)
 
     def fetch_task(self):
         self.log("Fetching task")
@@ -184,7 +186,7 @@ class DeflatedContinuation(object):
         if team == 0:
             self.zerobranchid = branchid
 
-        teamcomm = self.teamcomms[team].bcast(branchid)
+        self.teamcomms[team].bcast(branchid)
 
     def fetch_branchid(self):
         self.log("Fetching branchid")
@@ -394,16 +396,14 @@ class DeflatedContinuation(object):
                 p = ForwardProblem(self.residual, self.function_space, self.state, bcs, power=2, shift=1)
                 for o in other_solutions:
                     p.deflate(o)
-                solver = PetscSnesSolver()
 
                 try:
-                    solver.solve(p, self.state.vector())
+                    self.solver.solve(p, self.state.vector())
                     success = True
                 except:
+                    import traceback; traceback.print_exc()
                     success = False
 
-                # Try to solve it
-                #success = newton(self.residual, self.state, bcs, deflation=self.deflation)
                 self.state_id = (None, None) # not sure if it is a solution we care about yet
 
                 response = Response(task.taskid, success=success)
@@ -445,11 +445,17 @@ class DeflatedContinuation(object):
                 # Set up the problem
                 self.load_solution(task.oldparams, task.branchid, task.newparams)
                 self.load_parameters(task.newparams)
-                self.deflation.deflate([])
                 bcs = self.problem.boundary_conditions(self.function_space, task.newparams)
 
                 # Try to solve it
-                success = newton(self.residual, self.state, bcs, deflation=self.deflation)
+                p = ForwardProblem(self.residual, self.function_space, self.state, bcs, power=2, shift=1)
+
+                try:
+                    self.solver.solve(p, self.state.vector())
+                    success = True
+                except:
+                    import traceback; traceback.print_exc()
+                    success = False
 
                 if success:
                     self.state_id = (task.newparams, task.branchid)
