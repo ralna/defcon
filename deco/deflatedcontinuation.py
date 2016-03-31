@@ -123,6 +123,7 @@ class DeflatedContinuation(object):
         timestamp = "[%s] " % time.strftime("%H:%M:%S")
 
         print fmt % (timestamp + header + msg)
+        sys.stdout.flush()
 
     def run(self, free, fixed={}):
         """
