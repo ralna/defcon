@@ -509,10 +509,14 @@ class DeflatedContinuation(object):
                 # Set up the problem
                 self.load_solution(task.oldparams, task.branchid, task.newparams)
                 self.load_parameters(task.newparams)
+                knownbranches = self.io.known_branches(task.newparams)
+                other_solutions = self.io.fetch_solutions(task.newparams, knownbranches)
                 bcs = self.problem.boundary_conditions(self.function_space, task.newparams)
 
                 # Try to solve it
                 p = ForwardProblem(self.residual, self.function_space, self.state, bcs, power=2, shift=1)
+                for o in other_solutions:
+                    p.deflate(o)
 
                 try:
                     solver = PetscSnesSolver()
