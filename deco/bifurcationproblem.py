@@ -187,3 +187,11 @@ class BifurcationProblem(object):
         """
         return dolfin.inner(state1, state2)*dolfin.dx
 
+    def trivial_solutions(self, function_space):
+        """
+        This method returns any trivial solutions of the problem,
+        i.e. solutions u such that f(u, \lambda) = 0 for all \lambda.
+        These will be deflated at every computation.
+        """
+        return []
+

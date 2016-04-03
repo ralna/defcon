@@ -88,6 +88,7 @@ class DeflatedContinuation(object):
         self.functionals = problem.functionals()
         self.state = dolfin.Function(self.function_space)
         self.residual = problem.residual(self.state, parameterstoconstants(self.parameters), dolfin.TestFunction(self.function_space))
+        self.trivial_solutions = problem.trivial_solutions(self.function_space)
 
         io.setup(self.parameters, self.functionals, self.function_space)
         self.io = io
@@ -457,7 +458,7 @@ class DeflatedContinuation(object):
                 bcs = self.problem.boundary_conditions(self.function_space, task.newparams)
 
                 p = ForwardProblem(self.residual, self.function_space, self.state, bcs, power=2, shift=1)
-                for o in other_solutions:
+                for o in other_solutions + self.trivial_solutions:
                     p.deflate(o)
 
                 try:
@@ -516,7 +517,7 @@ class DeflatedContinuation(object):
 
                 # Try to solve it
                 p = ForwardProblem(self.residual, self.function_space, self.state, bcs, power=2, shift=1)
-                for o in other_solutions:
+                for o in other_solutions + self.trivial_solutions:
                     p.deflate(o)
 
                 try:
