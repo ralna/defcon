@@ -106,7 +106,7 @@ class ElasticaProblem(BifurcationProblem):
 if __name__ == "__main__":
     io = FileIO("output")
     dc = DeflatedContinuation(problem=ElasticaProblem(), io=io, teamsize=1, verbose=True)
-    dc.run(free={"lambda": linspace(0, 3.9*pi, 100)}, fixed={"mu": 0.5})
+    dc.run(free={"lambda": linspace(0, 3.9*pi, 200)}, fixed={"mu": 0.5})
 
     dc.bifurcation_diagram("signedL2", fixed={"mu": 0.5})
     plt.title(r"Buckling of an Euler elastica, $\mu = 1/2$")
