@@ -1,3 +1,9 @@
+try:
+    import matplotlib
+    matplotlib.use('PDF')
+except ImportError:
+    pass
+
 import dolfin
 dolfin.set_log_level(dolfin.ERROR)
 

@@ -40,13 +40,13 @@ class BifurcationProblem(object):
     def parameters(self):
         """
         This method returns a list of tuples. Each tuple contains (Constant,
-        asciiname, symbol). For example, if there is one parameter
+        asciiname, tex). For example, if there is one parameter
 
         lmbda = Constant(...)
 
         to be varied, this routine should return
 
-        [(lmbda, "lambda", "λ")]
+        [(lmbda, "lambda", r"$\lambda$")]
 
         You may need to add
 
@@ -59,7 +59,7 @@ class BifurcationProblem(object):
 
         *Returns*
           params
-            A list of [(Constant, asciiname, symbol), ...]
+            A list of [(Constant, asciiname, tex), ...]
         """
         raise NotImplementedError
 

@@ -37,14 +37,19 @@ class IO(object):
     def known_branches(self, params):
         raise NotImplementedError
 
+    def known_parameters(self, fixed):
+        raise NotImplementedError
+
 class FileIO(IO):
     def __init__(self, directory):
         self.directory = directory
+        self.saved_params = set()
 
     def dir(self, params):
         return self.directory + os.path.sep + parameterstostring(self.parameters, params) + os.path.sep
 
     def save_solution(self, solution, params, branchid):
+        self.saved_params.add(params)
         File(self.function_space.mesh().mpi_comm(), self.dir(params) + "solution-%d.xml.gz" % branchid) << solution
         assert os.stat(self.dir(params) + "solution-%d.xml.gz" % branchid).st_size > 0
 
@@ -74,6 +79,7 @@ class FileIO(IO):
         return set(branches)
 
     def save_functionals(self, funcs, params, branchid):
+        self.saved_params.add(params)
         f = file(self.dir(params) + "functional-%d.txt" % branchid, "w")
         s = parameterstostring(self.functionals, funcs).replace('@', '\n') + '\n'
         f.write(s)
@@ -87,3 +93,28 @@ class FileIO(IO):
                 func.append(float(line.split('=')[-1]))
             funcs.append(func)
         return funcs
+
+    def known_parameters(self, fixed):
+
+        fixed_indices = []
+        fixed_values = []
+        for key in fixed:
+            fixed_values.append(fixed[key])
+            # find the index
+            for (i, param) in enumerate(self.parameters):
+                if param[1] == key:
+                    fixed_indices.append(i)
+                    break
+
+        seen = set()
+        for param in self.saved_params:
+            should_add = True
+            for (index, value) in zip(fixed_indices, fixed_values):
+                if param[index] != value:
+                    should_add = False
+                    break
+
+            if should_add:
+                seen.add(param)
+
+        return seen

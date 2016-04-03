@@ -280,7 +280,7 @@ class DeflatedContinuation(object):
         taskid = 0
 
         # Branch id counter
-        branchid = 0
+        self.branchid_counter = 0
 
         # Next, seed the list of tasks to perform with the initial search
         newtasks = PriorityQueue()  # tasks yet to be sent out
@@ -383,7 +383,7 @@ class DeflatedContinuation(object):
                         # FIXME: We might want to make this more sophisticated
                         # to catch duplicates --- in that event, send None. But
                         # for now we'll just accept it.
-                        self.send_branchid(branchid, team)
+                        self.send_branchid(self.branchid_counter, team)
 
                         # 2. If it wasn't an initial guess, insert a new
                         # deflation task, to seek again with the same settings.
@@ -401,7 +401,7 @@ class DeflatedContinuation(object):
                         if newparams is not None:
                             conttask = ContinuationTask(taskid=task.taskid,
                                                         oldparams=task.newparams,
-                                                        branchid=branchid,
+                                                        branchid=self.branchid_counter,
                                                         newparams=newparams)
                             waittasks[task.taskid] = ((conttask, team))
                         else:
@@ -413,9 +413,9 @@ class DeflatedContinuation(object):
                         # that have these parameters know about the existence of this branch.
                         if task.newparams not in ensure_branches:
                             ensure_branches[task.newparams] = set()
-                        ensure_branches[task.newparams].add(branchid)
+                        ensure_branches[task.newparams].add(self.branchid_counter)
 
-                        branchid += 1
+                        self.branchid_counter += 1
                     else:
                         # As expected, deflation found nothing interesting. The team is now idle.
                         idleteams.append(team)
@@ -551,3 +551,41 @@ class DeflatedContinuation(object):
                                             newparams=newparams)
                 else:
                     task = self.fetch_task()
+
+    def bifurcation_diagram(self, functional, fixed):
+        import matplotlib.pyplot as plt
+
+        params = self.io.known_parameters(fixed)
+
+        # Argh. Find the functional index.
+        funcindex = None
+        for (i, functionaldata) in enumerate(self.functionals):
+            if functionaldata[1] == functional:
+                funcindex = i
+                break
+        assert funcindex is not None
+
+        # And find the free variable index -- the one that doesn't show up in fixed.
+        freeindices = range(len(self.parameters))
+        for (i, param) in enumerate(self.parameters):
+            if param[1] in fixed:
+                freeindices.pop(i)
+        assert len(freeindices) == 1
+        freeindex = freeindices[0]
+
+
+        for branchid in range(self.branchid_counter):
+            xs = []
+            ys = []
+
+            for param in sorted(params):
+                if branchid in self.io.known_branches(param):
+                    func = self.io.fetch_functionals(param, [branchid])[0][funcindex]
+                    xs.append(param[freeindex])
+                    ys.append(func)
+
+            plt.plot(xs, ys, '-k', label="Branch %d" % branchid, linewidth=2)
+
+        plt.grid()
+        plt.xlabel(self.parameters[freeindex][2])
+        plt.ylabel(self.functionals[funcindex][2])

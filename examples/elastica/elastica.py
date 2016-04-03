@@ -38,8 +38,8 @@ class ElasticaProblem(BifurcationProblem):
         lmbda = Constant(0)
         mu    = Constant(0)
 
-        return [(lmbda, "lambda", "λ"),
-                (mu,    "mu",     "μ")]
+        return [(lmbda, "lambda", r"$\lambda$"),
+                (mu,    "mu",     r"$\mu$")]
 
     def residual(self, theta, params, v):
         (lmbda, mu) = params
@@ -74,9 +74,9 @@ class ElasticaProblem(BifurcationProblem):
         def min(theta, params):
             return theta.vector().min()
 
-        return [(signedL2, "signedL2", r"\theta'(0) \|\theta\|"),
-                (max, "max", r"\max{\theta}"),
-                (min, "min", r"\min{\theta}")]
+        return [(signedL2, "signedL2", r"$\theta'(0) \|\theta\|$"),
+                (max, "max", r"$\max{\theta}$"),
+                (min, "min", r"$\min{\theta}$")]
 
     def guesses(self, V, oldparams, oldstates, newparams):
         if oldparams is None:
@@ -108,10 +108,9 @@ if __name__ == "__main__":
     dc = DeflatedContinuation(problem=ElasticaProblem(), io=io, teamsize=1, verbose=True)
     dc.run(free={"lambda": linspace(0, 3.9*pi, 100)}, fixed={"mu": 0.5})
 
-    #dc.bifurcationdiagram("signedL2", fixed={"mu": 0.5})
-    #plt.title(r"Buckling of an Euler elastica, $\mu = 1/2$")
-    #plt.grid()
-    #plt.savefig("bifurcation.pdf")
+    dc.bifurcation_diagram("signedL2", fixed={"mu": 0.5})
+    plt.title(r"Buckling of an Euler elastica, $\mu = 1/2$")
+    plt.savefig("bifurcation.pdf")
 
     # Maybe you could also do:
     #dc.run(fixed={"lambda": 4*pi}, free={"mu": linspace(0.5, 0.0, 6)})
