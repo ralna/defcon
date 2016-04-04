@@ -457,7 +457,7 @@ class DeflatedContinuation(object):
                 self.log("Deflating other branches %s" % knownbranches)
                 bcs = self.problem.boundary_conditions(self.function_space, task.newparams)
 
-                p = ForwardProblem(self.residual, self.function_space, self.state, bcs, power=2, shift=1)
+                p = ForwardProblem(self.problem, self.residual, self.function_space, self.state, bcs, power=2, shift=1)
                 for o in other_solutions + self.trivial_solutions:
                     p.deflate(o)
 
@@ -516,7 +516,7 @@ class DeflatedContinuation(object):
                 bcs = self.problem.boundary_conditions(self.function_space, task.newparams)
 
                 # Try to solve it
-                p = ForwardProblem(self.residual, self.function_space, self.state, bcs, power=2, shift=1)
+                p = ForwardProblem(self.problem, self.residual, self.function_space, self.state, bcs, power=2, shift=1)
                 for o in other_solutions + self.trivial_solutions:
                     p.deflate(o)
 
@@ -553,6 +553,9 @@ class DeflatedContinuation(object):
                     task = self.fetch_task()
 
     def bifurcation_diagram(self, functional, fixed):
+        if self.rank != 0:
+            return
+
         import matplotlib.pyplot as plt
 
         params = self.io.known_parameters(fixed)

@@ -171,9 +171,9 @@ class BifurcationProblem(object):
         """
         return float("inf")
 
-    def inner_product(self, state1, state2):
+    def normsq(self, state1, state2):
         """
-        This method computes the inner product of two vectors in the Hilbert
+        This method computes the squared-norm between two vectors in the Hilbert
         space defined in the function_space method.
 
         This is used to define the norm used in deflation, and to test two
@@ -181,11 +181,11 @@ class BifurcationProblem(object):
 
         The default is
             def inner_product(self, state1, state2)
-                return inner(state1, state2)*dx
+                return inner(state1 - state2, state1 - state2)*dx
 
         *Arguments*
         """
-        return dolfin.inner(state1, state2)*dolfin.dx
+        return dolfin.inner(state1 - state2, state1 - state2)*dolfin.dx
 
     def trivial_solutions(self, function_space):
         """

@@ -12,12 +12,13 @@ class ForwardProblem(NonlinearProblem):
 
   from PETSc. This is so that we can go matrix-free for the deflated problems."""
 
-  def __init__(self, F, Y, y, bcs=None, power=1, shift=1, bounds=None, P=None):
+  def __init__(self, problem, F, Y, y, bcs=None, power=1, shift=1, bounds=None, P=None):
     """
     The constructor: takes in the form, function space, solution,
     boundary conditions, and deflation parameters."""
 
     assert isinstance(Y, FunctionSpace)
+    self.problem = problem
     self.function_space = Y
     self.mesh = Y.mesh()
     self.comm = PETSc.Comm(self.mesh.mpi_comm())
@@ -70,7 +71,7 @@ class ForwardProblem(NonlinearProblem):
         self.Pmat = P
 
   def norm(self, y, solution):
-    return inner(y - solution, y - solution)*dx
+    return self.problem.normsq(y, solution)
 
   def deflate(self, root):
     self.solutions.append(Function(root))

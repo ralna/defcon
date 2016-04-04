@@ -63,8 +63,6 @@ class ElasticaProblem(BifurcationProblem):
         def signedL2(theta, params):
             # Argh.
             j = sqrt(assemble(inner(theta, theta)*dx))
-            #s = Scalar(theta.function_space().mesh().mpi_comm())
-            #j = assemble(inner(theta, theta)*dx, tensor=s)**0.5
             g = project(grad(theta)[0], theta.function_space())
             return j*g((0.0,))
 
@@ -81,11 +79,8 @@ class ElasticaProblem(BifurcationProblem):
     def guesses(self, V, oldparams, oldstates, newparams):
         if oldparams is None:
             newguesses = [Function(V)]
-            newguesses[0].label = "initial-guess-0"
         else:
             newguesses = oldstates
-            for (i, soln) in enumerate(oldstates):
-                soln.label = "prev-soln-%d" % i
 
         return newguesses
 
