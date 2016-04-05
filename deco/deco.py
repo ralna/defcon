@@ -99,13 +99,14 @@ class DeflatedContinuation(object):
 
         # If verbose, create logfiles for each team
         # FIXME: how do I do this for C/C++ output also?
-        if self.verbose and self.teamrank == 0:
-            sys.stdout = open("deco.log.%d" % self.teamno, "w")
-            sys.stderr = open("deco.err.%d" % self.teamno, "w")
-        else:
-            # FIXME: is there a portable way to deal with this?
-            sys.stdout = open("/dev/null", "w")
-            sys.stderr = open("/dev/null", "w")
+        if self.worldcomm.size > 1:
+            if self.verbose and self.teamrank == 0:
+                sys.stdout = open("deco.log.%d" % self.teamno, "w")
+                sys.stderr = open("deco.err.%d" % self.teamno, "w")
+            else:
+                # FIXME: is there a portable way to deal with this?
+                sys.stdout = open("/dev/null", "w")
+                sys.stderr = open("/dev/null", "w")
 
     def log(self, msg, master=False):
         if not self.verbose: return
