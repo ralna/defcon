@@ -305,19 +305,7 @@ class DeflatedContinuation(object):
             while newtasks.qsize() > 0 and len(idleteams) > 0:
                 (priority, task) = newtasks.get()
 
-                # Before we send it out, let's check we really want to.
-                if len(waittasks) > 0:
-                    minparam = min(wtask[0].newparams[freeindex] for wtask in waittasks.values())
-                    if priority > minparam:
-                        # We are waiting for something earlier to finish.
-                        # We want to let all workers that are earlier in the diagram to
-                        # complete their tasks before forking new ones.
-                        # So we wait.
-                        self.log("Master not dispatching %s because earlier tasks (parameter %s) are underway" % (task, minparam), master=True)
-                        newtasks.put((priority, task))
-                        break
-
-                # And let's check if we have found enough solutions already
+                # Let's check if we have found enough solutions already
                 if isinstance(task, DeflationTask):
                     if len(self.io.known_branches(task.newparams)) >= self.problem.number_solutions(task.newparams):
                     # We've found all the branches the user's asked us for, let's roll
