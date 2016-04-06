@@ -473,6 +473,7 @@ class DeflatedContinuation(object):
 
                         # Save it to disk with the I/O module
                         functionals = self.compute_functionals(self.state, task.newparams)
+                        self.log("Found new solution (branchid=%s) with functionals %s" % (branchid, functionals))
                         self.io.save_solution(self.state, task.newparams, branchid)
                         self.io.save_functionals(functionals, task.newparams, branchid)
                         self.log("Saved solution to %s to disk" % task)
@@ -541,7 +542,7 @@ class DeflatedContinuation(object):
                 else:
                     task = self.fetch_task()
 
-    def bifurcation_diagram(self, functional, fixed):
+    def bifurcation_diagram(self, functional, fixed={}):
         if self.rank != 0:
             return
 
