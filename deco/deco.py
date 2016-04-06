@@ -474,6 +474,7 @@ class DeflatedContinuation(object):
                         # Save it to disk with the I/O module
                         functionals = self.compute_functionals(self.state, task.newparams)
                         self.log("Found new solution (branchid=%s) with functionals %s" % (branchid, functionals))
+                        self.problem.monitor(task.newparams, branchid, self.state, functionals)
                         self.io.save_solution(self.state, task.newparams, branchid)
                         self.io.save_functionals(functionals, task.newparams, branchid)
                         self.log("Saved solution to %s to disk" % task)
@@ -523,6 +524,7 @@ class DeflatedContinuation(object):
 
                     # Save it to disk with the I/O module
                     functionals = self.compute_functionals(self.state, task.newparams)
+                    self.problem.monitor(task.newparams, task.branchid, self.state, functionals)
                     self.io.save_solution(self.state, task.newparams, branchid)
                     self.io.save_functionals(functionals, task.newparams, branchid)
                 else:

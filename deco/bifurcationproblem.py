@@ -195,3 +195,10 @@ class BifurcationProblem(object):
         """
         return []
 
+    def monitor(self, params, branchid, solution, functionals):
+        """
+        This method is called whenever a solution is computed.
+        The user can specify custom processing tasks here.
+        """
+        pass
+
