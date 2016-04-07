@@ -157,11 +157,6 @@ class DeflatedContinuation(object):
 
         values = list(free[freeparam[1]])
 
-        # Fetch the initial guesses to start us off
-        if self.teamno == 0:
-            initialparams = parameterstofloats(self.parameters, freeindex, values[0])
-            initialguesses = self.problem.guesses(self.function_space, None, None, initialparams)
-
         if self.rank == 0:
             # Argh. MPI is so ugly. I can't have one thread on rank 0 bcasting
             # to rank 0's team (in the master), and have another thread on rank 0 bcasting
@@ -171,7 +166,7 @@ class DeflatedContinuation(object):
             self.zerobranchid = None
 
             # fork the master coordinating thread
-            args = (freeindex, values, initialguesses)
+            args = (freeindex, values)
             thread = threading.Thread(target=self.master, args=args)
             thread.start()
 
@@ -260,7 +255,7 @@ class DeflatedContinuation(object):
         for (param, value) in zip(self.parameters, params):
             param[0].assign(value)
 
-    def master(self, freeindex, values, initialguesses):
+    def master(self, freeindex, values):
         """
         The master coordinating routine.
 
@@ -292,12 +287,30 @@ class DeflatedContinuation(object):
         ensure_branches = dict()
 
         initialparams = parameterstofloats(self.parameters, freeindex, values[0])
-        for guess in initialguesses:
-            newtasks.put((-1, DeflationTask(taskid=taskid,
-                                          oldparams=None,
-                                          branchid=taskid,
-                                          newparams=initialparams)))
-            taskid += 1
+        known_branches = self.io.known_branches(initialparams)
+        if len(known_branches) > 0:
+            self.log("Using known solutions at %s" % (initialparams,), master=True)
+            nguesses = len(known_branches)
+            oldparams = initialparams
+            initialparams = nextparameters(values, freeindex, initialparams)
+
+            for guess in range(nguesses):
+                newtasks.put((-1, ContinuationTask(taskid=taskid,
+                                              oldparams=oldparams,
+                                              branchid=taskid,
+                                              newparams=initialparams)))
+                taskid += 1
+        else:
+            self.log("Using user-supplied initial guesses at %s" % (initialparams,), master=True)
+            oldparams = None
+            nguesses = len(self.problem.guesses(self.function_space, None, None, initialparams))
+
+            for guess in range(nguesses):
+                newtasks.put((-1, DeflationTask(taskid=taskid,
+                                              oldparams=oldparams,
+                                              branchid=taskid,
+                                              newparams=initialparams)))
+                taskid += 1
 
         # Here comes the main master loop.
         while newtasks.qsize() + len(waittasks) > 0:
@@ -473,7 +486,7 @@ class DeflatedContinuation(object):
 
                         # Save it to disk with the I/O module
                         functionals = self.compute_functionals(self.state, task.newparams)
-                        self.log("Found new solution (branchid=%s) with functionals %s" % (branchid, functionals))
+                        self.log("Found new solution at parameters %s (branchid=%s) with functionals %s" % (task.newparams, branchid, functionals))
                         self.problem.monitor(task.newparams, branchid, self.state, functionals)
                         self.io.save_solution(self.state, task.newparams, branchid)
                         self.io.save_functionals(functionals, task.newparams, branchid)
@@ -525,8 +538,8 @@ class DeflatedContinuation(object):
                     # Save it to disk with the I/O module
                     functionals = self.compute_functionals(self.state, task.newparams)
                     self.problem.monitor(task.newparams, task.branchid, self.state, functionals)
-                    self.io.save_solution(self.state, task.newparams, branchid)
-                    self.io.save_functionals(functionals, task.newparams, branchid)
+                    self.io.save_solution(self.state, task.newparams, task.branchid)
+                    self.io.save_functionals(functionals, task.newparams, task.branchid)
                 else:
                     self.state_id = (None, None)
 
