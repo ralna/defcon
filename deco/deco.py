@@ -162,8 +162,8 @@ class DeflatedContinuation(object):
             # to rank 0's team (in the master), and have another thread on rank 0 bcasting
             # to receive it (in the worker). So I have to have a completely different
             # message passing mechanism for master to rank 0, compared to everyone else.
-            self.zerotask = None
-            self.zerobranchid = None
+            self.zerotask = []
+            self.zerobranchid = []
 
             # fork the worker team
             args = (freeindex, values)
@@ -182,7 +182,7 @@ class DeflatedContinuation(object):
 
         # Special case for rank 0 communicating with itself
         if team == 0:
-            self.zerotask = task
+            self.zerotask.append(task)
 
         self.teamcomms[team].bcast(task)
 
@@ -191,10 +191,9 @@ class DeflatedContinuation(object):
 
         # Special case for rank 0 communicating with itself
         if self.rank == 0:
-            while self.zerotask is None:
+            while len(self.zerotask) == 0:
                 time.sleep(0.01)
-            task = self.zerotask
-            self.zerotask = None
+            task = self.zerotask.pop(0)
             return task
 
         else:
@@ -205,7 +204,7 @@ class DeflatedContinuation(object):
         self.log("Sending branchid %s to team %s" % (branchid, team), master=True)
 
         if team == 0:
-            self.zerobranchid = branchid
+            self.zerobranchid.append(branchid)
 
         self.teamcomms[team].bcast(branchid)
 
@@ -214,10 +213,9 @@ class DeflatedContinuation(object):
 
         # Special case for rank 0 communicating with itself
         if self.rank == 0:
-            while self.zerobranchid is None:
+            while len(self.zerobranchid) == 0:
                 time.sleep(0.01)
-            branchid = self.zerobranchid
-            self.zerobranchid = None
+            branchid = self.zerobranchid.pop(0)
             return branchid
 
         else:
