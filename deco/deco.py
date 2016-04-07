@@ -273,10 +273,10 @@ class DeflatedContinuation(object):
         idleteams = range(self.nteams)
 
         # Task id counter
-        taskid = 0
+        taskid_counter = 0
 
         # Branch id counter
-        self.branchid_counter = 0
+        branchid_counter = 0
 
         # Next, seed the list of tasks to perform with the initial search
         newtasks = PriorityQueue()  # tasks yet to be sent out
@@ -295,22 +295,22 @@ class DeflatedContinuation(object):
             initialparams = nextparameters(values, freeindex, initialparams)
 
             for guess in range(nguesses):
-                newtasks.put((-1, ContinuationTask(taskid=taskid,
+                newtasks.put((-1, ContinuationTask(taskid=taskid_counter,
                                               oldparams=oldparams,
-                                              branchid=taskid,
+                                              branchid=taskid_counter,
                                               newparams=initialparams)))
-                taskid += 1
+                taskid_counter += 1
         else:
             self.log("Using user-supplied initial guesses at %s" % (initialparams,), master=True)
             oldparams = None
             nguesses = len(self.problem.guesses(self.function_space, None, None, initialparams))
 
             for guess in range(nguesses):
-                newtasks.put((-1, DeflationTask(taskid=taskid,
+                newtasks.put((-1, DeflationTask(taskid=taskid_counter,
                                               oldparams=oldparams,
-                                              branchid=taskid,
+                                              branchid=taskid_counter,
                                               newparams=initialparams)))
-                taskid += 1
+                taskid_counter += 1
 
         # Here comes the main master loop.
         while newtasks.qsize() + len(waittasks) > 0:
@@ -367,11 +367,11 @@ class DeflatedContinuation(object):
                         # continuation tasks have reached this point or died,
                         # and then insert *all* deflation tasks at once. But
                         # that's a refinement.
-                        newtask = DeflationTask(taskid=taskid,
+                        newtask = DeflationTask(taskid=taskid_counter,
                                                 oldparams=task.oldparams,
                                                 branchid=task.branchid,
                                                 newparams=task.newparams)
-                        taskid += 1
+                        taskid_counter += 1
                         newtasks.put((newtask.newparams[freeindex], newtask))
                     else:
                         # We tried to continue a branch, but the continuation died. Oh well.
@@ -385,17 +385,17 @@ class DeflatedContinuation(object):
                         # FIXME: We might want to make this more sophisticated
                         # to catch duplicates --- in that event, send None. But
                         # for now we'll just accept it.
-                        self.send_branchid(self.branchid_counter, team)
+                        self.send_branchid(branchid_counter, team)
 
                         # 2. If it wasn't an initial guess, insert a new
                         # deflation task, to seek again with the same settings.
                         if task.oldparams is not None:
-                            newtask = DeflationTask(taskid=taskid,
+                            newtask = DeflationTask(taskid=taskid_counter,
                                                     oldparams=task.oldparams,
                                                     branchid=task.branchid,
                                                     newparams=task.newparams)
                             newtasks.put((newtask.newparams[freeindex], newtask))
-                            taskid += 1
+                            taskid_counter += 1
 
                         # 3. Record that the worker team is now continuing that branch,
                         # if there's continuation to be done.
@@ -403,7 +403,7 @@ class DeflatedContinuation(object):
                         if newparams is not None:
                             conttask = ContinuationTask(taskid=task.taskid,
                                                         oldparams=task.newparams,
-                                                        branchid=self.branchid_counter,
+                                                        branchid=branchid_counter,
                                                         newparams=newparams)
                             waittasks[task.taskid] = ((conttask, team))
                         else:
@@ -415,9 +415,9 @@ class DeflatedContinuation(object):
                         # that have these parameters know about the existence of this branch.
                         if task.newparams not in ensure_branches:
                             ensure_branches[task.newparams] = set()
-                        ensure_branches[task.newparams].add(self.branchid_counter)
+                        ensure_branches[task.newparams].add(branchid_counter)
 
-                        self.branchid_counter += 1
+                        branchid_counter += 1
                     else:
                         # As expected, deflation found nothing interesting. The team is now idle.
                         idleteams.append(team)
@@ -582,7 +582,7 @@ class DeflatedContinuation(object):
         freeindex = freeindices[0]
 
 
-        for branchid in range(self.branchid_counter):
+        for branchid in range(self.io.max_branch() + 1):
             xs = []
             ys = []
 

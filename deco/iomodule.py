@@ -40,6 +40,9 @@ class IO(object):
     def known_parameters(self, fixed):
         raise NotImplementedError
 
+    def max_branch(self):
+        raise NotImplementedError
+
 class FileIO(IO):
     def __init__(self, directory):
         self.directory = directory
@@ -118,3 +121,8 @@ class FileIO(IO):
                 seen.add(param)
 
         return seen
+
+    def max_branch(self):
+        filenames = glob.glob(self.directory + "/*/solution-*.xml.gz")
+        branches = [int(filename.split('-')[-1][:-7]) for filename in filenames]
+        return max(branches)
