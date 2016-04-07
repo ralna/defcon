@@ -46,13 +46,11 @@ class IO(object):
 class FileIO(IO):
     def __init__(self, directory):
         self.directory = directory
-        self.saved_params = set()
 
     def dir(self, params):
         return self.directory + os.path.sep + parameterstostring(self.parameters, params) + os.path.sep
 
     def save_solution(self, solution, params, branchid):
-        self.saved_params.add(params)
         File(self.function_space.mesh().mpi_comm(), self.dir(params) + "solution-%d.xml.gz" % branchid) << solution
         assert os.stat(self.dir(params) + "solution-%d.xml.gz" % branchid).st_size > 0
 
@@ -82,7 +80,6 @@ class FileIO(IO):
         return set(branches)
 
     def save_functionals(self, funcs, params, branchid):
-        self.saved_params.add(params)
         f = file(self.dir(params) + "functional-%d.txt" % branchid, "w")
         s = parameterstostring(self.functionals, funcs).replace('@', '\n') + '\n'
         f.write(s)
@@ -110,7 +107,10 @@ class FileIO(IO):
                     break
 
         seen = set()
-        for param in self.saved_params:
+        saved_param_dirs = glob.glob(self.directory + "/*")
+        saved_params = [tuple([float(x.split('=')[-1]) for x in dirname.split('/')[-1].split('@')]) for dirname in saved_param_dirs]
+
+        for param in saved_params:
             should_add = True
             for (index, value) in zip(fixed_indices, fixed_values):
                 if param[index] != value:
