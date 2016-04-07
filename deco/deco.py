@@ -15,7 +15,7 @@ import math
 import threading
 import time
 import sys
-from Queue import PriorityQueue
+from heapq import heappush, heappop
 
 class DeflatedContinuation(object):
     """
@@ -277,7 +277,7 @@ class DeflatedContinuation(object):
         branchid_counter = 0
 
         # Next, seed the list of tasks to perform with the initial search
-        newtasks = PriorityQueue()  # tasks yet to be sent out
+        newtasks = []  # tasks yet to be sent out
         waittasks = {} # tasks sent out, waiting to hear back about
 
         # A dictionary of parameters -> branches to ensure they exist,
@@ -293,10 +293,11 @@ class DeflatedContinuation(object):
             initialparams = nextparameters(values, freeindex, initialparams)
 
             for guess in range(nguesses):
-                newtasks.put((-1, ContinuationTask(taskid=taskid_counter,
-                                              oldparams=oldparams,
-                                              branchid=taskid_counter,
-                                              newparams=initialparams)))
+                task = ContinuationTask(taskid=taskid_counter,
+                                        oldparams=oldparams,
+                                        branchid=taskid_counter,
+                                        newparams=initialparams)
+                heappush(newtasks, (-1, task))
                 taskid_counter += 1
         else:
             self.log("Using user-supplied initial guesses at %s" % (initialparams,), master=True)
@@ -304,17 +305,18 @@ class DeflatedContinuation(object):
             nguesses = len(self.problem.guesses(self.function_space, None, None, initialparams))
 
             for guess in range(nguesses):
-                newtasks.put((-1, DeflationTask(taskid=taskid_counter,
-                                              oldparams=oldparams,
-                                              branchid=taskid_counter,
-                                              newparams=initialparams)))
+                task = DeflationTask(taskid=taskid_counter,
+                                     oldparams=oldparams,
+                                     branchid=taskid_counter,
+                                     newparams=initialparams)
+                heappush(newtasks, (-1, task))
                 taskid_counter += 1
 
         # Here comes the main master loop.
-        while newtasks.qsize() + len(waittasks) > 0:
+        while len(newtasks) + len(waittasks) > 0:
             # If there are any tasks to send out, send them.
-            while newtasks.qsize() > 0 and len(idleteams) > 0:
-                (priority, task) = newtasks.get()
+            while len(newtasks) > 0 and len(idleteams) > 0:
+                (priority, task) = heappop(newtasks)
 
                 # Let's check if we have found enough solutions already
                 if isinstance(task, DeflationTask):
@@ -341,7 +343,7 @@ class DeflatedContinuation(object):
                 response = self.worldcomm.recv(status=stat, source=MPI.ANY_SOURCE, tag=self.responsetag)
 
                 (task, team) = waittasks[response.taskid]
-                self.log("Received response %s from team %s" % (response, team), master=True)
+                self.log("Received response %s about task %s from team %s" % (response, task, team), master=True)
                 del waittasks[response.taskid]
 
                 # Here comes the core logic of what happens for success or failure for the two
@@ -357,6 +359,7 @@ class DeflatedContinuation(object):
                                                         branchid=task.branchid,
                                                         newparams=newparams)
                             waittasks[task.taskid] = ((conttask, team))
+                            self.log("Waiting on response for %s" % conttask, master=True)
                         else:
                             idleteams.append(team)
 
@@ -370,7 +373,7 @@ class DeflatedContinuation(object):
                                                 branchid=task.branchid,
                                                 newparams=task.newparams)
                         taskid_counter += 1
-                        newtasks.put((newtask.newparams[freeindex], newtask))
+                        heappush(newtasks, (newtask.newparams[freeindex], newtask))
                     else:
                         # We tried to continue a branch, but the continuation died. Oh well.
                         # The team is now idle.
@@ -392,7 +395,7 @@ class DeflatedContinuation(object):
                                                     oldparams=task.oldparams,
                                                     branchid=task.branchid,
                                                     newparams=task.newparams)
-                            newtasks.put((newtask.newparams[freeindex], newtask))
+                            heappush(newtasks, (newtask.newparams[freeindex], newtask))
                             taskid_counter += 1
 
                         # 3. Record that the worker team is now continuing that branch,
@@ -404,6 +407,7 @@ class DeflatedContinuation(object):
                                                         branchid=branchid_counter,
                                                         newparams=newparams)
                             waittasks[task.taskid] = ((conttask, team))
+                            self.log("Waiting on response for %s" % conttask, master=True)
                         else:
                             # It's at the end of the continuation, there's no more continuation
                             # to do. Mark the team as idle.
