@@ -165,13 +165,13 @@ class DeflatedContinuation(object):
             self.zerotask = None
             self.zerobranchid = None
 
-            # fork the master coordinating thread
+            # fork the worker team
             args = (freeindex, values)
-            thread = threading.Thread(target=self.master, args=args)
+            thread = threading.Thread(target=self.worker, args=args)
             thread.start()
 
-            # and get to work yourself
-            self.worker(freeindex, values)
+            # and start the master coordinating process
+            self.master(freeindex, values)
             thread.join()
         else:
             # join a worker team
