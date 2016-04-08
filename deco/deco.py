@@ -339,7 +339,8 @@ class DeflatedContinuation(object):
             # If we aren't waiting for anything to finish, we'll exit the loop
             # here. otherwise, we wait for responses and deal with consequences.
             if len(waittasks) > 0:
-                self.log("Cannot dispatch any tasks, waiting for response", master=True)
+                minwait = min([wtask[0].newparams[freeindex] for wtask in waittasks.values()] + [ntask[1].newparams[freeindex] for ntask in newtasks])
+                self.log("Cannot dispatch any tasks. Sweep completed up to: %14.12e" % minwait, master=True)
                 response = self.worldcomm.recv(status=stat, source=MPI.ANY_SOURCE, tag=self.responsetag)
 
                 (task, team) = waittasks[response.taskid]
