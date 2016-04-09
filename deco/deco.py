@@ -197,7 +197,7 @@ class DeflatedContinuation(object):
             return task
 
         else:
-            task = self.mastercomm.bcast()
+            task = self.mastercomm.bcast(None)
             return task
 
     def send_branchid(self, branchid, team):
@@ -219,7 +219,7 @@ class DeflatedContinuation(object):
             return branchid
 
         else:
-            branchid = self.mastercomm.bcast()
+            branchid = self.mastercomm.bcast(None)
             return branchid
 
     def compute_functionals(self, solution, params):
