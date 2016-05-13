@@ -25,11 +25,17 @@ class ContinuationTask(Task):
       newparams (dict)
         Parameter values to continue to
     """
-    def __init__(self, taskid, oldparams, branchid, newparams):
+    def __init__(self, taskid, oldparams, branchid, newparams, ensure_branches=None):
         self.taskid    = taskid
         self.oldparams = oldparams
         self.branchid  = branchid
         self.newparams = newparams
+
+        if ensure_branches is None: ensure_branches = set()
+        self.ensure_branches = ensure_branches
+
+    def ensure(self, branches):
+        self.ensure_branches.update(branches)
 
     def __str__(self):
         return "ContinuationTask(taskid=%s, oldparams=%s, branchid=%s, newparams=%s)" % (self.taskid, self.oldparams, self.branchid, self.newparams)

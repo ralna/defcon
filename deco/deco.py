@@ -580,7 +580,7 @@ class DeflatedContinuation(object):
         freeindices = range(len(self.parameters))
         for (i, param) in enumerate(self.parameters):
             if param[1] in fixed:
-                freeindices.pop(i)
+                freeindices.remove(i)
         assert len(freeindices) == 1
         freeindex = freeindices[0]
 
