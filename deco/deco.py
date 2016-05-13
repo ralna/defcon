@@ -153,7 +153,10 @@ class DeflatedContinuation(object):
             if param[1] in free:
                 freeparam = param
                 freeindex = index
-        assert freeparam is not None
+
+        if freeparam is None:
+            dolfin.info_red("Cannot find %s in parameters %s." % (free.keys()[0], [param[1] for param in self.parameters]))
+            assert freeparam is not None
 
         values = list(free[freeparam[1]])
 
@@ -284,6 +287,13 @@ class DeflatedContinuation(object):
         # to avoid race conditions
         ensure_branches = dict()
 
+        # If we're going downwards in continuation parameter, we need to change
+        # signs in a few places
+        if values[0] < values[-1]:
+            sign = +1
+        else:
+            sign = -1
+
         initialparams = parameterstofloats(self.parameters, freeindex, values[0])
         known_branches = self.io.known_branches(initialparams)
         if len(known_branches) > 0:
@@ -339,8 +349,8 @@ class DeflatedContinuation(object):
             # If we aren't waiting for anything to finish, we'll exit the loop
             # here. otherwise, we wait for responses and deal with consequences.
             if len(waittasks) > 0:
-                minwait = min([wtask[0].newparams[freeindex] for wtask in waittasks.values()] + [ntask[1].newparams[freeindex] for ntask in newtasks])
-                self.log("Cannot dispatch any tasks. Sweep completed up to: %14.12e" % minwait, master=True)
+                minwait = min([sign*wtask[0].newparams[freeindex] for wtask in waittasks.values()] + [sign*ntask[1].newparams[freeindex] for ntask in newtasks])
+                self.log("Cannot dispatch any tasks. Sweep completed up to: %14.12e" % sign*minwait, master=True)
                 response = self.worldcomm.recv(status=stat, source=MPI.ANY_SOURCE, tag=self.responsetag)
 
                 (task, team) = waittasks[response.taskid]
@@ -374,7 +384,7 @@ class DeflatedContinuation(object):
                                                 branchid=task.branchid,
                                                 newparams=task.newparams)
                         taskid_counter += 1
-                        heappush(newtasks, (newtask.newparams[freeindex], newtask))
+                        heappush(newtasks, (sign*newtask.newparams[freeindex], newtask))
                     else:
                         # We tried to continue a branch, but the continuation died. Oh well.
                         # The team is now idle.
@@ -396,7 +406,7 @@ class DeflatedContinuation(object):
                                                     oldparams=task.oldparams,
                                                     branchid=task.branchid,
                                                     newparams=task.newparams)
-                            heappush(newtasks, (newtask.newparams[freeindex], newtask))
+                            heappush(newtasks, (sign*newtask.newparams[freeindex], newtask))
                             taskid_counter += 1
 
                         # 3. Record that the worker team is now continuing that branch,
@@ -595,7 +605,7 @@ class DeflatedContinuation(object):
                     xs.append(param[freeindex])
                     ys.append(func)
 
-            plt.plot(xs, ys, '-k', label="Branch %d" % branchid, linewidth=2)
+            plt.plot(xs, ys, 'ok', label="Branch %d" % branchid, linewidth=2, markersize=1)
 
         plt.grid()
         plt.xlabel(self.parameters[freeindex][2])
