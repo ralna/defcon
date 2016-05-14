@@ -399,15 +399,18 @@ class DeflatedContinuation(object):
                         # for now we'll just accept it.
                         self.send_branchid(branchid_counter, team)
 
-                        # 2. If it wasn't an initial guess, insert a new
-                        # deflation task, to seek again with the same settings.
+                        # 2. Insert a new deflation task, to seek again with the same settings.
+                        newtask = DeflationTask(taskid=taskid_counter,
+                                                oldparams=task.oldparams,
+                                                branchid=task.branchid,
+                                                newparams=task.newparams)
                         if task.oldparams is not None:
-                            newtask = DeflationTask(taskid=taskid_counter,
-                                                    oldparams=task.oldparams,
-                                                    branchid=task.branchid,
-                                                    newparams=task.newparams)
-                            heappush(newtasks, (sign*newtask.newparams[freeindex], newtask))
-                            taskid_counter += 1
+                            newpriority = sign*newtask.newparams[freeindex]
+                        else:
+                            newpriority = -1
+
+                        heappush(newtasks, (newpriority, newtask))
+                        taskid_counter += 1
 
                         # 3. Record that the worker team is now continuing that branch,
                         # if there's continuation to be done.
