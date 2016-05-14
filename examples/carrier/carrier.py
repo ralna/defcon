@@ -98,5 +98,9 @@ if __name__ == "__main__":
     dc.run(free={"epsilon": list(arange(0.25, 0.01, -0.0005)) + [0.01]})
 
     dc.bifurcation_diagram("signedL2")
+    ax = plt.gca()
+    ax.set_xscale('log')
+    plt.ylim([-100, 100])
+    plt.xlim([0.01, 0.25])
     plt.title(r"Solutions of the Carrier problem")
     plt.savefig("bifurcation.pdf")
