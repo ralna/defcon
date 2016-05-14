@@ -24,6 +24,8 @@ http://arxiv.org/abs/1603.00809
 Deco depends on FEniCS, compiled with PETSc and petsc4py support.
 See http://fenicsproject.org .
 
+It also depends on mpi4py, http://pythonhosted.org/mpi4py/ .
+
 ## Current status
 
 Deco's serial capabilities (teamsize == MPI_COMM_WORLD.size()) are reasonably well
