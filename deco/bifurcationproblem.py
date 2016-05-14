@@ -171,7 +171,7 @@ class BifurcationProblem(object):
         """
         return float("inf")
 
-    def normsq(self, state1, state2):
+    def squared_norm(self, state1, state2):
         """
         This method computes the squared-norm between two vectors in the Hilbert
         space defined in the function_space method.
@@ -180,7 +180,7 @@ class BifurcationProblem(object):
         functions for equality, among other things.
 
         The default is
-            def inner_product(self, state1, state2)
+            def squared_norm(self, state1, state2)
                 return inner(state1 - state2, state1 - state2)*dx
 
         *Arguments*

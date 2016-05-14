@@ -71,7 +71,7 @@ class ForwardProblem(NonlinearProblem):
         self.Pmat = P
 
   def norm(self, y, solution):
-    return self.problem.normsq(y, solution)
+    return self.problem.squared_norm(y, solution)
 
   def deflate(self, root):
     self.solutions.append(Function(root))
