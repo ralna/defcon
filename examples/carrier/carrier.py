@@ -95,7 +95,7 @@ class CarrierProblem(BifurcationProblem):
 if __name__ == "__main__":
     io = FileIO("output")
     dc = DeflatedContinuation(problem=CarrierProblem(), io=io, teamsize=1, verbose=True)
-    dc.run(free={"epsilon": list(arange(0.25, 0.01, -0.001)) + [0.01]})
+    dc.run(free={"epsilon": list(arange(0.25, 0.01, -0.0005)) + [0.01]})
 
     dc.bifurcation_diagram("signedL2")
     plt.title(r"Solutions of the Carrier problem")
