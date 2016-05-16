@@ -45,6 +45,7 @@ def newton(F, y, bcs, deflation=None, prefix="", printnorm=printnorm):
 
         dy.vector().zero()
         (A, b) = assemble_system(J, -F, hbcs, A_tensor=A, b_tensor=b)
+        # FIXME: replace with PETSc solve that allows for fieldsplit preconditioning etc
         solve(A, dy.vector(), b)
 
         if deflation is not None:
