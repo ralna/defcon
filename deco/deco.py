@@ -491,17 +491,8 @@ class DeflatedContinuation(object):
                 self.log("Deflating other branches %s" % knownbranches)
                 bcs = self.problem.boundary_conditions(self.function_space, task.newparams)
 
-                p = ForwardProblem(self.problem, self.residual, self.function_space, self.state, bcs, power=2, shift=1)
-                for o in other_solutions + self.trivial_solutions:
-                    p.deflate(o)
-
-                try:
-                    solver = PetscSnesSolver()
-                    solver.solve(p, self.state.vector())
-                    success = True
-                except:
-                    import traceback; traceback.print_exc()
-                    success = False
+                self.deflation.deflate(other_solutions + self.trivial_solutions)
+                success = newton(self.residual, self.state, bcs, self.deflation)
 
                 self.state_id = (None, None) # not sure if it is a solution we care about yet
 

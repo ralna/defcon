@@ -45,9 +45,10 @@ def newton(F, y, bcs, deflation=None, prefix="", printnorm=printnorm):
         solve(J + F == 0, dy, hbcs)
 
         if deflation is not None:
-            sigma = deflation.derivative(y).inner(dy.vector()) / deflation.evaluate(y)
-            dy.assign((1.0/(1 + sigma)) * dy)
-            # is that it?
+            Edy = deflation.derivative(y).inner(dy.vector())
+            minv = 1.0 / deflation.evaluate(y)
+            tau = (1 + minv*Edy/(1 - minv*Edy))
+            dy.assign(tau * dy)
 
         y.assign(y + dy)
 
