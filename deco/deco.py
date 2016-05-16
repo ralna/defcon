@@ -307,10 +307,10 @@ class DeflatedContinuation(object):
             minvals = max
 
         initialparams = parameterstofloats(self.parameters, freeindex, values[0])
-        known_branches = self.io.known_branches(initialparams)
-        if len(known_branches) > 0:
+        knownbranches = self.io.known_branches(initialparams)
+        if len(knownbranches) > 0:
             self.log("Using known solutions at %s" % (initialparams,), master=True)
-            nguesses = len(known_branches)
+            nguesses = len(knownbranches)
             oldparams = initialparams
             initialparams = nextparameters(values, freeindex, initialparams)
 
@@ -342,7 +342,10 @@ class DeflatedContinuation(object):
 
                 # Let's check if we have found enough solutions already
                 if isinstance(task, DeflationTask):
-                    if len(self.io.known_branches(task.newparams)) >= self.problem.number_solutions(task.newparams):
+                    knownbranches = self.io.known_branches(task.newparams)
+                    if task.newparams in ensure_branches:
+                        knownbranches = knownbranches.union(ensure_branches[task.newparams])
+                    if len(knownbranches) >= self.problem.number_solutions(task.newparams):
                     # We've found all the branches the user's asked us for, let's roll
                         self.log("Master not dispatching %s because we have enough solutions" % task, master=True)
                         continue
