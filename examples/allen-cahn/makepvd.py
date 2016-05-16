@@ -17,7 +17,7 @@ V    = problem.function_space(mesh)
 
 dir = sys.argv[1]
 pvd = File(dir + "/solutions.pvd")
-for soln in glob.glob(dir + "/*xml.gz"):
+for soln in sorted(glob.glob(dir + "/*xml.gz")):
     y = Function(V, soln, name="Solution")
     pvd << y
 

@@ -8,7 +8,7 @@ from deco   import *
 import matplotlib.pyplot as plt
 
 args = [sys.argv[0]] + """
-                       --petsc.snes_max_it 100
+                       --petsc.snes_max_it 50
                        --petsc.snes_type newtonls
                        --petsc.snes_linesearch_type basic
                        --petsc.snes_stol 0.0
