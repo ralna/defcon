@@ -15,6 +15,13 @@ import math
 import threading
 import time
 import sys
+import signal
+
+try:
+    import ipdb as pdb
+except ImportError:
+    import pdb
+
 from heapq import heappush, heappop
 
 class DeflatedContinuation(object):
@@ -267,6 +274,9 @@ class DeflatedContinuation(object):
             A list of continuation values for the parameter
         """
 
+        # Escape hatches for debugging intricate deadlocks
+        signal.signal(signal.SIGUSR1, lambda sig, frame: pdb.set_trace())
+
         # Initialise data structures.
         stat = MPI.Status()
 
@@ -291,8 +301,10 @@ class DeflatedContinuation(object):
         # signs in a few places
         if values[0] < values[-1]:
             sign = +1
+            minvals = min
         else:
             sign = -1
+            minvals = max
 
         initialparams = parameterstofloats(self.parameters, freeindex, values[0])
         known_branches = self.io.known_branches(initialparams)
@@ -349,8 +361,8 @@ class DeflatedContinuation(object):
             # If we aren't waiting for anything to finish, we'll exit the loop
             # here. otherwise, we wait for responses and deal with consequences.
             if len(waittasks) > 0:
-                minwait = min([sign*wtask[0].newparams[freeindex] for wtask in waittasks.values()] + [sign*ntask[1].newparams[freeindex] for ntask in newtasks])
-                self.log("Cannot dispatch any tasks. Sweep completed up to: %14.12e" % (sign*minwait), master=True)
+                minwait = minvals([wtask[0].newparams[freeindex] for wtask in waittasks.values()] + [ntask[1].newparams[freeindex] for ntask in newtasks])
+                self.log("Cannot dispatch any tasks, waiting for response. Sweep completed up to: %14.12e" % (minwait), master=True)
                 response = self.worldcomm.recv(status=stat, source=MPI.ANY_SOURCE, tag=self.responsetag)
 
                 (task, team) = waittasks[response.taskid]
@@ -449,6 +461,10 @@ class DeflatedContinuation(object):
 
         Fetches its tasks from the master and executes them.
         """
+
+        # Escape hatch for debugging
+        if self.rank != 0:
+            signal.signal(signal.SIGUSR1, lambda sig, frame: pdb.set_trace())
 
         task = self.fetch_task()
         while True:
