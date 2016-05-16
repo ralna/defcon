@@ -5,8 +5,6 @@ from newton import newton
 from tasks import QuitTask, ContinuationTask, DeflationTask, Response
 
 import dolfin
-from deflation import ForwardProblem
-from petscsnessolver import PetscSnesSolver
 
 from mpi4py import MPI
 from petsc4py import PETSc
@@ -546,17 +544,8 @@ class DeflatedContinuation(object):
                 bcs = self.problem.boundary_conditions(self.function_space, task.newparams)
 
                 # Try to solve it
-                p = ForwardProblem(self.problem, self.residual, self.function_space, self.state, bcs, power=2, shift=1)
-                for o in other_solutions + self.trivial_solutions:
-                    p.deflate(o)
-
-                try:
-                    solver = PetscSnesSolver()
-                    solver.solve(p, self.state.vector())
-                    success = True
-                except:
-                    import traceback; traceback.print_exc()
-                    success = False
+                self.deflation.deflate(other_solutions + self.trivial_solutions)
+                success = newton(self.residual, self.state, bcs, self.deflation)
 
                 if success:
                     self.state_id = (task.newparams, task.branchid)
