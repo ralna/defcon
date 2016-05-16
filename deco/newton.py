@@ -25,7 +25,7 @@ def newton(F, y, bcs, deflation=None, prefix="", printnorm=printnorm):
     [bc.apply(y.vector()) for bc in bcs]
 
     dy = Function(y.function_space())
-    J = derivative(F, y, dy)
+    J = derivative(F, y, TrialFunction(y.function_space()))
     hbcs = [DirichletBC(bc) for bc in bcs]; [hbc.homogenize() for hbc in hbcs]
     i = 0
 
@@ -35,19 +35,24 @@ def newton(F, y, bcs, deflation=None, prefix="", printnorm=printnorm):
 
     success = False
 
+    A = PETScMatrix()
+    b = PETScVector()
+
     while True:
         if i >= maxits:  break
         if n <= atol:    success = True; break
         if n/n0 <= rtol: success = True; break
 
         dy.vector().zero()
-
-        solve(J + F == 0, dy, hbcs)
+        (A, b) = assemble_system(J, -F, hbcs, A_tensor=A, b_tensor=b)
+        # FIXME: replace with PETSc solve that allows for fieldsplit preconditioning etc
+        solve(A, dy.vector(), b)
 
         if deflation is not None:
-            sigma = deflation.derivative(y).inner(dy.vector()) / deflation.evaluate(y)
-            dy.assign((1.0/(1 + sigma)) * dy)
-            # is that it?
+            Edy = deflation.derivative(y).inner(dy.vector())
+            minv = 1.0 / deflation.evaluate(y)
+            tau = (1 + minv*Edy/(1 - minv*Edy))
+            dy.assign(tau * dy)
 
         y.assign(y + dy)
 

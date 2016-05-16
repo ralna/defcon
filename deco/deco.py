@@ -5,8 +5,6 @@ from newton import newton
 from tasks import QuitTask, ContinuationTask, DeflationTask, Response
 
 import dolfin
-from deflation import ForwardProblem
-from petscsnessolver import PetscSnesSolver
 
 from mpi4py import MPI
 from petsc4py import PETSc
@@ -307,10 +305,10 @@ class DeflatedContinuation(object):
             minvals = max
 
         initialparams = parameterstofloats(self.parameters, freeindex, values[0])
-        known_branches = self.io.known_branches(initialparams)
-        if len(known_branches) > 0:
+        knownbranches = self.io.known_branches(initialparams)
+        if len(knownbranches) > 0:
             self.log("Using known solutions at %s" % (initialparams,), master=True)
-            nguesses = len(known_branches)
+            nguesses = len(knownbranches)
             oldparams = initialparams
             initialparams = nextparameters(values, freeindex, initialparams)
 
@@ -342,7 +340,10 @@ class DeflatedContinuation(object):
 
                 # Let's check if we have found enough solutions already
                 if isinstance(task, DeflationTask):
-                    if len(self.io.known_branches(task.newparams)) >= self.problem.number_solutions(task.newparams):
+                    knownbranches = self.io.known_branches(task.newparams)
+                    if task.newparams in ensure_branches:
+                        knownbranches = knownbranches.union(ensure_branches[task.newparams])
+                    if len(knownbranches) >= self.problem.number_solutions(task.newparams):
                     # We've found all the branches the user's asked us for, let's roll
                         self.log("Master not dispatching %s because we have enough solutions" % task, master=True)
                         continue
@@ -491,17 +492,8 @@ class DeflatedContinuation(object):
                 self.log("Deflating other branches %s" % knownbranches)
                 bcs = self.problem.boundary_conditions(self.function_space, task.newparams)
 
-                p = ForwardProblem(self.problem, self.residual, self.function_space, self.state, bcs, power=2, shift=1)
-                for o in other_solutions + self.trivial_solutions:
-                    p.deflate(o)
-
-                try:
-                    solver = PetscSnesSolver()
-                    solver.solve(p, self.state.vector())
-                    success = True
-                except:
-                    import traceback; traceback.print_exc()
-                    success = False
+                self.deflation.deflate(other_solutions + self.trivial_solutions)
+                success = newton(self.residual, self.state, bcs, self.deflation)
 
                 self.state_id = (None, None) # not sure if it is a solution we care about yet
 
@@ -552,17 +544,8 @@ class DeflatedContinuation(object):
                 bcs = self.problem.boundary_conditions(self.function_space, task.newparams)
 
                 # Try to solve it
-                p = ForwardProblem(self.problem, self.residual, self.function_space, self.state, bcs, power=2, shift=1)
-                for o in other_solutions + self.trivial_solutions:
-                    p.deflate(o)
-
-                try:
-                    solver = PetscSnesSolver()
-                    solver.solve(p, self.state.vector())
-                    success = True
-                except:
-                    import traceback; traceback.print_exc()
-                    success = False
+                self.deflation.deflate(other_solutions + self.trivial_solutions)
+                success = newton(self.residual, self.state, bcs, self.deflation)
 
                 if success:
                     self.state_id = (task.newparams, task.branchid)
