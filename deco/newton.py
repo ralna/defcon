@@ -1,8 +1,10 @@
 from dolfin import *
 from petsc4py import PETSc
+import sys
 
 def printnorm(i, n):
     print "%3d SNES Function norm %1.15e" % (i, n)
+    sys.stdout.flush()
 
 def newton(F, y, bcs, deflation=None, prefix="", printnorm=printnorm):
 
