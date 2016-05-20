@@ -102,6 +102,9 @@ class NavierStokesProblem(BifurcationProblem):
         elif Re < 100: return 8
         else:          return float("inf")
 
+    def configure_krylov_solver(self, ksp):
+        pass
+
 if __name__ == "__main__":
     io = FileIO("output")
 
@@ -112,9 +115,11 @@ if __name__ == "__main__":
     else:
         assert size % 4 == 0
         teamsize = size / 4
+    # FIXME: teamsize > 1 deadlocks in dolfin/PETSc
+    teamsize = 1
 
     dc = DeflatedContinuation(problem=NavierStokesProblem(), io=io, teamsize=teamsize, verbose=True)
-    dc.run(free={"Re": linspace(10.0, 100.0, 91)})
+    dc.run(free={"Re": linspace(10.0, 100.0, 181)})
 
     dc.bifurcation_diagram("sqL2")
     plt.title(r"Bifurcation diagram for sudden expansion in a channel")

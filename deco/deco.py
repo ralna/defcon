@@ -503,7 +503,7 @@ class DeflatedContinuation(object):
                 bcs = self.problem.boundary_conditions(self.function_space, task.newparams)
 
                 self.deflation.deflate(other_solutions + self.trivial_solutions)
-                success = newton(self.residual, self.state, bcs, self.deflation)
+                success = newton(self.residual, self.state, bcs, self.deflation, ksp_setup=self.problem.configure_krylov_solver)
 
                 self.state_id = (None, None) # not sure if it is a solution we care about yet
 
@@ -555,7 +555,7 @@ class DeflatedContinuation(object):
 
                 # Try to solve it
                 self.deflation.deflate(other_solutions + self.trivial_solutions)
-                success = newton(self.residual, self.state, bcs, self.deflation)
+                success = newton(self.residual, self.state, bcs, self.deflation, ksp_setup=self.problem.configure_krylov_solver)
 
                 if success:
                     self.state_id = (task.newparams, task.branchid)

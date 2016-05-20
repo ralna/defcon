@@ -6,7 +6,10 @@ def printnorm(i, n):
     print "%3d SNES Function norm %1.15e" % (i, n)
     sys.stdout.flush()
 
-def newton(F, y, bcs, deflation=None, prefix="", printnorm=printnorm):
+def ksp_setup(ksp):
+    pass
+
+def newton(F, y, bcs, deflation=None, prefix="", printnorm=printnorm, ksp_setup=ksp_setup):
 
     # Fetch some SNES options from the PETSc dictionary
     if len(prefix) > 0:
@@ -27,6 +30,7 @@ def newton(F, y, bcs, deflation=None, prefix="", printnorm=printnorm):
     [bc.apply(y.vector()) for bc in bcs]
 
     dy = Function(y.function_space())
+    dyvec = as_backend_type(dy.vector())
     J = derivative(F, y, TrialFunction(y.function_space()))
     hbcs = [DirichletBC(bc) for bc in bcs]; [hbc.homogenize() for hbc in hbcs]
     i = 0
@@ -45,13 +49,26 @@ def newton(F, y, bcs, deflation=None, prefix="", printnorm=printnorm):
         if n <= atol:    success = True; break
         if n/n0 <= rtol: success = True; break
 
-        dy.vector().zero()
+        dyvec.zero()
         (A, b) = assemble_system(J, -F, hbcs, A_tensor=A, b_tensor=b)
-        # FIXME: replace with PETSc solve that allows for fieldsplit preconditioning etc
-        solve(A, dy.vector(), b)
+
+        ksp = PETSc.KSP().create(comm=b.vec().comm)
+        ksp.setOperators(A=A.mat())
+
+        # Set some sensible defaults
+        ksp.setType('preonly')
+        ksp.pc.setType('lu')
+        ksp.pc.setFactorSolverPackage('mumps')
+
+        # Call the user setup routine
+        ksp_setup(ksp)
+
+        ksp.setFromOptions()
+        ksp.solve(b.vec(), dyvec.vec())
+        dyvec.update_ghost_values()
 
         if deflation is not None:
-            Edy = deflation.derivative(y).inner(dy.vector())
+            Edy = deflation.derivative(y).inner(dyvec)
             minv = 1.0 / deflation.evaluate(y)
             tau = (1 + minv*Edy/(1 - minv*Edy))
             dy.assign(tau * dy)
