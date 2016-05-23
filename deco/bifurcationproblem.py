@@ -123,34 +123,16 @@ class BifurcationProblem(object):
         """
         raise NotImplementedError
 
-    def guesses(self, function_space, oldparams, oldstates, newparams):
+    def number_initial_guesses(self, params):
         """
-        Given the solutions oldstates corresponding to the parameter values
-        oldparams, construct a list of guesses for the parameter values
-        newparams.
+        Return the number of initial guesses we wish to search from at the
+        very first deflation step, i.e. when initialising the continuation.
+        """
+        raise NotImplementedError
 
-        In the simplest case, this just returns oldstates again.
-
-        There is one special case that must be handled. If oldparams = None and
-        oldstates = None, then this routine should return the initial guesses
-        to be used for the initial solve (when no solutions are available).
-
-        Each guess in the returned list should have a label attribute
-        with a string describing its origin (e.g. prev-soln-5).
-
-        *Arguments*
-          function_space (:py:class:`dolfin.FunctionSpace`)
-            the function space returned by function_space()
-          oldparams (tuple of :py:class:`float`)
-            old parameters to use, in the same order returned by parameters()
-          oldstates (list of :py:class:`dolfin.Function`)
-            solutions known at the old parameter values
-          newparams (tuple of :py:class:`float`)
-            new parameters to use, in the same order returned by parameters()
-
-        *Returns*
-          newguesses (list of :py:class:`dolfin.Function`)
-            guesses for the new parameter values
+    def initial_guess(self, function_space, params, n):
+        """
+        Return the n^{th} initial guess.
         """
         raise NotImplementedError
 

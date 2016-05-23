@@ -9,18 +9,12 @@ import matplotlib.pyplot as plt
 
 args = [sys.argv[0]] + """
                        --petsc.snes_max_it 50
-                       --petsc.snes_type newtonls
-                       --petsc.snes_linesearch_type basic
-                       --petsc.snes_stol 0.0
                        --petsc.snes_atol 1.0e-9
                        --petsc.snes_rtol 0.0
                        --petsc.snes_monitor
-                       --petsc.snes_converged_reason
-                       --petsc.snes_linesearch_monitor
 
                        --petsc.ksp_type preonly
-
-                       --petsc.inner_pc_type lu
+                       --petsc.pc_type lu
                        """.split()
 parameters.parse(args)
 
@@ -57,13 +51,11 @@ class AllenCahnProblem(BifurcationProblem):
 
         return [(sqL2, "sqL2", r"$\|y\|^2$")]
 
-    def guesses(self, V, oldparams, oldstates, newparams):
-        if oldparams is None:
-            newguesses = [interpolate(Constant(0), V)]
-        else:
-            newguesses = oldstates
+    def number_initial_guesses(self, params):
+        return 1
 
-        return newguesses
+    def initial_guess(self, V, params, n):
+        return Function(V)
 
     def number_solutions(self, params):
         delta = params[0]

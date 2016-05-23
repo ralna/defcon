@@ -86,13 +86,11 @@ class NavierStokesProblem(BifurcationProblem):
 
         return [(sqL2, "sqL2", r"$\|u\|^2$")]
 
-    def guesses(self, Z, oldparams, oldstates, newparams):
-        if oldparams is None:
-            newguesses = [Function(Z)]
-        else:
-            newguesses = oldstates
+    def number_initial_guesses(self, params):
+        return 1
 
-        return newguesses
+    def initial_guess(self, Z, params, n):
+        return Function(Z)
 
     def number_solutions(self, params):
         Re = params[0]

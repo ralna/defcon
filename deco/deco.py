@@ -246,8 +246,8 @@ class DeflatedContinuation(object):
 
         if oldparams is None:
             # We're dealing with an initial guess
-            guesses = self.problem.guesses(self.function_space, None, None, newparams)
-            self.state.assign(guesses[branchid])
+            guess = self.problem.initial_guess(self.function_space, newparams, branchid)
+            self.state.assign(guess)
             self.state_id = (oldparams, branchid)
             return
 
@@ -322,17 +322,7 @@ class DeflatedContinuation(object):
         else:
             self.log("Using user-supplied initial guesses at %s" % (initialparams,), master=True)
             oldparams = None
-
-            # FIXME: should we ask the user to supply the *number* of guesses here
-            # (which is all we need to know about?)
-            # We have to go to some contortions here to find out the number of
-            # guesses -- make a function space defined on MPI_COMM_SELf to avoid
-            # deadlocks ...
-            dummy_mesh = self.problem.mesh(PETSc.Comm(MPI.COMM_SELF))
-            dummy_function_space = self.problem.function_space(dummy_mesh)
-            nguesses = len(self.problem.guesses(dummy_function_space, None, None, initialparams))
-            del dummy_function_space
-            del dummy_mesh
+            nguesses = self.problem.number_solutions(initialparams)
 
             for guess in range(nguesses):
                 task = DeflationTask(taskid=taskid_counter,
