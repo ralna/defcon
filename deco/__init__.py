@@ -1,3 +1,18 @@
+from mpi4py import rc
+rc.initialize = False
+
+from mpi4py import MPI
+if not MPI.Is_initialized():
+    ret = MPI.Init_thread(required=MPI.THREAD_MULTIPLE)
+    if ret != MPI.THREAD_MULTIPLE:
+        print "Error: deco needs MPI_THREAD_MULTIPLE support. Update your version of MPI."
+    assert ret == MPI.THREAD_MULTIPLE
+else:
+    print "Warning: deco did not initialize MPI."
+    print "Please make sure that whoever did initialize MPI initialized with"
+    print "MPI_Init_thread(MPI_THREAD_MULTIPLE)"
+    print "and made sure that MPI offered that level of support."
+
 try:
     import matplotlib
     matplotlib.use('PDF')
