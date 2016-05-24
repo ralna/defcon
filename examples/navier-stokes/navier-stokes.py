@@ -65,7 +65,7 @@ class NavierStokesProblem(BifurcationProblem):
 
     def boundary_conditions(self, Z, params):
         # Inlet BC
-        poiseuille = Expression(("-(x[1] + 1) * (x[1] - 1)", "0.0"))
+        poiseuille = Expression(("-(x[1] + 1) * (x[1] - 1)", "0.0"), mpi_comm=Z.mesh().mpi_comm())
         def inflow(x, on_boundary):
           return on_boundary and near(x[0], 0.0)
         bc_inflow = DirichletBC(Z.sub(0), poiseuille, inflow)
@@ -105,7 +105,7 @@ class NavierStokesProblem(BifurcationProblem):
 
 if __name__ == "__main__":
     io = FileIO("output")
-    dc = DeflatedContinuation(problem=NavierStokesProblem(), io=io, teamsize=2, verbose=True)
+    dc = DeflatedContinuation(problem=NavierStokesProblem(), io=io, teamsize=1, verbose=True)
     dc.run(free={"Re": linspace(10.0, 100.0, 181)})
 
     dc.bifurcation_diagram("sqL2")

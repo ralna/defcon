@@ -41,8 +41,9 @@ def newton(F, y, bcs, deflation=None, prefix="", printnorm=printnorm, ksp_setup=
 
     success = False
 
-    A = PETScMatrix()
-    b = PETScVector()
+    mpi_comm = y.function_space().mesh().mpi_comm()
+    A = PETScMatrix(mpi_comm)
+    b = PETScVector(mpi_comm)
 
     while True:
         if i >= maxits:  break

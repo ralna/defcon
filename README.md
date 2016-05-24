@@ -44,6 +44,11 @@ elastica section of the paper cited above.
 
 The contribution of a setup.py would be welcome.
 
+## Troubleshooting
+
+* Make sure you run with an MPI that supports MPI_THREAD_MULTIPLE.
+* Make sure all Expressions take in the mpi_comm argument (see e.g. examples/navier-stokes).
+
 ## Contributors
 
 P. E. Farrell <patrick.farrell@maths.ox.ac.uk>
