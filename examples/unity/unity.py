@@ -2,8 +2,8 @@
 import sys
 from   math import degrees, atan2, pi, floor
 
-from dolfin import *
 from deco   import *
+from dolfin import *
 
 import matplotlib.pyplot as plt
 

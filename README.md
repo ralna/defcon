@@ -21,16 +21,16 @@ http://arxiv.org/abs/1603.00809
 
 ## Dependencies
 
-Deco depends on FEniCS, compiled with PETSc and petsc4py support.
-See http://fenicsproject.org .
+Deco depends on
 
-It also depends on mpi4py, http://pythonhosted.org/mpi4py/ .
+* an MPI library that supports MPI_THREAD_MULTIPLE. In practice this means MPICH and not OpenMPI.
+* mpi4py (http://pythonhosted.org/mpi4py/)
+* FEniCS, compiled with PETSc and petsc4py support (http://fenicsproject.org)
 
 ## Current status
 
-Deco's serial capabilities (teamsize == MPI_COMM_WORLD.size()) are reasonably well
-tested. Its massively parallel features (teamsize < MPI_COMM_WORLD.size())
-are experimental.
+Deco's serial capabilities are reasonably well tested. Its parallel features are
+experimental.
 
 ## Code Examples
 
@@ -40,7 +40,7 @@ elastica section of the paper cited above.
 
 ## Installation
 
-export PYTHONPATH=/path/to/deco:$PYTHONPATH
+    export PYTHONPATH=/path/to/deco:$PYTHONPATH
 
 The contribution of a setup.py would be welcome.
 

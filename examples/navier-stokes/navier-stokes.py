@@ -2,8 +2,8 @@
 import sys
 from   math import floor
 
-from dolfin import *
 from deco   import *
+from dolfin import *
 
 import matplotlib.pyplot as plt
 
@@ -105,18 +105,7 @@ class NavierStokesProblem(BifurcationProblem):
 
 if __name__ == "__main__":
     io = FileIO("output")
-
-    # Figure out the team size
-    size = MPI.size(mpi_comm_world())
-    if size < 4:
-        teamsize = size
-    else:
-        assert size % 4 == 0
-        teamsize = size / 4
-    # FIXME: teamsize > 1 deadlocks in dolfin/PETSc
-    teamsize = 1
-
-    dc = DeflatedContinuation(problem=NavierStokesProblem(), io=io, teamsize=teamsize, verbose=True)
+    dc = DeflatedContinuation(problem=NavierStokesProblem(), io=io, teamsize=2, verbose=True)
     dc.run(free={"Re": linspace(10.0, 100.0, 181)})
 
     dc.bifurcation_diagram("sqL2")

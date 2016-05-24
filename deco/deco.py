@@ -27,7 +27,7 @@ class DeflatedContinuation(object):
     This class is the main driver that implements deflated continuation.
     """
 
-    def __init__(self, problem, io, deflation=None, teamsize=1, verbose=False):
+    def __init__(self, problem, io, deflation=None, teamsize=1, verbose=False, logfiles=False):
         """
         Constructor.
 
@@ -42,6 +42,8 @@ class DeflatedContinuation(object):
             How many processors should coordinate to solve any individual PDE.
           verbose (:py:class:`bool`)
             Activate verbose output.
+          logfiles (:py:class:`bool`)
+            Whether deco should remap stdout/stderr to logfiles (useful for many processes).
         """
         self.problem = problem
 
@@ -102,10 +104,9 @@ class DeflatedContinuation(object):
         # for efficiency
         self.state_id = (None, None)
 
-        # If verbose, create logfiles for each team
-        # FIXME: how do I do this for C/C++ output also?
-        if self.worldcomm.size > 1:
-            if self.verbose and self.teamrank == 0:
+        # If instructed, create logfiles for each team
+        if logfiles:
+            if self.teamrank == 0:
                 sys.stdout = open("deco.log.%d" % self.teamno, "w")
                 sys.stderr = open("deco.err.%d" % self.teamno, "w")
             else:

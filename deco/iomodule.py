@@ -51,8 +51,20 @@ class FileIO(IO):
         return self.directory + os.path.sep + parameterstostring(self.parameters, params) + os.path.sep
 
     def save_solution(self, solution, params, branchid):
-        File(self.function_space.mesh().mpi_comm(), self.dir(params) + "solution-%d.xml.gz" % branchid) << solution
-        assert os.stat(self.dir(params) + "solution-%d.xml.gz" % branchid).st_size > 0
+        f = File(self.function_space.mesh().mpi_comm(), self.dir(params) + "solution-%d.xml.gz" % branchid)
+        f << solution
+        del f
+
+        # wait for the file to be written
+        size = 0
+        while True:
+            try:
+                size = os.stat(self.dir(params) + "solution-%d.xml.gz" % branchid).st_size
+            except OSError:
+                pass
+            if size > 0: break
+            #print "Waiting for %s to have nonzero size" % (self.dir(params) + "solution-%d.xml.gz" % branchid)
+            time.sleep(0.1)
 
     def fetch_solutions(self, params, branchids):
         solns = []
