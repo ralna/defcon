@@ -4,9 +4,9 @@ rc.initialize = False
 from mpi4py import MPI
 if not MPI.Is_initialized():
     ret = MPI.Init_thread(required=MPI.THREAD_MULTIPLE)
-    if ret != MPI.THREAD_MULTIPLE:
+    if ret != MPI.THREAD_MULTIPLE and MPI.COMM_WORLD.size > 1:
         print "Error: deco needs MPI_THREAD_MULTIPLE support. Update your version of MPI."
-    assert ret == MPI.THREAD_MULTIPLE
+        assert ret == MPI.THREAD_MULTIPLE
 else:
     print "Warning: deco did not initialize MPI."
     print "Please make sure that whoever did initialize MPI initialized with"
