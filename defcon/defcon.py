@@ -32,18 +32,18 @@ class DeflatedContinuation(object):
         Constructor.
 
         *Arguments*
-          problem (:py:class:`deco.BifurcationProblem`)
+          problem (:py:class:`defcon.BifurcationProblem`)
             A class representing the bifurcation problem to be solved.
-          io (:py:class:`deco.IO`)
+          io (:py:class:`defcon.IO`)
             A class describing how to store the solutions on disk.
-          deflation (:py:class:`deco.DeflationOperator`)
+          deflation (:py:class:`defcon.DeflationOperator`)
             A class defining a deflation operator.
           teamsize (:py:class:`int`)
             How many processors should coordinate to solve any individual PDE.
           verbose (:py:class:`bool`)
             Activate verbose output.
           logfiles (:py:class:`bool`)
-            Whether deco should remap stdout/stderr to logfiles (useful for many processes).
+            Whether defcon should remap stdout/stderr to logfiles (useful for many processes).
         """
         self.problem = problem
 
@@ -107,8 +107,8 @@ class DeflatedContinuation(object):
         # If instructed, create logfiles for each team
         if logfiles:
             if self.teamrank == 0:
-                sys.stdout = open("deco.log.%d" % self.teamno, "w")
-                sys.stderr = open("deco.err.%d" % self.teamno, "w")
+                sys.stdout = open("defcon.log.%d" % self.teamno, "w")
+                sys.stderr = open("defcon.err.%d" % self.teamno, "w")
             else:
                 # FIXME: is there a portable way to deal with this?
                 sys.stdout = open("/dev/null", "w")

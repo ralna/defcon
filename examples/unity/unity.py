@@ -2,7 +2,7 @@
 import sys
 from   math import degrees, atan2, pi, floor
 
-from deco   import *
+from defcon import *
 from dolfin import *
 
 import matplotlib.pyplot as plt
