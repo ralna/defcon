@@ -11,6 +11,7 @@ from parametertools import parameterstostring
 import os
 import glob
 import time
+import numpy as np
 
 class IO(object):
     """
@@ -28,10 +29,16 @@ class IO(object):
     def fetch_solutions(self, params, branchids):
         raise NotImplementedError
 
+    def delete_solutions(self):
+        raise NotImplementedError
+
     def save_functionals(self, functionals, params, branchid):
         raise NotImplementedError
 
     def fetch_functionals(self, params, branchids):
+        raise NotImplementedError
+
+    def delete_functionals(self):
         raise NotImplementedError
 
     def known_branches(self, params):
@@ -43,6 +50,8 @@ class IO(object):
     def max_branch(self):
         raise NotImplementedError
 
+
+
 class FileIO(IO):
     def __init__(self, directory):
         self.directory = directory
@@ -51,15 +60,19 @@ class FileIO(IO):
         return self.directory + os.path.sep + parameterstostring(self.parameters, params) + os.path.sep
 
     def save_solution(self, solution, params, branchid):
-        f = File(self.function_space.mesh().mpi_comm(), self.dir(params) + "solution-%d.xml.gz" % branchid)
-        f << solution
+        #f = File(self.function_space.mesh().mpi_comm(), self.dir(params) + "solution-%d.xml.gz" % branchid)
+        #f << solution
+        f = HDF5File(self.function_space.mesh().mpi_comm(), self.dir(params) + "solution-%d.hdf5" % branchid, 'w')
+        f.write(solution, self.dir(params) + "solution-%d.hdf5" % branchid)
+        f.close()
         del f
 
         # wait for the file to be written
         size = 0
         while True:
             try:
-                size = os.stat(self.dir(params) + "solution-%d.xml.gz" % branchid).st_size
+                #size = os.stat(self.dir(params) + "solution-%d.xml.gz" % branchid).st_size
+                size = os.stat(self.dir(params) + "solution-%d.hdf5" % branchid).st_size
             except OSError:
                 pass
             if size > 0: break
@@ -69,11 +82,16 @@ class FileIO(IO):
     def fetch_solutions(self, params, branchids):
         solns = []
         for branchid in branchids:
-            filename = self.dir(params) + "solution-%d.xml.gz" % branchid
+            #filename = self.dir(params) + "solution-%d.xml.gz" % branchid
+            filename = self.dir(params) + "solution-%d.hdf5" % branchid
             failcount = 0
             while True:
                 try:
-                    soln = Function(self.function_space, filename)
+                    soln = Function(self.function_space)#, filename)
+                    f = HDF5File(self.function_space.mesh().mpi_comm(), filename, 'r')
+                    f.read(soln, filename)
+                    f.close()
+                    del f
                     break
                 except Exception:
                     print "WTF? Loading file %s failed. Sleeping for a second and trying again." % filename
@@ -87,8 +105,10 @@ class FileIO(IO):
         return solns
 
     def known_branches(self, params):
-        filenames = glob.glob(self.dir(params) + "solution-*.xml.gz")
-        branches = [int(filename.split('-')[-1][:-7]) for filename in filenames]
+        #filenames = glob.glob(self.dir(params) + "solution-*.xml.gz")
+        filenames = glob.glob(self.dir(params) + "solution-*.hdf5")
+        #branches = [int(filename.split('-')[-1][:-7]) for filename in filenames] #-7 for xml
+        branches = [int(filename.split('-')[-1][:-5]) for filename in filenames] 
         return set(branches)
 
     def save_functionals(self, funcs, params, branchid):
@@ -135,6 +155,102 @@ class FileIO(IO):
         return seen
 
     def max_branch(self):
-        filenames = glob.glob(self.directory + "/*/solution-*.xml.gz")
-        branches = [int(filename.split('-')[-1][:-7]) for filename in filenames]
+        #filenames = glob.glob(self.directory + "/*/solution-*.xml.gz")
+        #branches = [int(filename.split('-')[-1][:-7]) for filename in filenames]
+        filenames = glob.glob(self.directory + "/*/solution-*.hdf5")
+        branches = [int(filename.split('-')[-1][:-5]) for filename in filenames]
         return max(branches)
+
+
+    def delete_solutions(self):
+        raise NotImplementedError
+
+    def delete_functionals(self):
+        raise NotImplementedError
+
+
+
+
+class DictionaryIO(IO):
+    """
+    I/O module using dictionaries to store the solutions and functionals. 
+    TODO: Solutions are also written to the disk when saved, in HDF5 format.
+    """
+    def __init__(self, nparams):
+        self.nparams = nparams
+        self.sols = dict()
+        self.funcs = dict()
+        
+    def save_solution(self, solution, params, branchid):
+        print solution
+        if branchid in self.sols:
+            self.sols[branchid][params] = solution
+        else:
+            self.sols[branchid] = {params:solution}
+            
+    def fetch_solutions(self, params, branchids):
+        #FIXME: Send solutions one at a time. Perhaps use an iterator?
+        solns = []
+        for branchid in branchids:
+            try:
+                soln =  self.sols[branchid][params]
+                solns.append(soln)
+                break
+            except Exception:
+                raise
+        return solns
+
+    def delete_solutions(self):
+        raise NotImplementedError
+
+    def save_functionals(self, functionals, params, branchid):
+        if branchid in self.funcs:
+            self.funcs[branchid][params] = functionals
+        else:
+            self.funcs[branchid] = {params:functionals}
+
+    def fetch_functionals(self, params, branchids):
+        funcns = []
+        for branchid in branchids:
+            funcns.append(self.funcs[branchid][params])
+        return funcns
+
+    def delete_functionals(self):
+        raise NotImplementedError
+
+    def known_branches(self, params):
+        branchids = []
+        for key in self.sols.keys():
+            if params in self.sols[key]:
+                branchids.append(key)
+        return set(branchids)
+
+    def known_parameters(self, fixed):
+        # Duplicated from FileIO. Problems?
+        fixed_indices = []
+        fixed_values = []
+        for key in fixed:
+            fixed_values.append(fixed[key])
+            # find the index
+            for (i, param) in enumerate(self.parameters):
+                if param[1] == key:
+                    fixed_indices.append(i)
+                    break
+
+        seen = set()
+        saved_params = [x for x in self.sols[key].keys() for key in self.sols.keys()]
+
+        for param in saved_params:
+            should_add = True
+            for (index, value) in zip(fixed_indices, fixed_values):
+                if param[index] != value:
+                    should_add = False
+                    break
+
+            if should_add:
+                seen.add(param)
+
+        return seen
+
+    def max_branch(self):
+        return len(self.sols)-1 # -1 as branch labelling starts from 0. 

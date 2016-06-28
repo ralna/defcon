@@ -110,9 +110,8 @@ class DeflatedContinuation(object):
                 sys.stdout = open("defcon.log.%d" % self.teamno, "w")
                 sys.stderr = open("defcon.err.%d" % self.teamno, "w")
             else:
-                # FIXME: is there a portable way to deal with this?
-                sys.stdout = open("/dev/null", "w")
-                sys.stderr = open("/dev/null", "w")
+                sys.stdout = open(os.devnull, "w")
+                sys.stderr = open(os.devnull, "w")
 
     def log(self, msg, master=False):
         if not self.verbose: return
