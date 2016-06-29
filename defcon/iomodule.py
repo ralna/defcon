@@ -38,9 +38,6 @@ class IO(object):
     def fetch_functionals(self, params, branchids):
         raise NotImplementedError
 
-    def delete_functionals(self):
-        raise NotImplementedError
-
     def known_branches(self, params):
         raise NotImplementedError
 
@@ -60,8 +57,6 @@ class FileIO(IO):
         return self.directory + os.path.sep + parameterstostring(self.parameters, params) + os.path.sep
 
     def save_solution(self, solution, params, branchid):
-        #f = File(self.function_space.mesh().mpi_comm(), self.dir(params) + "solution-%d.xml.gz" % branchid)
-        #f << solution
         f = HDF5File(self.function_space.mesh().mpi_comm(), self.dir(params) + "solution-%d.hdf5" % branchid, 'w')
         f.write(solution, self.dir(params) + "solution-%d.hdf5" % branchid)
         f.close()
@@ -71,7 +66,6 @@ class FileIO(IO):
         size = 0
         while True:
             try:
-                #size = os.stat(self.dir(params) + "solution-%d.xml.gz" % branchid).st_size
                 size = os.stat(self.dir(params) + "solution-%d.hdf5" % branchid).st_size
             except OSError:
                 pass
@@ -82,12 +76,11 @@ class FileIO(IO):
     def fetch_solutions(self, params, branchids):
         solns = []
         for branchid in branchids:
-            #filename = self.dir(params) + "solution-%d.xml.gz" % branchid
             filename = self.dir(params) + "solution-%d.hdf5" % branchid
             failcount = 0
             while True:
                 try:
-                    soln = Function(self.function_space)#, filename)
+                    soln = Function(self.function_space)
                     f = HDF5File(self.function_space.mesh().mpi_comm(), filename, 'r')
                     f.read(soln, filename)
                     f.close()
@@ -105,10 +98,8 @@ class FileIO(IO):
         return solns
 
     def known_branches(self, params):
-        #filenames = glob.glob(self.dir(params) + "solution-*.xml.gz")
         filenames = glob.glob(self.dir(params) + "solution-*.hdf5")
-        #branches = [int(filename.split('-')[-1][:-7]) for filename in filenames] #-7 for xml
-        branches = [int(filename.split('-')[-1][:-5]) for filename in filenames] 
+        branches = [int(filename.split('-')[-1][:-5]) for filename in filenames] # The -5 is because ".hdf5" has 5 chars. Different filenames mean changing this value. 
         return set(branches)
 
     def save_functionals(self, funcs, params, branchid):
@@ -155,20 +146,9 @@ class FileIO(IO):
         return seen
 
     def max_branch(self):
-        #filenames = glob.glob(self.directory + "/*/solution-*.xml.gz")
-        #branches = [int(filename.split('-')[-1][:-7]) for filename in filenames]
         filenames = glob.glob(self.directory + "/*/solution-*.hdf5")
         branches = [int(filename.split('-')[-1][:-5]) for filename in filenames]
         return max(branches)
-
-
-    def delete_solutions(self):
-        raise NotImplementedError
-
-    def delete_functionals(self):
-        raise NotImplementedError
-
-
 
 
 class DictionaryIO(IO):
@@ -176,6 +156,7 @@ class DictionaryIO(IO):
     I/O module using dictionaries to store the solutions and functionals. 
     TODO: Solutions are also written to the disk when saved, in HDF5 format.
     """
+    #FIXME: Gives different solutions to the FileIO. Why????
     def __init__(self, nparams):
         self.nparams = nparams
         self.sols = dict()

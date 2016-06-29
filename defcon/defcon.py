@@ -60,8 +60,8 @@ class DeflatedContinuation(object):
         self.rank = self.worldcomm.rank
 
         # Assert even divisibility of team sizes
-        assert self.worldcomm.size % teamsize == 0
-        self.nteams = self.worldcomm.size / self.teamsize
+        assert (self.worldcomm.size-1) % teamsize == 0
+        self.nteams = (self.worldcomm.size-1) / self.teamsize
 
         # Create local communicator for the team I will join
         self.teamno = ranktoteamno(self.rank, self.teamsize)
@@ -74,15 +74,16 @@ class DeflatedContinuation(object):
         # We also need to create a communicator for rank 0 to talk to each
         # team (except for team 0, which it already has, as it is a member)
         if self.rank == 0:
-            self.teamcomms = [self.teamcomm]
-            for teamno in range(1, self.nteams):
+            self.teamcomms = []
+            for teamno in range(0, self.nteams):
+
                 teamcommpluszero = self.worldcomm.Split(teamno, key=0)
                 self.teamcomms.append(teamcommpluszero)
         else:
             if self.teamno == 0:
                 self.mastercomm = self.teamcomm
 
-            for teamno in range(1, self.nteams):
+            for teamno in range(0, self.nteams):
                 if teamno == self.teamno:
                     self.mastercomm = self.worldcomm.Split(self.teamno, key=0)
                 else:
@@ -166,21 +167,9 @@ class DeflatedContinuation(object):
         values = list(free[freeparam[1]])
 
         if self.rank == 0:
-            # Argh. MPI is so ugly. I can't have one thread on rank 0 bcasting
-            # to rank 0's team (in the master), and have another thread on rank 0 bcasting
-            # to receive it (in the worker). So I have to have a completely different
-            # message passing mechanism for master to rank 0, compared to everyone else.
             self.zerotask = []
             self.zerobranchid = []
-
-            # fork the worker team
-            args = (freeindex, values)
-            thread = threading.Thread(target=self.worker, args=args)
-            thread.start()
-
-            # and start the master coordinating process
             self.master(freeindex, values)
-            thread.join()
         else:
             # join a worker team
             self.worker(freeindex, values)
@@ -596,7 +585,6 @@ class DeflatedContinuation(object):
         assert len(freeindices) == 1
         freeindex = freeindices[0]
 
-
         for branchid in range(self.io.max_branch() + 1):
             xs = []
             ys = []
@@ -612,3 +600,4 @@ class DeflatedContinuation(object):
         plt.grid()
         plt.xlabel(self.parameters[freeindex][2])
         plt.ylabel(self.functionals[funcindex][2])
+
