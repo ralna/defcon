@@ -12,6 +12,7 @@ import os
 import glob
 import time
 import numpy as np
+import h5py as h5
 
 class IO(object):
     """
@@ -52,40 +53,49 @@ class IO(object):
 class FileIO(IO):
     def __init__(self, directory):
         self.directory = directory
+        self.maxbranch = -1 
+
+        # File directorys aren't necessarily created automatically. FIXME: Find some way to remove this?
+        try: os.mkdir(directory) 
+        except OSError: pass
 
     def dir(self, params):
-        return self.directory + os.path.sep + parameterstostring(self.parameters, params) + os.path.sep
+        """ Directories for storing functionals. """
+        return self.directory + os.path.sep + parameterstostring(self.parameters, params)
 
     def save_solution(self, solution, params, branchid):
-        f = HDF5File(self.function_space.mesh().mpi_comm(), self.dir(params) + "solution-%d.hdf5" % branchid, 'w')
-        f.write(solution, self.dir(params) + "solution-%d.hdf5" % branchid)
-        f.close()
-        del f
+        # We create one HDF5 file for each parameter value, with groups that contain the solutions for each branch.
+        # The file has the form: self.directory/params-(x1=...).hdf5/solution-0, solution-1, solution-2, etc.
 
-        # wait for the file to be written
-        size = 0
-        while True:
-            try:
-                size = os.stat(self.dir(params) + "solution-%d.hdf5" % branchid).st_size
-            except OSError:
-                pass
-            if size > 0: break
-            #print "Waiting for %s to have nonzero size" % (self.dir(params) + "solution-%d.xml.gz" % branchid)
-            time.sleep(0.1)
+        filename = self.dir(params) + ".hdf5"
+
+        # Urgh... we need to check if the file already exists to decide if we use write mode or append mode...
+        if os.path.exists(filename): mode='a'
+        else: mode = 'w'
+
+        with HDF5File(self.function_space.mesh().mpi_comm(), filename, mode) as f:
+            f.write(solution, "/solution-%d" % branchid)
+            f.flush()
+     
+        # This is potentially a new branch, so let's update the maxbranch variable if need be. 
+        self.maxbranch = max(branchid, self.maxbranch)
 
     def fetch_solutions(self, params, branchids):
         solns = []
         for branchid in branchids:
-            filename = self.dir(params) + "solution-%d.hdf5" % branchid
             failcount = 0
+            solns = []
             while True:
+                # FIXME: For some crazy reason, this doesn't work if we remove the try/except clause, even though we never go in the except part. WTF?
                 try:
-                    soln = Function(self.function_space)
-                    f = HDF5File(self.function_space.mesh().mpi_comm(), filename, 'r')
-                    f.read(soln, filename)
-                    f.close()
-                    del f
+                    filename = self.dir(params) + ".hdf5"
+                    with HDF5File(self.function_space.mesh().mpi_comm(), filename, 'r') as f:
+                        soln = Function(self.function_space)
+                        f.read(soln, "solution-%d" % branchid)
+                        f.flush()
+                    solns.append(soln)
                     break
+  
                 except Exception:
                     print "WTF? Loading file %s failed. Sleeping for a second and trying again." % filename
                     failcount += 1
@@ -94,23 +104,36 @@ class FileIO(IO):
                         raise
                     time.sleep(1)
 
-            solns.append(soln)
         return solns
 
     def known_branches(self, params):
-        filenames = glob.glob(self.dir(params) + "solution-*.hdf5")
-        branches = [int(filename.split('-')[-1][:-5]) for filename in filenames] # The -5 is because ".hdf5" has 5 chars. Different filenames mean changing this value. 
+        # Load the branches we know about for this particular parameter value, by opening the file and seeing which groups it has. 
+        # FIXME: can we remove the except clause?? Maybe tidy up a bit, use the with/as clause for better protection. 
+        try:
+            f = h5.File(self.dir(params) + ".hdf5", 'r')
+            names = f.keys()
+            branches = [int(name.split('-')[-1]) for name in names]
+            f.close()
+        except Exception:
+            branches = set([])
         return set(branches)
-
+     
+    #FIXME: incorporate the functionals into the data structure.   
     def save_functionals(self, funcs, params, branchid):
-        f = file(self.dir(params) + "functional-%d.txt" % branchid, "w")
+        # Urgh, we have to make the directory if it doesn't exist
+        try:
+            os.mkdir(self.dir(params))
+        except OSError:
+            pass
+
+        f = file(self.dir(params) + os.path.sep + "functional-%d.txt" % branchid, "w")
         s = parameterstostring(self.functionals, funcs).replace('@', '\n') + '\n'
         f.write(s)
 
     def fetch_functionals(self, params, branchids):
         funcs = []
         for branchid in branchids:
-            f = file(self.dir(params) + "functional-%d.txt" % branchid, "r")
+            f = file(self.dir(params) + os.path.sep + "functional-%d.txt" % branchid, "r")
             func = []
             for line in f:
                 func.append(float(line.split('=')[-1]))
@@ -130,8 +153,9 @@ class FileIO(IO):
                     break
 
         seen = set()
-        saved_param_dirs = glob.glob(self.directory + "/*")
-        saved_params = [tuple([float(x.split('=')[-1]) for x in dirname.split('/')[-1].split('@')]) for dirname in saved_param_dirs]
+
+        saved_param_files = glob.glob(self.directory + "/*.hdf5")
+        saved_params = [tuple([float(x.split('=')[-1]) for x in dirname[0:-5].split('/')[-1].split('@')]) for dirname in saved_param_files] 
 
         for param in saved_params:
             should_add = True
@@ -146,9 +170,7 @@ class FileIO(IO):
         return seen
 
     def max_branch(self):
-        filenames = glob.glob(self.directory + "/*/solution-*.hdf5")
-        branches = [int(filename.split('-')[-1][:-5]) for filename in filenames]
-        return max(branches)
+        return self.maxbranch
 
 
 class DictionaryIO(IO):
@@ -170,7 +192,6 @@ class DictionaryIO(IO):
             self.sols[branchid] = {params:solution}
             
     def fetch_solutions(self, params, branchids):
-        #FIXME: Send solutions one at a time. Perhaps use an iterator?
         solns = []
         for branchid in branchids:
             try:
@@ -195,9 +216,6 @@ class DictionaryIO(IO):
         for branchid in branchids:
             funcns.append(self.funcs[branchid][params])
         return funcns
-
-    def delete_functionals(self):
-        raise NotImplementedError
 
     def known_branches(self, params):
         branchids = []
