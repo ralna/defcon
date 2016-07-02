@@ -122,25 +122,20 @@ class FileIO(IO):
         return set(branches)
      
     def save_functionals(self, funcs, params, branchid):
-        """ Stores the functionals as attribute 'functional-branchid' in the / directory of the appropriate file. """
+        """ Stores the functionals as attribute 'functional-branchid' if the /solution-branchid group of the appropriate file. """
         s = parameterstostring(self.functionals, funcs)
-
-        f = h5.File(self.dir(params), 'r+')
-        f.attrs["functional-%d" % branchid] = s
-        f.close()
+        with HDF5File(self.function_space.mesh().mpi_comm(), self.dir(params), 'a') as f:
+            f.attributes("/solution-%d" % branchid)["functional-%d" % branchid] = s
+            f.flush()
 
 
     def fetch_functionals(self, params, branchids):
-        """ Gets the fcuntionals back. Output [[all functionals...]]. """
+        """ Gets the functionals back. Output [[all functionals...]]. """
         funcs = []
-        f = h5.File(self.dir(params), 'r')
-        for branchid in branchids:
-            print "fetching from branch %d" % branchid            
-            newfuncs = [float(line.split('=')[-1]) for line in f.attrs["functional-%d" % branchid].split('@')]
-            print "newfuncs =" + str(newfuncs)
-            funcs.append(newfuncs)
-            print "funcs ="+ str(funcs)
-        f.close()
+        with HDF5File(self.function_space.mesh().mpi_comm(), self.dir(params), 'r') as f:
+            for branchid in branchids:
+                newfuncs = [float(line.split('=')[-1]) for line in f.attributes("/solution-%d" % branchid)["functional-%d" % branchid].split('@')]
+                funcs.append(newfuncs)
         return funcs
 
     def known_parameters(self, fixed):
