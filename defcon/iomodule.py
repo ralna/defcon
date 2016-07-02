@@ -73,7 +73,9 @@ class FileIO(IO):
 
         # Urgh... we need to check if the file already exists to decide if we use write mode or append mode... behaviour is different from h5py 'a' mode...
         if os.path.exists(self.dir(params)): mode='a'
-        else: mode = 'w'
+        else: 
+            mode = 'w'
+            print "I create the file for " + str(params)
 
         with HDF5File(self.function_space.mesh().mpi_comm(), self.dir(params), mode) as f:
             f.write(solution, "/solution-%d" % branchid)
