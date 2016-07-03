@@ -214,10 +214,12 @@ class DeflatedContinuation(object):
             while len(self.zerobranchid) == 0:
                 time.sleep(0.01)
             branchid = self.zerobranchid.pop(0)
+            self.log("Got branchid %d" % branchid)
             return branchid
 
         else:
             branchid = self.mastercomm.bcast(None)
+            self.log("Got branchid %d" % branchid)
             return branchid
 
     def compute_functionals(self, solution, params):
@@ -312,7 +314,7 @@ class DeflatedContinuation(object):
         else:
             self.log("Using user-supplied initial guesses at %s" % (initialparams,), master=True)
             oldparams = None
-            nguesses = self.problem.number_solutions(initialparams)-1 #TODO: I put a -1 here, and it works but I don't know why...
+            nguesses = self.problem.number_solutions(initialparams) #FIXME: -1 here makes unity work, because number_solutions is wrong for unity...
 
             for guess in range(nguesses):
                 task = DeflationTask(taskid=taskid_counter,
@@ -331,8 +333,7 @@ class DeflatedContinuation(object):
                 # Let's check if we have found enough solutions already
                 if isinstance(task, DeflationTask):
                     knownbranches = self.io.known_branches(task.newparams)
-                    print "known branches is.." + str(knownbranches)
-                    print "ensure branches is..." + str(ensure_branches)
+                    print knownbranches
                     if task.newparams in ensure_branches:
                         knownbranches = knownbranches.union(ensure_branches[task.newparams])
                     if len(knownbranches) >= self.problem.number_solutions(task.newparams):
@@ -500,10 +501,8 @@ class DeflatedContinuation(object):
                     if branchid is not None:
                         # We do care about this solution, so record the fact we have it in memory
                         self.state_id = (task.newparams, branchid)
-
                         # Save it to disk with the I/O module
                         functionals = self.compute_functionals(self.state, task.newparams)
-                        print "Worker " + str(self.rank) + " found functional " + str(functionals) + " on branch " + str(branchid) + " with params " + str(task.newparams) + "in a deflation task"
                         self.log("Found new solution at parameters %s (branchid=%s) with functionals %s" % (task.newparams, branchid, functionals))
                         self.problem.monitor(task.newparams, branchid, self.state, functionals)
                         self.io.save_solution(self.state, task.newparams, branchid)
@@ -513,6 +512,7 @@ class DeflatedContinuation(object):
                         # Automatically start onto the continuation
                         newparams = nextparameters(values, freeindex, task.newparams)
                         if newparams is not None:
+                            self.log("we queue up a new task")
                             task = ContinuationTask(taskid=task.taskid,
                                                     oldparams=task.newparams,
                                                     branchid=branchid,
@@ -601,8 +601,6 @@ class DeflatedContinuation(object):
                     func = self.io.fetch_functionals(param, [branchid])[0][funcindex]
                     xs.append(param[freeindex])
                     ys.append(func)
-                print "params " + str(param) +", branchid " + str(branchid)
-                print "ys" + str(ys)
 
             plt.plot(xs, ys, 'ok', label="Branch %d" % branchid, linewidth=2, markersize=1)
         plt.grid()

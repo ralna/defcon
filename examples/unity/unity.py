@@ -7,6 +7,11 @@ from dolfin import *
 
 import matplotlib.pyplot as plt
 
+from numpy                import arange, linspace
+from bifurcationproblem   import BifurcationProblem
+from defcon                 import DeflatedContinuation
+from iomodule             import IO, FileIO
+
 args = [sys.argv[0]] + """
                        --petsc.snes_max_it 50
                        --petsc.snes_atol 1.0e-9
@@ -69,14 +74,17 @@ class RootsOfUnityProblem(BifurcationProblem):
         # much more quickly. This can be disabled without changing the
         # correctness of the calculations.
         p = params[0]
-        return int(floor(p/2.0))*2
+        if p==2.0:
+            return 1
+        else:
+            return int(floor(p/2.0))*2
 
     def trivial_solutions(self, V):
         return [interpolate(Constant((1, 0)), V)]
 
 if __name__ == "__main__":
     io = FileIO("output")
-    dc = DeflatedContinuation(problem=RootsOfUnityProblem(), io=io, teamsize=1, verbose=True)
+    dc = DeflatedContinuation(problem=RootsOfUnityProblem(), io=io, teamsize=1, verbose=True, logfiles=False)
     dc.run(free={"p": linspace(2.0, 9.0, 21)})
 
     dc.bifurcation_diagram("arg")

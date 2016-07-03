@@ -61,7 +61,7 @@ class FileIO(IO):
         self.directory = directory
         self.maxbranch = -1 
 
-        # File directorys aren't necessarily created automatically. FIXME: Find some way to remove this?
+        # Create the output directory.
         try: os.mkdir(directory) 
         except OSError: pass
 
@@ -75,7 +75,6 @@ class FileIO(IO):
         if os.path.exists(self.dir(params)): mode='a'
         else: 
             mode = 'w'
-            print "I create the file for " + str(params)
 
         with HDF5File(self.function_space.mesh().mpi_comm(), self.dir(params), mode) as f:
             f.write(solution, "/solution-%d" % branchid)
@@ -103,10 +102,10 @@ class FileIO(IO):
                     break
   
                 except Exception:
-                    print "WTF? Loading file %s failed. Sleeping for a second and trying again." % filename
+                    print "WTF? Loading file %s failed. Sleeping for a second and trying again." % self.dir(params)
                     failcount += 1
                     if failcount == 5:
-                        print "Argh. Tried 5 times to load file %s. Raising exception." % filename
+                        print "Argh. Tried 5 times to load file %s. Raising exception." % self.dir(params)
                         raise
                     time.sleep(1)
         return solns
@@ -189,7 +188,6 @@ class DictionaryIO(IO):
         self.funcs = dict()
         
     def save_solution(self, solution, params, branchid):
-        print solution
         if branchid in self.sols:
             self.sols[branchid][params] = solution
         else:
