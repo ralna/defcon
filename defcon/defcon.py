@@ -403,14 +403,14 @@ class DeflatedContinuation(object):
                                                 branchid=task.branchid,
                                                 newparams=task.newparams)
                         send = True
-                        # FIXME: Excluding tasks like this speeds things up a great deal, but makes us miss some solutions: why?
-                        """for (t, r) in waittasks.values():
-                            # If either there's still a continuation task looking for solutions on these parameters, 
-                            # or there's a deflation task still looking for a new branch on the parameter values before, 
-                            # we want to not send this task out now and look at it again later.
-                            if (sign*t.newparams<sign*task.oldparams): 
+                        # FIXME: Test more thouroughly...
+                        for (t, r) in waittasks.values():
+                            # If there's still a continuation task looking for solutions on prior parameters, we don't want to send a new deflation task
+                            # This task will still be scheduled, it will just be done later. 
+                            # We can't however, forget about this if there are deflation tasks running, as these may fail. 
+                            if (isinstance(t, ContinuationTask) and sign*t.newparams<=sign*task.newparams): 
                                 send = False
-                                self.log("Not scheduling the premature task %s." % newtask, master=True)"""
+                                self.log("Not scheduling the premature task %s." % newtask, master=True)
 
                         if send:
                             taskid_counter += 1
