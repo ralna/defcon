@@ -281,7 +281,7 @@ class DeflatedContinuation(object):
 
         # Next, seed the list of tasks to perform with the initial search
         newtasks = []  # tasks yet to be sent out
-        scheduledtasks = [] # tasks that we've tried to send out but failed to do so 
+        deferredtasks = [] # tasks that we've been forced to defer as we don't have enough information to ensure they're necessary
         waittasks = {} # tasks sent out, waiting to hear back about
 
         # A dictionary of parameters -> branches to ensure they exist,
@@ -326,7 +326,7 @@ class DeflatedContinuation(object):
                 taskid_counter += 1
 
         # Here comes the main master loop.
-        while len(newtasks) + len(waittasks) > 0:
+        while len(newtasks) + len(waittasks) +len(deferredtasks) > 0:
             # If there are any tasks to send out, send them.
             while len(newtasks) > 0 and len(idleteams) > 0:
                 (priority, task) = heappop(newtasks)
@@ -341,15 +341,19 @@ class DeflatedContinuation(object):
                         self.log("Master not dispatching %s because we have enough solutions" % task, master=True)
                         continue
 
-                # Let's make extra sure we're not being premature...
+                # If either there's still a continuation task looking for solutions on earlier parameters, 
+                # or there's a deflation task still looking for a new branch on earlier parameter values, 
+                # we want to not send this task out now and look at it again later.
+                # FIXME: This works, but actually slows things down a little bit. Is there some refinement? Maybe it's too trigger-happy?
                 send = True
                 for (t, r) in waittasks.values():
-                    # If either there's still a continuation task looking for solutions on these parameters, 
-                    # or there's a deflation task still looking for a new branch on the parameter values before, 
-                    # we want to not send this task out now and look at it again later.
-                    if (isinstance(t, ContinuationTask) and t.newparams==task.newparams) or (isinstance(t, DeflationTask) and t.newparams==task.oldparams): 
+
+                    if (isinstance(t, ContinuationTask) and sign*t.newparams<=sign*task.newparams): # or (isinstance(t, DeflationTask) and sign*t.newparams<sign*task.newparams): 
                         send = False
-                        self.log("Deffering task %s" % task, master=True)
+                        self.log("Deferring task %s as there are continuation tasks still running on earlier parameter values." % task, master=True)
+                    elif (isinstance(t, DeflationTask) and sign*t.newparams<=sign*task.newparams):
+                        send = False
+                        self.log("Deferring task %s as there are deflations running on earlier branches." % task, master=True)
                 
                 if send:
                     # OK, we're happy to send it out. Let's tell it any new information
@@ -362,7 +366,7 @@ class DeflatedContinuation(object):
                     waittasks[task.taskid] = (task, idleteam)
                 else: 
                     # Best rescedule for later, as there is still pertinent information yet to come in. 
-                    heappush(scheduledtasks, (priority, task))
+                    heappush(deferredtasks, (priority, task))
 
 
             # We can't send out any more tasks, either because we have no
@@ -395,17 +399,27 @@ class DeflatedContinuation(object):
                         else:
                             idleteams.append(team)
 
-                        # Either way, we want to add a deflation task to the
-                        # queue. FIXME: we should really wait until *all*
-                        # continuation tasks have reached this point or died,
-                        # and then insert *all* deflation tasks at once. But
-                        # that's a refinement.
+
+                        # Let's make extra sure we're not being premature...
+
                         newtask = DeflationTask(taskid=taskid_counter,
                                                 oldparams=task.oldparams,
                                                 branchid=task.branchid,
                                                 newparams=task.newparams)
-                        taskid_counter += 1
-                        heappush(newtasks, (sign*newtask.newparams[freeindex], newtask))
+                        send = True
+                        # FIXME: Excluding tasks like this speeds things up a great deal, but makes us miss some solutions: why?
+                        """for (t, r) in waittasks.values():
+                            # If either there's still a continuation task looking for solutions on these parameters, 
+                            # or there's a deflation task still looking for a new branch on the parameter values before, 
+                            # we want to not send this task out now and look at it again later.
+                            if (isinstance(t, ContinuationTask) and sign*t.newparams<sign*task.oldparams) or (isinstance(t, DeflationTask) and sign*t.newparams<sign*task.oldparams): 
+                                send = False
+                                self.log("Not scheduling the premature task %s." % newtask, master=True)"""
+
+                        if send:
+                            taskid_counter += 1
+                            heappush(newtasks, (sign*newtask.newparams[freeindex], newtask))
+
                     else:
                         # We tried to continue a branch, but the continuation died. Oh well.
                         # The team is now idle.
@@ -459,11 +473,17 @@ class DeflatedContinuation(object):
                         # As expected, deflation found nothing interesting. The team is now idle.
                         idleteams.append(team)
 
-            # We deferred some tasks because we didn't have the information. Let's but them back in the heap.           
-            while len(scheduledtasks) > 0:
-                (priority, task) = heappop(scheduledtasks)
-                heappush(newtasks, (priority, task))
-                self.log("Rescheduling task %s" % task, master=True)
+            # We deferred some tasks because we didn't have enough information to judge if they were worthwhile. 
+            # Let's take out as many tasks as there are idle teams, and reschedule.
+            # FIXME: Taking all or just 1 both seem unsatisifying. Maybe there's a 'right' number?           
+            if len(deferredtasks) > 0:
+                for i in range(len(idleteams)):
+                    # We need to be careful in case there are more idle teams than there are deferred tasks.
+                    try:
+                        (priority, task) = heappop(deferredtasks)
+                        heappush(newtasks, (priority, task))
+                        self.log("Rescheduling the previously deferred task %s" % task, master=True)
+                    except IndexError: break
 
 
         # All continuation tasks have been finished. Tell the workers to quit.
@@ -495,7 +515,6 @@ class DeflatedContinuation(object):
                 knownbranches = self.io.known_branches(task.newparams)
 
                 # If there are branches that must be there, spin until they are there
-                # possible FIXME: instead of spinning, maybe just push the task back on to the queue and do something else??
                 if len(task.ensure_branches) > 0:
                     while True:
                         if task.ensure_branches.issubset(knownbranches):
@@ -534,7 +553,6 @@ class DeflatedContinuation(object):
                         # Automatically start onto the continuation
                         newparams = nextparameters(values, freeindex, task.newparams)
                         if newparams is not None:
-                            self.log("we queue up a new task")
                             task = ContinuationTask(taskid=task.taskid,
                                                     oldparams=task.newparams,
                                                     branchid=branchid,
@@ -618,7 +636,6 @@ class DeflatedContinuation(object):
             xs = []
             ys = []
             for param in sorted(params):
-                print"For params " + str(param) + " we found branches " + str(self.io.known_branches(param))
                 if branchid in self.io.known_branches(param):
                     func = self.io.fetch_functionals(param, [branchid])[0][funcindex]
                     xs.append(param[freeindex])
