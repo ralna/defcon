@@ -345,7 +345,6 @@ class DeflatedContinuation(object):
                 # If either there's still a continuation task looking for solutions on earlier parameters, 
                 # or there's a deflation task still looking for a new branch on earlier parameter values, 
                 # we want to not send this task out now and look at it again later.
-                # FIXME: This works, but actually slows things down a little bit. Is there some refinement?
                     for (t, r) in waittasks.values():
                         if (sign*t.newparams<=sign*task.newparams):
                             send = False
@@ -360,7 +359,7 @@ class DeflatedContinuation(object):
                     self.send_task(task, idleteam)
                     waittasks[task.taskid] = (task, idleteam)
                 else: 
-                    #Best rescedule for later, as there is still pertinent information yet to come in. 
+                    # Best reschedule for later, as there is still pertinent information yet to come in. 
                     self.log("Deferring task %s." % task, master=True)
                     heappush(deferredtasks, (priority, task))
 
@@ -398,21 +397,22 @@ class DeflatedContinuation(object):
 
                         # Let's make extra sure we're not being premature...
 
-                        newtask = DeflationTask(taskid=taskid_counter,
-                                                oldparams=task.oldparams,
-                                                branchid=task.branchid,
-                                                newparams=task.newparams)
+                       
                         send = True
                         # FIXME: Test more thouroughly...
                         for (t, r) in waittasks.values():
                             # If there's still a continuation task looking for solutions on prior parameters, we don't want to send a new deflation task
                             # This task will still be scheduled, it will just be done later. 
                             # We can't however, forget about this if there are deflation tasks running, as these may fail. 
-                            if (isinstance(t, ContinuationTask) and sign*t.newparams<=sign*task.newparams): 
+                            if (isinstance(t, ContinuationTask) and sign*t.oldparams<=sign*task.oldparams): 
                                 send = False
-                                self.log("Not scheduling the premature task %s." % newtask, master=True)
+                                self.log("Not scheduling the premature deflation task %s." % newtask, master=True)
 
                         if send:
+                            newtask = DeflationTask(taskid=taskid_counter,
+                                                    oldparams=task.oldparams,
+                                                    branchid=task.branchid,
+                                                    newparams=task.newparams)
                             taskid_counter += 1
                             heappush(newtasks, (sign*newtask.newparams[freeindex], newtask))
 
