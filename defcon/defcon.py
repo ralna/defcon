@@ -346,7 +346,7 @@ class DeflatedContinuation(object):
                 # or there's a deflation task still looking for a new branch on earlier parameter values, 
                 # we want to not send this task out now and look at it again later.
                     for (t, r) in waittasks.values():
-                        if (sign*t.newparams<=sign*task.newparams):
+                        if (sign*t.newparams[freeindex]<=sign*task.newparams[freeindex]):
                             send = False
                             break
                                          
@@ -404,9 +404,9 @@ class DeflatedContinuation(object):
                             # If there's still a continuation task looking for solutions on prior parameters, we don't want to send a new deflation task
                             # This task will still be scheduled, it will just be done later. 
                             # We can't however, forget about this if there are deflation tasks running, as these may fail. 
-                            if (isinstance(t, ContinuationTask) and sign*t.oldparams<=sign*task.oldparams): 
+                            if (isinstance(t, ContinuationTask) and sign*t.oldparams[freeindex]<=sign*task.oldparams[freeindex]): 
                                 send = False
-                                self.log("Not scheduling the premature deflation task %s." % newtask, master=True)
+                                self.log("Not scheduling premature deflation task at params %s." % task.newparams, master=True)
 
                         if send:
                             newtask = DeflationTask(taskid=taskid_counter,
