@@ -399,14 +399,13 @@ class DeflatedContinuation(object):
 
                        
                         send = True
-                        # FIXME: Test more thouroughly...
                         for (t, r) in waittasks.values():
                             # If there's still a continuation task looking for solutions on prior parameters, we don't want to send a new deflation task
-                            # This task will still be scheduled, it will just be done later. 
-                            # We can't however, forget about this if there are deflation tasks running, as these may fail. 
+                            # This task will still be scheduled, but that will happen at a later date. 
+                            # We can't forget about this if there are deflation tasks running at prior paramters, as these may fail. 
                             if (isinstance(t, ContinuationTask) and sign*t.oldparams[freeindex]<=sign*task.oldparams[freeindex]): 
                                 send = False
-                                self.log("Not scheduling premature deflation task at params %s." % task.newparams, master=True)
+                                #self.log("Not scheduling premature deflation task at params." % task.oldparams, master=True)
 
                         if send:
                             newtask = DeflationTask(taskid=taskid_counter,
@@ -424,10 +423,7 @@ class DeflatedContinuation(object):
                 elif isinstance(task, DeflationTask):
                     if response.success:
                         # In this case, we want the master to
-                        # 1. Allocate a new branch id for the discovered branch.
-                        # FIXME: We might want to make this more sophisticated
-                        # to catch duplicates --- in that event, send None. But
-                        # for now we'll just accept it.
+                        # 1. Allocate a new branch id for the discovered branch. There cannot be duplicates. 
                         self.send_branchid(branchid_counter, team)
 
                         # 2. Insert a new deflation task, to seek again with the same settings.
@@ -624,13 +620,10 @@ class DeflatedContinuation(object):
         assert len(freeindices) == 1
         freeindex = freeindices[0]
 
-
-
         for branchid in range(self.io.max_branch() + 1):
             xs = []
             ys = []
             for param in sorted(params):
-                #print str(param), str(self.io.known_branches(param))
                 if branchid in self.io.known_branches(param):
                     func = self.io.fetch_functionals(param, [branchid])[0][funcindex]
                     xs.append(param[freeindex])
