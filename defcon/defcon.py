@@ -15,6 +15,11 @@ import time
 import sys
 import signal
 
+#FIXME: Find some way to import this only if we're using guimode. 
+import matplotlib
+matplotlib.use("TkAgg")
+import matplotlib.pyplot as plt
+
 try:
     import ipdb as pdb
 except ImportError:
@@ -27,7 +32,7 @@ class DeflatedContinuation(object):
     This class is the main driver that implements deflated continuation.
     """
 
-    def __init__(self, problem, io, deflation=None, teamsize=1, verbose=False, logfiles=False):
+    def __init__(self, problem, io, deflation=None, teamsize=1, verbose=False, logfiles=False, gui=False, functional=None):
         """
         Constructor.
 
@@ -44,6 +49,10 @@ class DeflatedContinuation(object):
             Activate verbose output.
           logfiles (:py:class:`bool`)
             Whether defcon should remap stdout/stderr to logfiles (useful for many processes).
+          gui (:py:class:`bool`)
+            Whether defcon should run in 'gui' mode, drawing the bifurcation diagram as it goes.
+          functional (:py:class:`str`)
+            If we're in gui mode, which functional should we plot. 
         """
         self.problem = problem
 
@@ -101,6 +110,10 @@ class DeflatedContinuation(object):
 
         io.setup(self.parameters, self.functionals, self.function_space)
         self.io = io
+
+        # Gui stuff.
+        self.gui = gui
+        self.functional = functional
 
         # We keep track of what solution we actually have in memory in self.state
         # for efficiency
@@ -253,6 +266,14 @@ class DeflatedContinuation(object):
         for (param, value) in zip(self.parameters, params):
             param[0].assign(value)
 
+
+    def plot_points(self, freeindex, params, branchid):
+        x = params[freeindex]
+        y = self.io.fetch_functionals(params, [branchid])[0][self.funcindex]
+        self.ax.plot(x, y, color='k', marker='.')
+        self.fig.canvas.draw()
+
+
     def master(self, freeindex, values):
         """
         The master coordinating routine.
@@ -297,6 +318,28 @@ class DeflatedContinuation(object):
             sign = -1
             minvals = max
 
+        # If gui mode is on, set up the gui.
+        if self.gui:
+            assert(self.functional is not None) # We need to be told which functional to plot.
+            
+            # Find the functional index.
+            self.funcindex = None
+            for (i, functionaldata) in enumerate(self.functionals):
+                if functionaldata[1] == self.functional:
+                    self.funcindex = i
+                    break
+            assert self.funcindex is not None
+
+            # Set up the plot.
+            self.fig, self.ax = plt.subplots(1, 1)
+            plt.grid()
+            plt.xlabel(self.parameters[freeindex][2])
+            plt.ylabel(self.functionals[self.funcindex][2])
+            self.ax.hold(True)
+            plt.show(block=False)
+            plt.draw()
+
+        # Send off intial tasks
         initialparams = parameterstofloats(self.parameters, freeindex, values[0])
         knownbranches = self.io.known_branches(initialparams)
         if len(knownbranches) > 0:
@@ -395,18 +438,17 @@ class DeflatedContinuation(object):
                             idleteams.append(team)
 
 
-                        # Let's make extra sure we're not being premature...
 
-                       
+                        # If there's still a continuation task looking for solutions on prior parameters, we don't want to send a new deflation task
+                        # This task will still be scheduled, but that will happen at a later date. 
+                        # We can't forget about this if there are deflation tasks running at prior paramters, as these may fail. 
                         send = True
                         for (t, r) in waittasks.values():
-                            # If there's still a continuation task looking for solutions on prior parameters, we don't want to send a new deflation task
-                            # This task will still be scheduled, but that will happen at a later date. 
-                            # We can't forget about this if there are deflation tasks running at prior paramters, as these may fail. 
                             if (isinstance(t, ContinuationTask) and sign*t.oldparams[freeindex]<=sign*task.oldparams[freeindex]): 
                                 send = False
                                 #self.log("Not scheduling premature deflation task at params." % task.oldparams, master=True)
 
+                        # If we're sure we want to schedule this task, let's do so.
                         if send:
                             newtask = DeflationTask(taskid=taskid_counter,
                                                     oldparams=task.oldparams,
@@ -414,6 +456,12 @@ class DeflatedContinuation(object):
                                                     newparams=task.newparams)
                             taskid_counter += 1
                             heappush(newtasks, (sign*newtask.newparams[freeindex], newtask))
+
+                        # If we're in GUI mode, lets plot this new point we're found.
+                        if self.gui:
+                            time.sleep(0.01)
+                            self.log("Plotting points at %s on branch %d" % (task.newparams, task.branchid), master=True)
+                            self.plot_points(freeindex, task.newparams, task.branchid)
 
                     else:
                         # We tried to continue a branch, but the continuation died. Oh well.
@@ -461,6 +509,13 @@ class DeflatedContinuation(object):
                         ensure_branches[task.newparams].add(branchid_counter)
 
                         branchid_counter += 1
+
+                        # If we're in GUI mode, lets plot this new point we're found.
+                        if self.gui:
+                            time.sleep(0.01)
+                            self.log("Plotting points at %s on branch %d" % (task.newparams, task.branchid), master=True)
+                            self.plot_points(freeindex, task.newparams, task.branchid)
+
                     else:
                         # As expected, deflation found nothing interesting. The team is now idle.
                         idleteams.append(team)
@@ -475,11 +530,13 @@ class DeflatedContinuation(object):
                         self.log("Rescheduling the previously deferred task %s" % task, master=True)
                     except IndexError: break
 
-
         # All continuation tasks have been finished. Tell the workers to quit.
         quit = QuitTask()
         for teamno in range(self.nteams):
             self.send_task(quit, teamno)
+        
+        # Show the plot, to ensure the window won't close.
+        plt.show()
 
     def worker(self, freeindex, values):
         """
@@ -600,7 +657,7 @@ class DeflatedContinuation(object):
         if self.rank != 0:
             return
 
-        import matplotlib.pyplot as plt
+        #import matplotlib.pyplot as plt # don't need this if we import at the top.
 
         params = self.io.known_parameters(fixed)
 

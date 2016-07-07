@@ -130,10 +130,12 @@ class FileIO(IO):
     def fetch_functionals(self, params, branchids):
         """ Gets the functionals back. Output [[all functionals...]]. """
         funcs = []
-        with HDF5File(self.function_space.mesh().mpi_comm(), self.dir(params), 'r') as f:
-            for branchid in branchids:
-                newfuncs = [float(line.split('=')[-1]) for line in f.attributes("/solution-%d" % branchid)["functional-%d" % branchid].split('@')]
-                funcs.append(newfuncs)
+        try:
+            with HDF5File(self.function_space.mesh().mpi_comm(), self.dir(params), 'r') as f:
+                for branchid in branchids:
+                    newfuncs = [float(line.split('=')[-1]) for line in f.attributes("/solution-%d" % branchid)["functional-%d" % branchid].split('@')]
+                    funcs.append(newfuncs)
+        except Exception: raise
         return funcs
 
     def known_parameters(self, fixed):
