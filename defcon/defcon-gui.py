@@ -31,7 +31,7 @@ LARGE_FONT= ("Verdana", 12)
 class PlotConstructor():
     """ Class for handling everything to do with the bifuraction diagram plot. """
 
-    def __init__(self, directory = "." label=False):
+    def __init__(self, directory = ".", label=False):
         self.points = [] # Keep track of the points we've found, so we can redraw everything if necessary. Also for annotation.
 
         self.maxtime = 0 # Keep track of the furthest we have got in time. 
