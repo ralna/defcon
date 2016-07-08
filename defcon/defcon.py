@@ -10,7 +10,6 @@ from mpi4py import MPI
 from petsc4py import PETSc
 
 import math
-import threading
 import time
 import sys
 import signal
@@ -32,7 +31,7 @@ class DeflatedContinuation(object):
     This class is the main driver that implements deflated continuation.
     """
 
-    def __init__(self, problem, io, deflation=None, teamsize=1, verbose=False, logfiles=False, gui=False, functional=None):
+    def __init__(self, problem, io, deflation=None, teamsize=1, verbose=False, logfiles=False, gui=False, externalgui=False, functional=None):
         """
         Constructor.
 
@@ -51,8 +50,10 @@ class DeflatedContinuation(object):
             Whether defcon should remap stdout/stderr to logfiles (useful for many processes).
           gui (:py:class:`bool`)
             Whether defcon should run in 'gui' mode, drawing the bifurcation diagram as it goes.
+          externalgui (:py:class:`bool`)
+            Whether defcon should run in 'externalgui' mode, sending the points of the bifurcation diagram to a file for plotting by the external gui. 
           functional (:py:class:`str`)
-            If we're in gui mode, which functional should we plot. 
+            If we're in gui mode, which functional we should plot. 
         """
         self.problem = problem
 
@@ -113,6 +114,7 @@ class DeflatedContinuation(object):
 
         # Gui stuff.
         self.gui = gui
+        self.externalgui = externalgui
         self.functional = functional
 
         # We keep track of what solution we actually have in memory in self.state
@@ -273,6 +275,11 @@ class DeflatedContinuation(object):
         self.ax.plot(x, y, color='k', marker='.')
         self.fig.canvas.draw()
 
+    def plot_to_file(self, freeindex, params, branchid):
+        x = params[freeindex]
+        y = self.io.fetch_functionals(params, [branchid])[0][self.funcindex]
+        self.io.plot_to_file(x, y)
+        
 
     def master(self, freeindex, values):
         """
@@ -318,8 +325,8 @@ class DeflatedContinuation(object):
             sign = -1
             minvals = max
 
-        # If gui mode is on, set up the gui.
-        if self.gui:
+        # If either of the gui modes is on, set up the gui.
+        if self.gui or self.externalgui:
             assert(self.functional is not None) # We need to be told which functional to plot.
             
             # Find the functional index.
@@ -330,14 +337,16 @@ class DeflatedContinuation(object):
                     break
             assert self.funcindex is not None
 
-            # Set up the plot.
-            self.fig, self.ax = plt.subplots(1, 1)
-            plt.grid()
-            plt.xlabel(self.parameters[freeindex][2])
-            plt.ylabel(self.functionals[self.funcindex][2])
-            self.ax.hold(True)
-            plt.show(block=False)
-            plt.draw()
+            # If we're using the interal gui, we need to set up the plot.
+            if self.gui:
+                self.fig, self.ax = plt.subplots(1, 1)
+                plt.grid()
+                plt.xlabel(self.parameters[freeindex][2])
+                plt.ylabel(self.functionals[self.funcindex][2])
+                self.ax.hold(True)
+                plt.show(block=False) #show the plot, but don't stop us from progessing in the code.
+                plt.draw()
+
 
         # Send off intial tasks
         initialparams = parameterstofloats(self.parameters, freeindex, values[0])
@@ -462,6 +471,9 @@ class DeflatedContinuation(object):
                             time.sleep(0.01)
                             self.log("Plotting points at %s on branch %d" % (task.newparams, task.branchid), master=True)
                             self.plot_points(freeindex, task.newparams, task.branchid)
+                        elif self.externalgui:
+                            time.sleep(0.01)
+                            self.plot_to_file(freeindex, task.newparams, task.branchid)
 
                     else:
                         # We tried to continue a branch, but the continuation died. Oh well.
@@ -515,6 +527,9 @@ class DeflatedContinuation(object):
                             time.sleep(0.01)
                             self.log("Plotting points at %s on branch %d" % (task.newparams, task.branchid), master=True)
                             self.plot_points(freeindex, task.newparams, task.branchid)
+                        elif self.externalgui:
+                            time.sleep(0.01)
+                            self.plot_to_file(freeindex, task.newparams, task.branchid)
 
                     else:
                         # As expected, deflation found nothing interesting. The team is now idle.
@@ -535,8 +550,8 @@ class DeflatedContinuation(object):
         for teamno in range(self.nteams):
             self.send_task(quit, teamno)
         
-        # Show the plot, to ensure the window won't close.
-        plt.show()
+        # If we're in gui mode then show the plot, to ensure the window won't close.
+        if self.gui: plt.show()
 
     def worker(self, freeindex, values):
         """
@@ -657,7 +672,9 @@ class DeflatedContinuation(object):
         if self.rank != 0:
             return
 
-        #import matplotlib.pyplot as plt # don't need this if we import at the top.
+        import matplotlib
+        matplotlib.use("PDF")
+        import matplotlib.pyplot as plt # don't need this if we import at the top.
 
         params = self.io.known_parameters(fixed)
 

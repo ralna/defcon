@@ -45,6 +45,9 @@ class IO(object):
     def max_branch(self):
         raise NotImplementedError
 
+    def plot_to_file(self, x, y):
+        raise NotImplementedError
+
 
 
 class FileIO(IO):
@@ -83,6 +86,8 @@ class FileIO(IO):
             self.maxbranch = branchid
             g = file(self.directory + os.path.sep + "maxbranch", 'w')
             g.write(str(self.maxbranch))
+            g.flush()
+            g.close()
 
     def fetch_solutions(self, params, branchids):
         """ Fetch solutions for a particular parameter value for each branchid in branchids. """
@@ -174,3 +179,11 @@ class FileIO(IO):
         s = int(g.read())
         g.close()
         return s
+
+    def plot_to_file(self, x, y):
+        """ Writes a pair of points to the file 'points_to_plot', so the external gui can read them in. 
+            Points are written to 10 decimal places of accuracy. """
+        g = file(self.directory + os.path.sep + "points_to_plot", 'a') # append mode so we don't overwrite the previous contents. 
+        g.write("%.10f,%.10f \n" % (x,y)) # change '.10' to alter the decimal precision.
+        g.flush()
+        g.close()
