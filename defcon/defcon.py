@@ -278,7 +278,7 @@ class DeflatedContinuation(object):
     def plot_to_file(self, freeindex, params, branchid):
         x = params[freeindex]
         y = self.io.fetch_functionals(params, [branchid])[0][self.funcindex]
-        self.io.plot_to_file(x, y)
+        self.io.plot_to_file(x, y, branchid)
         
 
     def master(self, freeindex, values):
@@ -472,7 +472,7 @@ class DeflatedContinuation(object):
                             self.log("Plotting points at %s on branch %d" % (task.newparams, task.branchid), master=True)
                             self.plot_points(freeindex, task.newparams, task.branchid)
                         elif self.externalgui:
-                            time.sleep(0.01)
+                            time.sleep(0.1)
                             self.plot_to_file(freeindex, task.newparams, task.branchid)
 
                     else:
@@ -528,7 +528,7 @@ class DeflatedContinuation(object):
                             self.log("Plotting points at %s on branch %d" % (task.newparams, task.branchid), master=True)
                             self.plot_points(freeindex, task.newparams, task.branchid)
                         elif self.externalgui:
-                            time.sleep(0.01)
+                            time.sleep(0.1)
                             self.plot_to_file(freeindex, task.newparams, task.branchid)
 
                     else:
