@@ -439,7 +439,7 @@ class DeflatedContinuation(object):
 
                         # If we're in GUI mode, lets plot this new point we're found.
                         if self.externalgui:
-                            time.sleep(0.1)
+                            time.sleep(0.05)
                             self.io.plot_to_file(freeindex, self.funcindex, task.newparams, task.branchid)
 
                     else:
@@ -491,7 +491,7 @@ class DeflatedContinuation(object):
 
                         # If we're in GUI mode, lets plot this new point we're found.
                         if self.externalgui:
-                            time.sleep(0.1)
+                            time.sleep(0.05)
                             self.io.plot_to_file(freeindex, self.funcindex, task.newparams, task.branchid)
 
                     else:
@@ -632,8 +632,6 @@ class DeflatedContinuation(object):
         if self.rank != 0:
             return
 
-        import matplotlib
-        matplotlib.use("PDF")
         import matplotlib.pyplot as plt
 
         params = self.io.known_parameters(fixed)

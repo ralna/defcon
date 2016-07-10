@@ -1,10 +1,11 @@
 import Tkinter as tk
 import ttk
-import sys
-import math
+
+import sys, getopt
+from math import sqrt
+
 from subprocess import Popen
 import h5py as h5
-from time import sleep
 
 # For plotting the bifurcation diagram.
 import matplotlib
@@ -15,26 +16,40 @@ from matplotlib.figure import Figure
 # Needed for animating the graph.
 import matplotlib.animation as animation
 
-# Styles for matplotlib. TODO: Play around with this, find something nice. 
-#from matplotlib import style
-#style.use('ggplot')
+# Styles for matplotlib.
+# See matpoltlib.styles.available for options.
+try:
+    from matplotlib import style
+    style.use('ggplot')
+except AttributeError:
+    print "Update to the latest version of matplotlib to use styles."
+
+# TODO: Get command line arguments.
+
+# Fonts.
+LARGE_FONT= ("Verdana", 12)
+
+# Colours.
+MAIN = 'k' # colour for points.
+HIGHLIGHT = 'r' # colour for selected points.
+GRID = 'w' # Colour for grid.
 
 # Set up the figure.
 figure = Figure(figsize=(5,4), dpi=100)
 bfdiag = figure.add_subplot(111)
-bfdiag.grid()
+bfdiag.grid(color=GRID)
 
 # FIXME: Get these as input, or something?
 #bfdiag.xlabel="X axis"
 #bfdiag.ylabel="Y axis"
 
-# Fonts.
-LARGE_FONT= ("Verdana", 12)
 
 
 ####################################
 ### Utility Function Definitions ###
 ####################################
+
+# TODO: We need to know what kind of problem we are handling, and what the function space is, so we can change from hdf5 to pvd.
 
 # FIXME: get this and the paraview function working properly
 def hdf5topvd(problem_type, params, branchid):
@@ -69,9 +84,9 @@ def paraview(filename):
     Popen("paraview %s" % filename)
     
 
-#######################
-### Utility Classes ###
-#######################
+#####################
+### Utility Class ###
+#####################
 
 class PlotConstructor():
     """ Class for handling everything to do with the bifuraction diagram plot. """
@@ -91,13 +106,9 @@ class PlotConstructor():
 
         self.app = app # The BifurcationPage window, so that we can set the time.
     
-    def get_time(self):
-        """ Utility method for getting the time."""
-        return self.time
-
     def distance(self, x1, x2, y1, y2):
-        """ Return the distance between two points. """
-        return(math.sqrt((x1 - x2)**2 + (y1 - y2)**2))
+        """ Return the L2 distance between two points. """
+        return(sqrt((x1 - x2)**2 + (y1 - y2)**2))
 
     def pause(self):
         """ Pause/unpause the drawing. """
@@ -112,8 +123,8 @@ class PlotConstructor():
             ys = [point[1] for point in self.points[:self.time]]
             self.time -= 1
             bfdiag.clear()
-            bfdiag.grid()
-            bfdiag.plot(xs, ys, marker='.', color='k', linestyle='None') 
+            bfdiag.grid(color=GRID)
+            bfdiag.plot(xs, ys, marker='.', color=MAIN, linestyle='None') 
         else:
             pass
         return self.time
@@ -124,7 +135,7 @@ class PlotConstructor():
         if self.paused and self.time < self.maxtime:
             x, y, branchid = self.points[self.time]
             self.time += 1
-            bfdiag.plot(x, y, marker='.', color='k', linestyle='None')
+            bfdiag.plot(x, y, marker='.', color=MAIN, linestyle='None')
         else:
             pass
         return self.time
@@ -151,7 +162,7 @@ class PlotConstructor():
             # Catch up to the points we have in memory.
             if self.time < self.maxtime:
                 for x, y, branchid in self.points[self.time:]:
-                    bfdiag.plot(x, y, marker='.', color='k', linestyle='None')
+                    bfdiag.plot(x, y, marker='.', color=MAIN, linestyle='None')
                     self.time += 1
 
             # Get new points.
@@ -163,7 +174,7 @@ class PlotConstructor():
                 if len(eachLine) > 1:
                     x, y, branchid = eachLine.split(',')
                     self.points.append((float(x),float(y),int(branchid)))
-                    bfdiag.plot(float(x), float(y), marker='.', color='k', linestyle='None')
+                    bfdiag.plot(float(x), float(y), marker='.', color=MAIN, linestyle='None')
                     self.time += 1
 
             # Update the current time.
@@ -173,12 +184,12 @@ class PlotConstructor():
     def annotate(self, clickX, clickY):
          """ Annotate a point when clicking on it. If there's already an annotation, remove it. """
          if not self.annotation:
-             xdata = [point[0] for point in self.points[:self.time]]
-             ydata = [point[1] for point in self.points[:self.time]]
+             xs = [point[0] for point in self.points[:self.time]]
+             ys = [point[1] for point in self.points[:self.time]]
  
              # FIXME: The *10 is because these were too small, might need some changing.
-             xtol = 10*((max(xdata) - min(xdata))/float(len(xdata)))/2
-             ytol = 10*((max(ydata) - min(ydata))/float(len(ydata)))/2
+             xtol = 10*((max(xs) - min(xs))/float(len(xs)))/2
+             ytol = 10*((max(ys) - min(ys))/float(len(ys)))/2
 
              annotes = []
 
@@ -199,7 +210,7 @@ class PlotConstructor():
                             bbox = dict(boxstyle = 'round,pad=0.5', fc = 'yellow', alpha = 0.5),
                             arrowprops = dict(arrowstyle = '->', connectionstyle = 'arc3,rad=0'))
 
-                 self.annotationpoint = bfdiag.scatter([x], [y], marker='o', color='r')        
+                 self.annotationpoint = bfdiag.scatter([x], [y], marker='o', color=HIGHLIGHT)        
 
 
          else:
@@ -207,7 +218,6 @@ class PlotConstructor():
             self.annotationpoint.remove()
             self.annotation = None
             self.annotationpoint = None
-            return None
         
 ##################
 ### Tk Classes ###
@@ -243,6 +253,7 @@ class BifurcationPage(tk.Tk):
         buttonPause = ttk.Button(self, textvariable=self.pause_text, command= self.pause)
         buttonPause.pack()
 
+        # FIXME: Have these buttons greyed out when not paused.
         buttonBack = ttk.Button(self, text="Back", command= self.back)
         buttonBack.pack()
 
@@ -252,9 +263,8 @@ class BifurcationPage(tk.Tk):
         buttonPlot = ttk.Button(self, text="Plot", command= self.launch_paraview)
         buttonPlot.pack()
 
+        # TODO: Add a method for jumping to a particular time step. 
 
-    def get_time(self):
-        return pc.get_time()
 
     def set_time(self, t):
         self.time_text.set("Time = %d" % t)
@@ -270,12 +280,15 @@ class BifurcationPage(tk.Tk):
         else: self.pause_text.set("Pause")
 
     def back(self):
-        time = pc.back()
-        self.time_text.set("Time = %d" % time)
+        t = pc.back()
+        self.set_time(t)
 
     def forward(self):
-        time = pc.forward()
-        self.time_text.set("Time = %d" % time)
+        t = pc.forward()
+        self.set_time(t)
+
+    def jump_to(self, t):
+        raise NotImplementedError
 
     def launch_paraview(self):
         print "Launch paraview."
@@ -285,12 +298,8 @@ class BifurcationPage(tk.Tk):
 ### Main ###
 ############
 
-# TODO: Add scope for passing arguments, such as a directory to work in and so on. 
-# TODO: Change the animation method so we have some way of setting the time display in BifurcationPage
-# TODO: We need to know what kind of problem we are handling, and what the function space is, so we can chnage from hdf5 to pvd.
-
 # Construct the app, name it and give it an icon.
-app = BifurcationPage() #MainWindow(directory="")
+app = BifurcationPage()
 app.title("DEFCON")
 #app.iconbitmap('path/to/icon.ico')
 
