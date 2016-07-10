@@ -2,6 +2,9 @@ import Tkinter as tk
 import ttk
 import sys
 import math
+from subprocess import Popen
+import h5py as h5
+from time import sleep
 
 # For plotting the bifurcation diagram.
 import matplotlib
@@ -28,21 +31,69 @@ bfdiag.grid()
 # Fonts.
 LARGE_FONT= ("Verdana", 12)
 
+
+####################################
+### Utility Function Definitions ###
+####################################
+
+# FIXME: get this and the paraview function working properly
+def hdf5topvd(problem_type, params, branchid):
+    """ Utility function for creating a pvd from hdf5. """
+    problem_name = __import__(problem_type)
+    globals().update(vars(problem_name))
+
+    problem = RootsOfUnityProblem() # FIXME: get this to be whatever is correct
+    mesh = problem.mesh(mpi_comm_world())
+    V    = problem.function_space(mesh)
+
+    dir = "output" + os.path.sep 
+    filename = dir 
+    pvd = File(dir + "solutions.pvd")
+
+    # Find the keys
+    f = h5.File(filename, 'r')
+    solns = sorted(f.keys())
+    f.close()
+
+    with HDF5File(mesh.mpi_comm(), filename, 'r') as f:
+        for soln in solns:
+            print soln
+            y = Function(V)
+            f.read(y, str(soln))
+            print y
+            f.flush()
+            pvd << y
+
+def paraview(filename):
+    """ Utility function for launching paraview. Popen launches it in a separate process, so we may carry on with whatever we are doing."""
+    Popen("paraview %s" % filename)
+    
+
+#######################
+### Utility Classes ###
+#######################
+
 class PlotConstructor():
     """ Class for handling everything to do with the bifuraction diagram plot. """
 
-    def __init__(self, directory = ".", label=False):
+    def __init__(self, app, directory = "."):
         self.points = [] # Keep track of the points we've found, so we can redraw everything if necessary. Also for annotation.
 
         self.maxtime = 0 # Keep track of the furthest we have got in time. 
         self.time = 0 # Keep track of where we currently are in time.
 
         self.paused = False # Are we updating we new points, or are we frozen in time?
-        self.annotation = None # Have we annotated the diagram?
 
-        self.directory = directory
-        self.label = label
-        
+        self.annotation = None # The annotation on the diagram. 
+        self.annotationpoint = None # The point we've annotated. 
+
+        self.directory = directory # The working directory.
+
+        self.app = app # The BifurcationPage window, so that we can set the time.
+    
+    def get_time(self):
+        """ Utility method for getting the time."""
+        return self.time
 
     def distance(self, x1, x2, y1, y2):
         """ Return the distance between two points. """
@@ -51,14 +102,32 @@ class PlotConstructor():
     def pause(self):
         """ Pause/unpause the drawing. """
         self.paused = not self.paused
+        return self.paused
 
     def back(self):
         """ Take a step backwards in time. """
-        raise NotImplementedError
+        if self.paused and self.time > 0:
+            #FIXME: Extremely inefficient to replot everything
+            xs = [point[0] for point in self.points[:self.time]]
+            ys = [point[1] for point in self.points[:self.time]]
+            self.time -= 1
+            bfdiag.clear()
+            bfdiag.grid()
+            bfdiag.plot(xs, ys, marker='.', color='k', linestyle='None') 
+        else:
+            pass
+        return self.time
+
 
     def forward(self):
         """ Take a step forwards in time. """
-        raise NotImplementedError
+        if self.paused and self.time < self.maxtime:
+            x, y, branchid = self.points[self.time]
+            self.time += 1
+            bfdiag.plot(x, y, marker='.', color='k', linestyle='None')
+        else:
+            pass
+        return self.time
 
     def grab_data(self):
         """ Get data from the file. """
@@ -79,37 +148,33 @@ class PlotConstructor():
 
         # If we're not paused, we draw all the points that have come in since we last drew something.
         else:   
+            # Catch up to the points we have in memory.
+            if self.time < self.maxtime:
+                for x, y, branchid in self.points[self.time:]:
+                    bfdiag.plot(x, y, marker='.', color='k', linestyle='None')
+                    self.time += 1
+
+            # Get new points.
             pullData = self.grab_data()
-            # Get a list of points
             dataList = pullData.split('\n')
 
-            # Plot points one at a time. We only want new points.
-            for eachLine in dataList[self.maxtime:]:
+            # Plot new points one at a time.
+            for eachLine in dataList[self.time:]:
                 if len(eachLine) > 1:
                     x, y, branchid = eachLine.split(',')
                     self.points.append((float(x),float(y),int(branchid)))
-                    bfdiag.plot(float(x), float(y), label=branchid, marker='.', color='k', linestyle='None')
-                    self.maxtime += 1
-
-            # Label all points
-            # FIXME: Make this prettier. 
-            if self.label:
-                for x,y,branchid,self.maxtime in self.points[self.time:]:
-                    bfdiag.annotate(
-                        branchid, 
-                        xy = (x, y), xytext = (-20, 20),
-                        textcoords = 'offset points', ha = 'right', va = 'bottom',
-                        bbox = dict(boxstyle = 'round,pad=0.5', fc = 'yellow', alpha = 0.5),
-                        arrowprops = dict(arrowstyle = '->', connectionstyle = 'arc3,rad=0'))
+                    bfdiag.plot(float(x), float(y), marker='.', color='k', linestyle='None')
+                    self.time += 1
 
             # Update the current time.
-            self.time =self.maxtime
+            self.maxtime = self.time
+            self.app.set_time(self.time)         
 
     def annotate(self, clickX, clickY):
          """ Annotate a point when clicking on it. If there's already an annotation, remove it. """
          if not self.annotation:
-             xdata = [point[0] for point in self.points]
-             ydata = [point[1] for point in self.points]
+             xdata = [point[0] for point in self.points[:self.time]]
+             ydata = [point[1] for point in self.points[:self.time]]
  
              # FIXME: The *10 is because these were too small, might need some changing.
              xtol = 10*((max(xdata) - min(xdata))/float(len(xdata)))/2
@@ -126,77 +191,39 @@ class PlotConstructor():
                  annotes.sort()
                  distance, x, y, branchid = annotes[0]
 
-             # Plot the annotation
-             # FIXME: Make it prettier.
-             self.annotation = bfdiag.annotate("param=%.10f, branchid=%d" % (x, branchid),
+                 # Plot the annotation
+                 # FIXME: Make it prettier.
+                 self.annotation = bfdiag.annotate("Parameter=%.5f, Branch=%d" % (x, branchid),
                             xy = (x, y), xytext = (-20, 20),
                             textcoords = 'offset points', ha = 'right', va = 'bottom',
                             bbox = dict(boxstyle = 'round,pad=0.5', fc = 'yellow', alpha = 0.5),
                             arrowprops = dict(arrowstyle = '->', connectionstyle = 'arc3,rad=0'))
+
+                 self.annotationpoint = bfdiag.scatter([x], [y], marker='o', color='r')        
+
+
          else:
             self.annotation.remove()
+            self.annotationpoint.remove()
             self.annotation = None
+            self.annotationpoint = None
+            return None
         
-         
-
-class MainWindow(tk.Tk):
-    """ The class defining the window to be drawn. """
-    def __init__(self, directory, *args, **kwargs):
-        
-        tk.Tk.__init__(self, *args, **kwargs)
-        container = tk.Frame(self)
-
-        container.pack(side="top", fill="both", expand = True)
-
-        container.grid_rowconfigure(0, weight=1)
-        container.grid_columnconfigure(0, weight=1)
-
-        self.frames = {}
-
-        # Add the two pages. If we add more pages, this must be extended. 
-        for F in (StartPage, BifurcationPage, SolutionsPage):
-            frame = F(container, self)
-            self.frames[F] = frame
-            frame.grid(row=0, column=0, sticky="nsew")
-
-        self.show_frame(StartPage)
-
-    def show_frame(self, cont):
-        frame = self.frames[cont]
-        frame.tkraise()
-
-
-class StartPage(tk.Frame):
-    """ The page we see when the gui loads. """
-    def __init__(self, parent, controller):
-        tk.Frame.__init__(self,parent)
-        label = tk.Label(self, text="Welcome to DEFCON", font=LARGE_FONT)
-        label.pack(pady=10,padx=10)
-
-        # To BD window
-        button = ttk.Button(self, text="Bifurcation Diagram",
-                            command=lambda: controller.show_frame(BifurcationPage))
-        button.pack()
-
-        # To solutions window
-        button = ttk.Button(self, text="Solution Plotter",
-                            command=lambda: controller.show_frame(SolutionsPage))
-        button.pack()
-
-        # Other stuff for this page goes here.
-
-        
-class BifurcationPage(tk.Frame):
+##################
+### Tk Classes ###
+##################       
+      
+class BifurcationPage(tk.Tk):
     """ A page with a plot of the bifurcation diagram. """
-    def __init__(self, parent, controller):
-        tk.Frame.__init__(self,parent)
-        label = tk.Label(self, text="Bifurcation Diagram", font=LARGE_FONT)
+    def __init__(self, *args, **kwargs):
+        tk.Tk.__init__(self,*args, **kwargs)
+        label = tk.Label(self, text="DEFCON", font=LARGE_FONT)
         label.pack(pady=10,padx=10)
 
-        # Back to main window.
-        buttonHome = ttk.Button(self, text="Back to main page",
-                            command=lambda: controller.show_frame(StartPage))
-        buttonHome.pack()
+        # Time label
+        self.time_text = tk.StringVar()
+        tk.Label(self, textvariable=self.time_text).pack(pady=10,padx=10)
+        self.time_text.set("Time = 0")
 
         # Draw the canvas for the figure.
         canvas = FigureCanvasTkAgg(figure, self)
@@ -208,61 +235,67 @@ class BifurcationPage(tk.Frame):
         canvas._tkcanvas.pack(side=tk.TOP, fill=tk.BOTH, expand=1)
 
         # Annotator
-        canvas.mpl_connect('button_press_event', self.onclick)
+        canvas.mpl_connect('button_press_event', self.clicked_diagram)
 
         # Buttons.
-        buttonPause = ttk.Button(self, text="Pause",
-                            command= lambda: sys.stdout.write("Pause!"))
-        buttonPause.pack()#grid(row=0, column=0)
+        self.pause_text = tk.StringVar()
+        self.pause_text.set("Pause")
+        buttonPause = ttk.Button(self, textvariable=self.pause_text, command= self.pause)
+        buttonPause.pack()
 
-        buttonResume = ttk.Button(self, text="Resume",
-                            command= lambda: sys.stdout.write("Resume!"))
-        buttonResume.pack()#grid(row=0, column=1)
+        buttonBack = ttk.Button(self, text="Back", command= self.back)
+        buttonBack.pack()
 
-        buttonBack = ttk.Button(self, text="Back",
-                            command= lambda: sys.stdout.write("Back!"))
-        buttonBack.pack()#grid(row=1, column=0)
+        buttonForward = ttk.Button(self, text="Forward", command= self.forward)
+        buttonForward.pack()
 
-        buttonForward = ttk.Button(self, text="Forward",
-                            command= lambda: sys.stdout.write("Forward!"))
-        buttonForward.pack()#grid(row=1, column=1)
-
-        buttonClear = ttk.Button(self, text="Clear",
-                            command= lambda: [bfdiag.clear(), bfdiag.grid()])
-        buttonClear.pack()
+        buttonPlot = ttk.Button(self, text="Plot", command= self.launch_paraview)
+        buttonPlot.pack()
 
 
-    def onclick(self, event):
+    def get_time(self):
+        return pc.get_time()
+
+    def set_time(self, t):
+        self.time_text.set("Time = %d" % t)
+
+    def clicked_diagram(self, event):
         """ Annotates the diagram, by plotting a tooltip with the params and branchid of the point the user clicked.
             If the diagram is already annotated, remove the annotation. """
         pc.annotate(event.xdata, event.ydata)
 
+    def pause(self):
+        paused = pc.pause()
+        if paused: self.pause_text.set("Resume")
+        else: self.pause_text.set("Pause")
 
-# TODO: Maybe define a page where we can see a list of solutions, by branch or params or something, and have a button to launch paraview and visualise that solution.
-# Maybe roll all this functionality into the bifurcation diagram page...
-class SolutionsPage(tk.Frame):
-    """ A page where we can look at the solutions. """
-    def __init__(self, parent, controller):
-        tk.Frame.__init__(self,parent)
-        label = tk.Label(self, text="Solutions", font=LARGE_FONT)
-        label.pack(pady=10,padx=10)
+    def back(self):
+        time = pc.back()
+        self.time_text.set("Time = %d" % time)
 
-        # Back to main window.
-        buttonHome = ttk.Button(self, text="Back to main page",
-                            command=lambda: controller.show_frame(StartPage))
-        buttonHome.pack()
+    def forward(self):
+        time = pc.forward()
+        self.time_text.set("Time = %d" % time)
+
+    def launch_paraview(self):
+        print "Launch paraview."
 
 
-# Main loop.
+############
+### Main ###
+############
+
 # TODO: Add scope for passing arguments, such as a directory to work in and so on. 
+# TODO: Change the animation method so we have some way of setting the time display in BifurcationPage
+# TODO: We need to know what kind of problem we are handling, and what the function space is, so we can chnage from hdf5 to pvd.
 
 # Construct the app, name it and give it an icon.
-app = MainWindow(directory="")
+app = BifurcationPage() #MainWindow(directory="")
 app.title("DEFCON")
 #app.iconbitmap('path/to/icon.ico')
 
 # Build and set up the animation object for the plot
-pc = PlotConstructor()
+pc = PlotConstructor(app)
 ani = animation.FuncAnimation(figure, pc.animate, interval=1) # Change interval to change the frequency of running diagram. FIXME: make this an option.
 
 # Start the app. 

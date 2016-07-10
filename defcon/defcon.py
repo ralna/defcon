@@ -14,11 +14,6 @@ import time
 import sys
 import signal
 
-#FIXME: Find some way to import this only if we're using guimode. 
-import matplotlib
-matplotlib.use("TkAgg")
-import matplotlib.pyplot as plt
-
 try:
     import ipdb as pdb
 except ImportError:
@@ -31,7 +26,7 @@ class DeflatedContinuation(object):
     This class is the main driver that implements deflated continuation.
     """
 
-    def __init__(self, problem, io, deflation=None, teamsize=1, verbose=False, logfiles=False, gui=False, externalgui=False, functional=None):
+    def __init__(self, problem, io, deflation=None, teamsize=1, verbose=False, logfiles=False, externalgui=False, functional=None):
         """
         Constructor.
 
@@ -48,8 +43,6 @@ class DeflatedContinuation(object):
             Activate verbose output.
           logfiles (:py:class:`bool`)
             Whether defcon should remap stdout/stderr to logfiles (useful for many processes).
-          gui (:py:class:`bool`)
-            Whether defcon should run in 'gui' mode, drawing the bifurcation diagram as it goes.
           externalgui (:py:class:`bool`)
             Whether defcon should run in 'externalgui' mode, sending the points of the bifurcation diagram to a file for plotting by the external gui. 
           functional (:py:class:`str`)
@@ -113,7 +106,6 @@ class DeflatedContinuation(object):
         self.io = io
 
         # Gui stuff.
-        self.gui = gui
         self.externalgui = externalgui
         self.functional = functional
 
@@ -267,19 +259,7 @@ class DeflatedContinuation(object):
     def load_parameters(self, params):
         for (param, value) in zip(self.parameters, params):
             param[0].assign(value)
-
-
-    def plot_points(self, freeindex, params, branchid):
-        x = params[freeindex]
-        y = self.io.fetch_functionals(params, [branchid])[0][self.funcindex]
-        self.ax.plot(x, y, color='k', marker='.')
-        self.fig.canvas.draw()
-
-    def plot_to_file(self, freeindex, params, branchid):
-        x = params[freeindex]
-        y = self.io.fetch_functionals(params, [branchid])[0][self.funcindex]
-        self.io.plot_to_file(x, y, branchid)
-        
+     
 
     def master(self, freeindex, values):
         """
@@ -325,8 +305,8 @@ class DeflatedContinuation(object):
             sign = -1
             minvals = max
 
-        # If either of the gui modes is on, set up the gui.
-        if self.gui or self.externalgui:
+        # If gui mode is on, get the functional
+        if self.externalgui:
             assert(self.functional is not None) # We need to be told which functional to plot.
             
             # Find the functional index.
@@ -337,15 +317,6 @@ class DeflatedContinuation(object):
                     break
             assert self.funcindex is not None
 
-            # If we're using the interal gui, we need to set up the plot.
-            if self.gui:
-                self.fig, self.ax = plt.subplots(1, 1)
-                plt.grid()
-                plt.xlabel(self.parameters[freeindex][2])
-                plt.ylabel(self.functionals[self.funcindex][2])
-                self.ax.hold(True)
-                plt.show(block=False) #show the plot, but don't stop us from progessing in the code.
-                plt.draw()
 
 
         # Send off intial tasks
@@ -467,13 +438,9 @@ class DeflatedContinuation(object):
                             heappush(newtasks, (sign*newtask.newparams[freeindex], newtask))
 
                         # If we're in GUI mode, lets plot this new point we're found.
-                        if self.gui:
-                            time.sleep(0.01)
-                            self.log("Plotting points at %s on branch %d" % (task.newparams, task.branchid), master=True)
-                            self.plot_points(freeindex, task.newparams, task.branchid)
-                        elif self.externalgui:
+                        if self.externalgui:
                             time.sleep(0.1)
-                            self.plot_to_file(freeindex, task.newparams, task.branchid)
+                            self.io.plot_to_file(freeindex, self.funcindex, task.newparams, task.branchid)
 
                     else:
                         # We tried to continue a branch, but the continuation died. Oh well.
@@ -523,13 +490,9 @@ class DeflatedContinuation(object):
                         branchid_counter += 1
 
                         # If we're in GUI mode, lets plot this new point we're found.
-                        if self.gui:
-                            time.sleep(0.01)
-                            self.log("Plotting points at %s on branch %d" % (task.newparams, task.branchid), master=True)
-                            self.plot_points(freeindex, task.newparams, task.branchid)
-                        elif self.externalgui:
+                        if self.externalgui:
                             time.sleep(0.1)
-                            self.plot_to_file(freeindex, task.newparams, task.branchid)
+                            self.io.plot_to_file(freeindex, self.funcindex, task.newparams, task.branchid)
 
                     else:
                         # As expected, deflation found nothing interesting. The team is now idle.
@@ -550,9 +513,6 @@ class DeflatedContinuation(object):
         for teamno in range(self.nteams):
             self.send_task(quit, teamno)
         
-        # If we're in gui mode then show the plot, to ensure the window won't close.
-        if self.gui: plt.show()
-
     def worker(self, freeindex, values):
         """
         The main worker routine.
@@ -674,7 +634,7 @@ class DeflatedContinuation(object):
 
         import matplotlib
         matplotlib.use("PDF")
-        import matplotlib.pyplot as plt # don't need this if we import at the top.
+        import matplotlib.pyplot as plt
 
         params = self.io.known_parameters(fixed)
 
@@ -702,6 +662,7 @@ class DeflatedContinuation(object):
                     func = self.io.fetch_functionals(param, [branchid])[0][funcindex]
                     xs.append(param[freeindex])
                     ys.append(func)
+            print
 
             plt.plot(xs, ys, 'ok', label="Branch %d" % branchid, linewidth=2, markersize=1)
         plt.grid()
