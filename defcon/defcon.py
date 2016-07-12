@@ -310,12 +310,18 @@ class DeflatedContinuation(object):
             assert(self.functional is not None) # We need to be told which functional to plot.
             
             # Find the functional index.
-            self.funcindex = None
+            funcindex = None
             for (i, functionaldata) in enumerate(self.functionals):
                 if functionaldata[1] == self.functional:
-                    self.funcindex = i
+                    funcindex = i
                     break
-            assert self.funcindex is not None
+            assert funcindex is not None
+
+
+            xlabel = self.parameters[freeindex][2]
+            ylabel = self.functionals[funcindex][2]
+            # Create the plot file.
+            self.io.create_plot_file(freeindex, funcindex, xlabel, ylabel)
 
 
 
@@ -439,8 +445,8 @@ class DeflatedContinuation(object):
 
                         # If we're in GUI mode, lets plot this new point we're found.
                         if self.externalgui:
-                            time.sleep(0.05)
-                            self.io.plot_to_file(freeindex, self.funcindex, task.newparams, task.branchid)
+                            time.sleep(0.08)
+                            self.io.plot_to_file(task.newparams, task.branchid)
 
                     else:
                         # We tried to continue a branch, but the continuation died. Oh well.
@@ -491,8 +497,8 @@ class DeflatedContinuation(object):
 
                         # If we're in GUI mode, lets plot this new point we're found.
                         if self.externalgui:
-                            time.sleep(0.05)
-                            self.io.plot_to_file(freeindex, self.funcindex, task.newparams, task.branchid)
+                            time.sleep(0.08)
+                            self.io.plot_to_file(task.newparams, task.branchid)
 
                     else:
                         # As expected, deflation found nothing interesting. The team is now idle.
