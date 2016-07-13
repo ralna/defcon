@@ -29,11 +29,7 @@ try:
 except AttributeError:
     print "Update to the latest version of matplotlib to use styles."
 
-# Set some defaults.
-problem_type = None
-problem_class = None
-working_dir="."
-output_dir = "output"
+
 
 # Fonts.
 LARGE_FONT= ("Verdana", 12)
@@ -47,6 +43,12 @@ GRID = 'w' # Colour for grid.
 # Example usage: python defcon-gui.py -p unity -c RootsOfUnityProblem -w /home/joseph/defcon/examples/unity
 myopts, args = getopt.getopt(sys.argv[1:],"p:o:w:c:")
 
+# Set some defaults.
+problem_type = None
+problem_class = None
+working_dir= "."
+output_dir = None 
+
 for o, a in myopts:
     if o == '-p':
         problem_type = a
@@ -59,7 +61,7 @@ for o, a in myopts:
     else:
         print("Usage: %s -p <problem_type> -c <problem_class> -w <working_dir> -o <defcon_output_directory>" % sys.argv[0])
 
-output_dir = working_dir + os.path.sep + output_dir
+if output_dir is None: output_dir = working_dir + os.path.sep + "output"
 
 # Set up the figure.
 figure = Figure(figsize=(5,4), dpi=100)
@@ -67,8 +69,10 @@ bfdiag = figure.add_subplot(111)
 bfdiag.grid(color=GRID)
 
 # Put the working directory on our path.
+
+
 sys.path.insert(0, working_dir) 
-sys.path.insert(0, "~/defcon") #FIXME: seems to need this, even though the directory is in PYTHONPATH. Why, and how to get rid of it?
+sys.path.insert(0, "%s/.." % os.path.dirname(os.path.realpath(sys.argv[0]))) #FIXME: This is ugly, and may not work. It seems to need this, else the problem_type fails to import 'BifurcationProblem'. even though the defcon directory is in PYTHONPATH. Why, and how to get rid of it?
 
 # If we've been told about the problem, then get the name and type of the problem we're dealing with, as well as everything else we're going to need for plotting solutions in paraview
 if problem_type and problem_class:
@@ -234,13 +238,15 @@ class PlotConstructor():
                  self.annotation = bfdiag.annotate("Parameter=%.5f, Branch=%d" % (x, branchid),
                             xy = (x, y), xytext = (-20, 20),
                             textcoords = 'offset points', ha = 'right', va = 'bottom',
-                            bbox = dict(boxstyle = 'round,pad=0.5', fc = 'yellow', alpha = 0.5),
-                            arrowprops = dict(arrowstyle = '->', connectionstyle = 'arc3,rad=0'))
+                            bbox = dict(boxstyle = 'round,pad=0.5', fc = 'yellow', alpha = 0.5))
+                            #arrowprops = dict(arrowstyle = '->', connectionstyle = 'arc3,rad=0'))
 
                  self.annotation_highlight = bfdiag.scatter([x], [y], s=[50], marker='o', color=HIGHLIGHT) # Note: change 's' to make the highlight blob bigger/smaller
 
-                 self.annotated_point = (literal_eval(params), branchid)      
+                 self.annotated_point = (literal_eval(params), branchid)  
 
+                 return True
+             else: return False
 
          else:
             self.annotation.remove()
@@ -248,6 +254,19 @@ class PlotConstructor():
             self.annotation = None
             self.annotation_highlight = None
             self.annotated_point = None
+            return False
+
+    def clear(self):
+        """ Wipes everything. """
+        bfdiag.clear()
+        bfdiag.grid(color=GRID)
+        self.time = 0
+        self.maxtime = 0
+        self.points = []
+        self.annotation = None 
+        self.annotation_highlight = None  
+        self.annotated_point = None 
+        self.current_sol = None
 
     def hdf5topvd(self):
         """ Utility function for creating a pvd from hdf5. Uses the point that is annotated. """
@@ -262,7 +281,7 @@ class PlotConstructor():
             solutions_dir = output_dir + os.path.sep + "solutions" + os.path.sep
 
             # Create the file to which we will write these solutions.
-            pvd_filename = solutions_dir +  "SOLUTION$params:%s$branchid=%d.pvd" % (parameterstostring(problem_parameters, params), branchid)
+            pvd_filename = solutions_dir +  "SOLUTION$%s$branchid=%d.pvd" % (parameterstostring(problem_parameters, params), branchid)
             pvd = File(pvd_filename)
     
             # Read the file, then write the solution.
@@ -315,20 +334,21 @@ class BifurcationPage(tk.Tk):
         buttonPause.pack()
 
         # FIXME: Have these buttons greyed out when not paused.
-        buttonBack = ttk.Button(self, text="Back", command= self.back)
-        buttonBack.pack()
+        self.buttonBack = ttk.Button(self, text="Back", state="disabled", command= self.back)
+        self.buttonBack.pack()
 
-        buttonForward = ttk.Button(self, text="Forward", command= self.forward)
-        buttonForward.pack()
+        self.buttonForward = ttk.Button(self, text="Forward", state="disabled", command= self.forward)
+        self.buttonForward.pack()
 
-        buttonJump = ttk.Button(self, text="Jump", command=self.jump)
-        buttonJump.pack()
+        self.buttonJump = ttk.Button(self, text="Jump", state="disabled", command=self.jump)
+        self.buttonJump.pack()
 
-        buttonPlot = ttk.Button(self, text="Plot", command= self.launch_paraview)
-        buttonPlot.pack()
+        self.buttonPlot = ttk.Button(self, text="Plot", state="disabled", command= self.launch_paraview)
+        self.buttonPlot.pack()
 
+        buttonClear = ttk.Button(self, text="Clear", command= self.clear)
+        buttonClear.pack()
 
-        # TODO: Add a method for jumping to a particular time step. 
 
 
     def set_time(self, t):
@@ -337,13 +357,24 @@ class BifurcationPage(tk.Tk):
     def clicked_diagram(self, event):
         """ Annotates the diagram, by plotting a tooltip with the params and branchid of the point the user clicked.
             If the diagram is already annotated, remove the annotation. """
-        pc.annotate(event.xdata, event.ydata)
+        annotated = pc.annotate(event.xdata, event.ydata)
+        if annotated: self.buttonPlot.config(state="normal")
+        else:             self.buttonPlot.config(state="disabled")
 
     def pause(self):
         """ Pauses/Unpauses the plotting of the diagram, as well as changing the button text to whatever is appropriate. """
         paused = pc.pause()
-        if paused: self.pause_text.set("Resume")
-        else: self.pause_text.set("Pause")
+        # Grey/ungrey the buttons.
+        if paused: 
+            self.pause_text.set("Resume")
+            self.buttonBack.config(state="normal")
+            self.buttonForward.config(state="normal")
+            self.buttonJump.config(state="normal")
+        else: 
+            self.pause_text.set("Pause")
+            self.buttonBack.config(state="disabled")
+            self.buttonForward.config(state="disabled")
+            self.buttonJump.config(state="disabled")
 
     def back(self):
         """ Set Time=Time-1. """
@@ -366,6 +397,10 @@ class BifurcationPage(tk.Tk):
     def launch_paraview(self):
         """ Launch Paraview to graph the highlighted solution. """
         pc.hdf5topvd()
+
+    def clear(self):
+        pc.clear()
+        self.set_time(0)
 
 
 ############

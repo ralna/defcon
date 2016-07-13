@@ -443,11 +443,6 @@ class DeflatedContinuation(object):
                             taskid_counter += 1
                             heappush(newtasks, (sign*newtask.newparams[freeindex], newtask))
 
-                        # If we're in GUI mode, lets plot this new point we're found.
-                        if self.externalgui:
-                            time.sleep(0.08)
-                            self.io.plot_to_file(task.newparams, task.branchid)
-
                     else:
                         # We tried to continue a branch, but the continuation died. Oh well.
                         # The team is now idle.
@@ -494,11 +489,6 @@ class DeflatedContinuation(object):
                         ensure_branches[task.newparams].add(branchid_counter)
 
                         branchid_counter += 1
-
-                        # If we're in GUI mode, lets plot this new point we're found.
-                        if self.externalgui:
-                            time.sleep(0.08)
-                            self.io.plot_to_file(task.newparams, task.branchid)
 
                     else:
                         # As expected, deflation found nothing interesting. The team is now idle.
@@ -578,6 +568,10 @@ class DeflatedContinuation(object):
                         self.io.save_functionals(functionals, task.newparams, branchid)
                         self.log("Saved solution to %s to disk" % task)
 
+                        # If we're in GUI mode, lets plot this new point we're found.
+                        if self.externalgui:
+                            self.io.plot_to_file(task.newparams, task.branchid)
+
                         # Automatically start onto the continuation
                         newparams = nextparameters(values, freeindex, task.newparams)
                         if newparams is not None:
@@ -617,6 +611,10 @@ class DeflatedContinuation(object):
                     self.problem.monitor(task.newparams, task.branchid, self.state, functionals)
                     self.io.save_solution(self.state, task.newparams, task.branchid)
                     self.io.save_functionals(functionals, task.newparams, task.branchid)
+
+                    # If we're in GUI mode, lets plot this new point we're found.
+                    if self.externalgui:
+                        self.io.plot_to_file(task.newparams, task.branchid)
                 else:
                     self.state_id = (None, None)
 
