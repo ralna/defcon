@@ -196,9 +196,7 @@ class FileIO(IO):
         """ Writes a pair of points to the file 'points_to_plot', so the external gui can read them in. 
             Points are written to 15 decimal places of accuracy. """
         # Write this particular solution. FIXME: make this quick-fix better. 
-        while True:
-            try: y = self.fetch_functionals(params, [branchid])[0][self.funcindex]
-            except Exception: time.sleep(0.08)
+        y = self.fetch_functionals(params, [branchid])[0][self.funcindex]
         g = file(self.directory + os.path.sep + "points_to_plot", 'a') # append mode so we don't overwrite the previous contents. 
         g.write("%s;%.15f;%d \n" % (params, y, branchid)) # change '.15' to alter the decimal precision.
         g.flush()

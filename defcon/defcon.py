@@ -445,6 +445,7 @@ class DeflatedContinuation(object):
 
                         # If we're in GUI mode, lets plot this new point we're found.
                         if self.externalgui:
+                            time.sleep(0.08)
                             self.io.plot_to_file(task.newparams, task.branchid)
 
                     else:
@@ -496,6 +497,7 @@ class DeflatedContinuation(object):
 
                         # If we're in GUI mode, lets plot this new point we're found.
                         if self.externalgui:
+                            time.sleep(0.08)
                             self.io.plot_to_file(task.newparams, task.branchid)
 
                     else:
