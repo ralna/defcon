@@ -51,6 +51,9 @@ class IO(object):
     def plot_to_file(self, freeindex, funcindex, params, branchid):
         raise NotImplementedError
 
+    def finish_plot(self):
+        raise NotImplementedError
+
 
 
 class FileIO(IO):
@@ -68,6 +71,10 @@ class FileIO(IO):
         # Create the output directory.
         try: os.mkdir(directory) 
         except OSError: pass
+
+        # If we're resuming a computation, get the maxbranch.
+        try: self.maxbranch = self.max_branch()
+        except Exception: pass
 
     def dir(self, params):
         return self.directory + os.path.sep + parameterstostring(self.parameters, params) + ".hdf5"
@@ -139,12 +146,10 @@ class FileIO(IO):
     def fetch_functionals(self, params, branchids):
         """ Gets the functionals back. Output [[all functionals...]]. """
         funcs = []
-        try:
-            with HDF5File(self.function_space.mesh().mpi_comm(), self.dir(params), 'r') as f:
-                for branchid in branchids:
-                    newfuncs = [float(line.split('=')[-1]) for line in f.attributes("/solution-%d" % branchid)["functional-%d" % branchid].split('@')]
-                    funcs.append(newfuncs)
-        except Exception: raise
+        with HDF5File(self.function_space.mesh().mpi_comm(), self.dir(params), 'r') as f:
+            for branchid in branchids:
+                newfuncs = [float(line.split('=')[-1]) for line in f.attributes("/solution-%d" % branchid)["functional-%d" % branchid].split('@')]
+                funcs.append(newfuncs)
         return funcs
 
     def known_parameters(self, fixed):
@@ -186,11 +191,17 @@ class FileIO(IO):
 
     def create_plot_file(self, freeindex, funcindex, xlabel, ylabel):
         """ Create the file we're going to use to plot the bifurcation diagram, and add some basic information. """
+        # Store the funcindex in state. 
         self.funcindex = funcindex
-        g = file(self.directory + os.path.sep + "points_to_plot", 'w') # create the file
-        g.write("%s;%s;%s\n" % (freeindex, xlabel, ylabel))
-        g.flush()
-        g.close()
+
+        filename = self.directory + os.path.sep + "points_to_plot"
+
+        # Check if the points_to_plot file already exists, and if not, create it. 
+        if not os.path.exists(filename):
+            g = file(filename, 'w') # create the file
+            g.write("%s;%s;%s\n" % (freeindex, xlabel, ylabel))
+            g.flush()
+            g.close()
 
     def plot_to_file(self, params, branchid):
         """ Writes a pair of points to the file 'points_to_plot', so the external gui can read them in. 
@@ -208,3 +219,11 @@ class FileIO(IO):
         g.write("%s;%.15f;%d \n" % (params, y, branchid)) # change '.15' to alter the decimal precision.
         g.flush()
         g.close()
+
+    def finish_plot(self):
+        g = file(self.directory + os.path.sep + "points_to_plot", 'a')
+        g.write("Finished")
+        g.flush()
+        g.close()
+
+

@@ -29,50 +29,67 @@ try:
 except AttributeError:
     print "Update to the latest version of matplotlib to use styles."
 
-
-
 # Fonts.
-LARGE_FONT= ("Verdana", 12)
+LARGE_FONT = ("Verdana", 36)
 
 # Colours.
-MAIN = 'k' # colour for points.
-HIGHLIGHT = 'r' # colour for selected points.
-GRID = 'w' # Colour for grid.
-
-# Get commandline args.
-# Example usage: python defcon-gui.py -p unity -c RootsOfUnityProblem -w /home/joseph/defcon/examples/unity
-myopts, args = getopt.getopt(sys.argv[1:],"p:o:w:c:")
+MAIN = 'black' # colour for points.
+HIGHLIGHT = 'red' # colour for selected points.
+GRID = 'white' # colour the for grid.
+BUTTONBG = 'grey' # backgound colour for buttons and labels.
+BUTTONTEXT = 'black' # colour for the text on the buttons and labels.
+WINDOWBG = 'grey' # background colour for the window.
 
 # Set some defaults.
 problem_type = None
 problem_class = None
+problem_mesh = None
 working_dir= "."
 output_dir = None 
+darkmode = False
+update_interval = 20
+
+# Get commandline args.
+# Example usage: python defcon-gui.py -p unity -c RootsOfUnityProblem -w /home/joseph/defcon/examples/unity
+myopts, args = getopt.getopt(sys.argv[1:],"dp:o:w:c:m:i:")
 
 for o, a in myopts:
-    if o == '-p':
-        problem_type = a
-    elif o == '-o':
-        output_dir = a
-    elif o == '-w':
-        working_dir = a
-    elif o == '-c':
-        problem_class = a
-    else:
-        print("Usage: %s -p <problem_type> -c <problem_class> -w <working_dir> -o <defcon_output_directory>" % sys.argv[0])
+    if o == '-p':   problem_type = a
+    elif o == '-o': output_dir = a
+    elif o == '-w': working_dir = a
+    elif o == '-c': problem_class = a
+    elif o == '-m': problem_mesh = a
+    elif o == '-d': darkmode = True
+    elif o == '-i': update_interval = int(a)
+    else:           print("Usage: %s -d -p <problem_type> -c <problem_class> -w <working_dir> -o <defcon_output_directory> -m <mesh> -i <update interval in ms>" % sys.argv[0])
 
 if output_dir is None: output_dir = working_dir + os.path.sep + "output"
+if problem_type is None: problem_type = working_dir.split(os.path.sep)[-1] 
+solutions_dir = output_dir + os.path.sep + "solutions" + os.path.sep
 
 # Set up the figure.
 figure = Figure(figsize=(5,4), dpi=100)
 bfdiag = figure.add_subplot(111)
 bfdiag.grid(color=GRID)
 
+# Darkmode colour scheme.
+if darkmode: 
+    figure.patch.set_facecolor('black')
+    bfdiag.set_axis_bgcolor('black')
+    bfdiag.xaxis.label.set_color('#76EE00')
+    bfdiag.yaxis.label.set_color('#76EE00')
+    bfdiag.tick_params(axis='y', colors='#76EE00')
+    bfdiag.tick_params(axis='x', colors='#76EE00')
+    MAIN = 'w' 
+    HIGHLIGHT = '#76EE00'
+    GRID = '0.75' 
+    BUTTONBG = 'black'
+    BUTTONTEXT = '#76EE00'
+    WINDOWBG = 'black'
+
 # Put the working directory on our path.
-
-
 sys.path.insert(0, working_dir) 
-sys.path.insert(0, "%s/.." % os.path.dirname(os.path.realpath(sys.argv[0]))) #FIXME: This is ugly, and may not work. It seems to need this, else the problem_type fails to import 'BifurcationProblem'. even though the defcon directory is in PYTHONPATH. Why, and how to get rid of it?
+sys.path.insert(0, "%s/.." % os.path.dirname(os.path.realpath(sys.argv[0]))) #FIXME: This is ugly, but does always work. It seems to need this, else the problem_type fails to import 'BifurcationProblem'. even though the defcon directory is in PYTHONPATH. Why, and how to get rid of it?
 
 # If we've been told about the problem, then get the name and type of the problem we're dealing with, as well as everything else we're going to need for plotting solutions in paraview
 if problem_type and problem_class:
@@ -80,19 +97,23 @@ if problem_type and problem_class:
     globals().update(vars(problem_name))
     globals()["bfprob"] = getattr(problem_name, problem_class)
     problem = bfprob()
-    mesh = problem.mesh(mpi_comm_world())
-    V    = problem.function_space(mesh)
+
+    # Get the mesh. If the user has specified a file, then great, otherwise try to get it from the problem. 
+    if problem_mesh is not None: mesh = Mesh(mpi_comm_world(), problem_mesh)
+    else: mesh = problem.mesh(mpi_comm_world())
+
+    V = problem.function_space(mesh)
     problem_parameters = problem.parameters()
 else:
-    print "In order to use paraview for graphing solutions, you must specify both the name and class of the problem."
-    print("Usage: %s -p <problem type> -c <problem_class> -w <working dir> -o <defcon output directory> \n" % sys.argv[0])
+    print "In order to use paraview for graphing solutions, you must specify the class of the problem, eg 'NavierStokesProblem'."
+    print("Usage: %s -p <problem type> -c <problem_class> -w <working dir> \n" % sys.argv[0])
 
-# TODO: 1) Make the command line args less clunky, and set some sensible defaults for things (i.e, if we're working in ~/defcon/examples/unity, then problem_type should default to 'unity' if unset).  
+# TODO: 1) Make the command line args less clunky.  
 #       2) Add support for selecting multiple solutions? 
 #       3) Add support for selecting and then graphing all solutions from one branch?
 #       4) Tidy up code. Maybe move PlotConstructor to its own file? 
 #       5) Grey out buttons that can't be pressed, or do something more sensible if we do press them. 
-#       6) There's a lot of lag when the diagram is finished. How about we add some kind of time limit (option?), so that if no points are found in within that limit we stop updating? 
+#       6) There's a lot of lag when the diagram is finished. Have defcon write something to the last line of the file to say it's finished???
 
 
 #####################
@@ -117,10 +138,13 @@ class PlotConstructor():
         self.directory = directory # The working directory.
 
         self.freeindex = None # The index of the free parameter.
+        self.parameter_name = None
 
         self.current_sol = None
 
         self.app = app # The BifurcationPage window, so that we can set the time.
+
+        self.done = False # Are we done?
     
     def distance(self, x1, x2, y1, y2):
         """ Return the L2 distance between two points. """
@@ -173,8 +197,8 @@ class PlotConstructor():
 
     def animate(self, i):
         """ Handles the redrawing of the graph. """
-        # If we're in pause mode, we do nothing.
-        if self.paused:
+        # If we're in pause mode, or we're done, then do nothing.
+        if self.paused or self.done:
             pass
 
         # If we're not paused, we draw all the points that have come in since we last drew something.
@@ -194,6 +218,7 @@ class PlotConstructor():
                 if self.freeindex is None: 
                     freeindex, xlabel, ylabel = dataList[0].split(';')
                     self.freeindex = int(freeindex)
+                    self.parameter_name = xlabel
                     bfdiag.set_xlabel(xlabel)
                     bfdiag.set_ylabel(ylabel)
 
@@ -201,7 +226,11 @@ class PlotConstructor():
 
                 # Plot new points one at a time.
                 for eachLine in dataList[self.time:]:
-                    if len(eachLine) > 1:
+                    if eachLine=="Finished":
+                        # FIXME: do something with this.
+                        pass
+                        #self.done = True
+                    elif len(eachLine) > 1:
                         params, y, branchid = eachLine.split(';')
                         x = literal_eval(params)[self.freeindex]
                         self.points.append((float(x), float(y), int(branchid), params))
@@ -218,9 +247,9 @@ class PlotConstructor():
              xs = [point[0] for point in self.points[:self.time]]
              ys = [point[1] for point in self.points[:self.time]]
  
-             # FIXME: The *10 is because these were too small, might need some changing.
-             xtol = 10*((max(xs) - min(xs))/float(len(xs)))/2
-             ytol = 10*((max(ys) - min(ys))/float(len(ys)))/2
+             # FIXME: The *100 is because these were too small, might need some changing. Also doesn't work on, say allen-cahn, as xtol=0.
+             xtol = 100*((max(xs) - min(xs))/float(len(xs)))/2 
+             ytol = 100*((max(ys) - min(ys))/float(len(ys)))/2 
 
              annotes = []
 
@@ -235,7 +264,7 @@ class PlotConstructor():
 
                  # Plot the annotation, and keep a handle on all the stuff we plot so we can use/remove it later. 
                  # FIXME: Make it prettier.
-                 self.annotation = bfdiag.annotate("Parameter=%.5f, Branch=%d" % (x, branchid),
+                 self.annotation = bfdiag.annotate("%s=%.5f, Branch=%d" % (self.parameter_name, x, branchid),
                             xy = (x, y), xytext = (-20, 20),
                             textcoords = 'offset points', ha = 'right', va = 'bottom',
                             bbox = dict(boxstyle = 'round,pad=0.5', fc = 'yellow', alpha = 0.5))
@@ -278,8 +307,6 @@ class PlotConstructor():
             try: os.mkdir(output_dir + os.path.sep + "solutions")
             except OSError: pass
 
-            solutions_dir = output_dir + os.path.sep + "solutions" + os.path.sep
-
             # Create the file to which we will write these solutions.
             pvd_filename = solutions_dir +  "SOLUTION$%s$branchid=%d.pvd" % (parameterstostring(problem_parameters, params), branchid)
             pvd = File(pvd_filename)
@@ -291,6 +318,7 @@ class PlotConstructor():
                 f.read(y, "solution-%d" % branchid)
                 f.flush()
                 pvd << y
+                pvd
 
             self.launch_paraview(pvd_filename)
 
@@ -307,12 +335,12 @@ class BifurcationPage(tk.Tk):
     """ A page with a plot of the bifurcation diagram. """
     def __init__(self, *args, **kwargs):
         tk.Tk.__init__(self,*args, **kwargs)
-        label = tk.Label(self, text="DEFCON", font=LARGE_FONT)
+        label = tk.Label(self, text="DEFCON", font=LARGE_FONT, bg=BUTTONBG, fg=BUTTONTEXT)
         label.pack(pady=10,padx=10)
 
         # Time label
         self.time_text = tk.StringVar()
-        tk.Label(self, textvariable=self.time_text).pack(pady=10,padx=10)
+        tk.Label(self, textvariable=self.time_text, bg=BUTTONBG, fg=BUTTONTEXT).pack(pady=10,padx=10)
         self.time_text.set("Time = 0")
 
         # Draw the canvas for the figure.
@@ -330,24 +358,23 @@ class BifurcationPage(tk.Tk):
         # Buttons.
         self.pause_text = tk.StringVar()
         self.pause_text.set("Pause")
-        buttonPause = ttk.Button(self, textvariable=self.pause_text, command= self.pause)
-        buttonPause.pack()
+        self.buttonPause = tk.Button(self, textvariable=self.pause_text, bg=BUTTONBG, fg=BUTTONTEXT, command=self.pause)
+        self.buttonPause.pack()
 
-        # FIXME: Have these buttons greyed out when not paused.
-        self.buttonBack = ttk.Button(self, text="Back", state="disabled", command= self.back)
+        self.buttonBack = tk.Button(self, text="Back", state="disabled", bg=BUTTONBG, fg=BUTTONTEXT, command=self.back)
         self.buttonBack.pack()
 
-        self.buttonForward = ttk.Button(self, text="Forward", state="disabled", command= self.forward)
+        self.buttonForward = tk.Button(self, text="Forward", state="disabled", bg=BUTTONBG, fg=BUTTONTEXT, command=self.forward)
         self.buttonForward.pack()
 
-        self.buttonJump = ttk.Button(self, text="Jump", state="disabled", command=self.jump)
+        self.buttonJump = tk.Button(self, text="Jump", state="disabled", bg=BUTTONBG, fg=BUTTONTEXT, command=self.jump)
         self.buttonJump.pack()
 
-        self.buttonPlot = ttk.Button(self, text="Plot", state="disabled", command= self.launch_paraview)
+        self.buttonPlot = tk.Button(self, text="Plot", state="disabled", bg=BUTTONBG, fg=BUTTONTEXT, command=self.launch_paraview)
         self.buttonPlot.pack()
 
-        buttonClear = ttk.Button(self, text="Clear", command= self.clear)
-        buttonClear.pack()
+        self.buttonClear = tk.Button(self, text="Clear", bg=BUTTONBG, fg=BUTTONTEXT, command=self.clear)
+        self.buttonClear.pack()
 
 
 
@@ -410,11 +437,12 @@ class BifurcationPage(tk.Tk):
 # Construct the app, name it and give it an icon.
 app = BifurcationPage()
 app.title("DEFCON")
+app.configure(bg=WINDOWBG)
 #app.iconbitmap('path/to/icon.ico')
 
 # Build and set up the animation object for the plot
 pc = PlotConstructor(app)
-ani = animation.FuncAnimation(figure, pc.animate, interval=10) # Change interval to change the frequency of running diagram. FIXME: make this an option.
+ani = animation.FuncAnimation(figure, pc.animate, interval=update_interval)
 
 # Start the app. 
 app.mainloop()

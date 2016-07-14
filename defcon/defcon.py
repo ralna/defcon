@@ -506,8 +506,10 @@ class DeflatedContinuation(object):
 
         # All continuation tasks have been finished. Tell the workers to quit.
         quit = QuitTask()
+        if self.externalgui: self.io.finish_plot() # tell the gui we're done plotting new points. #TODO: add some scope for suspending/continuing computation.
         for teamno in range(self.nteams):
             self.send_task(quit, teamno)
+
         
     def worker(self, freeindex, values):
         """
@@ -569,8 +571,7 @@ class DeflatedContinuation(object):
                         self.log("Saved solution to %s to disk" % task)
 
                         # If we're in GUI mode, lets plot this new point we're found.
-                        if self.externalgui:
-                            self.io.plot_to_file(task.newparams, task.branchid)
+                        if self.externalgui: self.io.plot_to_file(task.newparams, task.branchid)
 
                         # Automatically start onto the continuation
                         newparams = nextparameters(values, freeindex, task.newparams)
@@ -613,8 +614,7 @@ class DeflatedContinuation(object):
                     self.io.save_functionals(functionals, task.newparams, task.branchid)
 
                     # If we're in GUI mode, lets plot this new point we're found.
-                    if self.externalgui:
-                        self.io.plot_to_file(task.newparams, task.branchid)
+                    if self.externalgui: self.io.plot_to_file(task.newparams, task.branchid)
                 else:
                     self.state_id = (None, None)
 
