@@ -329,7 +329,20 @@ class PlotConstructor():
         
 ##################
 ### Tk Classes ###
-##################       
+##################   
+
+class CustomToolbar(NavigationToolbar2TkAgg):
+    """ A custom matplotlib toolbar, so we can remove those pesky buttons. """  
+    def __init__(self, canvas, parent):
+        self.toolitems = (
+            ('Home', 'Reset original view', 'home', 'home'),
+            (None, None, None, None),
+            ('Pan', 'Pan axes with left mouse, zoom with right', 'move', 'pan'),
+            ('Zoom', 'Zoom to rectangle', 'zoom_to_rect', 'zoom'),
+            (None, None, None, None),
+            ('Save', 'Save the figure', 'filesave', 'save_figure'),
+            )
+        NavigationToolbar2TkAgg.__init__(self, canvas, parent)    
       
 class BifurcationPage(tk.Tk):
     """ A page with a plot of the bifurcation diagram. """
@@ -348,7 +361,7 @@ class BifurcationPage(tk.Tk):
         canvas.show()
         canvas.get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=1)
 
-        toolbar = NavigationToolbar2TkAgg( canvas, self )
+        toolbar = CustomToolbar( canvas, self )
         toolbar.update()
         canvas._tkcanvas.pack(side=tk.TOP, fill=tk.BOTH, expand=1)
 
