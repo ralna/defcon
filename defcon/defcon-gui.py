@@ -151,13 +151,34 @@ class PlotConstructor():
         return(sqrt((x1 - x2)**2 + (y1 - y2)**2))
 
     def pause(self):
-        """ Pause/unpause the drawing. """
-        self.paused = not self.paused
-        return self.paused
+        """ Pause the drawing. """
+        self.paused = True
+
+    def unpause(self):
+        """ Unpause the drawing. """
+        self.paused = False
+
+    def start(self):
+        """ Go to Time=0 """
+        if not self.paused: self.pause()
+        self.time = 0
+        bfdiag.clear()
+        bfdiag.grid(color=GRID)
+        return self.time
+
+    def end (self):
+        if self.time < self.maxtime:
+            xs = [point[0] for point in self.points[self.time:]]
+            ys = [point[1] for point in self.points[self.time:]]
+            bfdiag.plot(xs, ys, marker='.', color=MAIN, linestyle='None')
+            self.time = self.maxtime
+        if self.paused: self.unpause
+        return self.maxtime
 
     def back(self):
         """ Take a step backwards in time. """
-        if self.paused and self.time > 0:
+        if not self.paused: self.pause()
+        if self.time > 0:
             #FIXME: Extremely inefficient to replot everything
             xs = [point[0] for point in self.points[:self.time]]
             ys = [point[1] for point in self.points[:self.time]]
@@ -167,18 +188,20 @@ class PlotConstructor():
             bfdiag.plot(xs, ys, marker='.', color=MAIN, linestyle='None') 
         return self.time
 
-
     def forward(self):
         """ Take a step forwards in time. """
-        if self.paused and self.time < self.maxtime:
+        if not self.paused: self.pause()
+        if self.time < self.maxtime:
             x, y, branchid, params = self.points[self.time]
             self.time += 1
             bfdiag.plot(x, y, marker='.', color=MAIN, linestyle='None')
+        if self.time==self.maxtime: self.pause
         return self.time
 
     def jump(self, t):
         """ Jump to time t. """
-        if self.paused and t <= self.maxtime:
+        if not self.paused: self.pause()
+        if t <= self.maxtime:
             #FIXME: Extremely inefficient to replot everything
             xs = [point[0] for point in self.points[:(t+1)]]
             ys = [point[1] for point in self.points[:(t+1)]]
@@ -219,6 +242,7 @@ class PlotConstructor():
                     freeindex, xlabel, ylabel = dataList[0].split(';')
                     self.freeindex = int(freeindex)
                     self.parameter_name = xlabel
+                    self.functional_name = ylabel
                     bfdiag.set_xlabel(xlabel)
                     bfdiag.set_ylabel(ylabel)
 
@@ -243,7 +267,7 @@ class PlotConstructor():
 
     def annotate(self, clickX, clickY):
          """ Annotate a point when clicking on it. If there's already an annotation, remove it. """
-         if self.annotation is None:
+         if self.annotated_point is None:
              xs = [point[0] for point in self.points[:self.time]]
              ys = [point[1] for point in self.points[:self.time]]
  
@@ -264,42 +288,31 @@ class PlotConstructor():
 
                  # Plot the annotation, and keep a handle on all the stuff we plot so we can use/remove it later. 
                  # FIXME: Make it prettier.
-                 self.annotation = bfdiag.annotate("%s=%.5f, Branch=%d" % (self.parameter_name, x, branchid),
+                 """self.annotation = bfdiag.annotate("%s=%.5f, Branch=%d" % (self.parameter_name, x, branchid),
                             xy = (x, y), xytext = (-20, 20),
                             textcoords = 'offset points', ha = 'right', va = 'bottom',
                             bbox = dict(boxstyle = 'round,pad=0.5', fc = 'yellow', alpha = 0.5))
-                            #arrowprops = dict(arrowstyle = '->', connectionstyle = 'arc3,rad=0'))
+                            #arrowprops = dict(arrowstyle = '->', connectionstyle = 'arc3,rad=0'))"""
 
                  self.annotation_highlight = bfdiag.scatter([x], [y], s=[50], marker='o', color=HIGHLIGHT) # Note: change 's' to make the highlight blob bigger/smaller
 
                  self.annotated_point = (literal_eval(params), branchid)  
 
+                 app.set_output_box("Branch = %s\nx = %s\ny = %s" % (branchid, x, y))
+
                  return True
              else: return False
 
          else:
-            self.annotation.remove()
             self.annotation_highlight.remove()
-            self.annotation = None
             self.annotation_highlight = None
             self.annotated_point = None
+            app.set_output_box("")
             return False
-
-    def clear(self):
-        """ Wipes everything. """
-        bfdiag.clear()
-        bfdiag.grid(color=GRID)
-        self.time = 0
-        self.maxtime = 0
-        self.points = []
-        self.annotation = None 
-        self.annotation_highlight = None  
-        self.annotated_point = None 
-        self.current_sol = None
 
     def hdf5topvd(self):
         """ Utility function for creating a pvd from hdf5. Uses the point that is annotated. """
-        if self.annotation is not None:
+        if self.annotated_point is not None:
             # Get the params and branchid of the point.
             params, branchid = self.annotated_point    
 
@@ -349,72 +362,76 @@ class BifurcationPage(tk.Tk):
     def __init__(self, *args, **kwargs):
         tk.Tk.__init__(self,*args, **kwargs)
         label = tk.Label(self, text="DEFCON", font=LARGE_FONT, bg=BUTTONBG, fg=BUTTONTEXT)
-        label.pack(pady=10,padx=10)
+        label.grid(row=0,column=4, columnspan=3)
 
         # Time label
         self.time_text = tk.StringVar()
-        tk.Label(self, textvariable=self.time_text, bg=BUTTONBG, fg=BUTTONTEXT).pack(pady=10,padx=10)
+        tk.Label(self, textvariable=self.time_text, bg=BUTTONBG, fg=BUTTONTEXT).grid(row=8, column=3)
         self.time_text.set("Time = 0")
 
         # Draw the canvas for the figure.
         canvas = FigureCanvasTkAgg(figure, self)
         canvas.show()
-        canvas.get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=1)
+        canvas.get_tk_widget().grid(row=1, column=0, rowspan=7, columnspan=7, sticky = "nesw") #.pack(side=tk.TOP, fill=tk.BOTH, expand=1)
 
-        toolbar = CustomToolbar( canvas, self )
-        toolbar.update()
-        canvas._tkcanvas.pack(side=tk.TOP, fill=tk.BOTH, expand=1)
+        #toolbar = CustomToolbar( canvas, self )
+        #toolbar.update()
+        canvas._tkcanvas.grid(row=1, column=0, rowspan=7, columnspan=7, sticky = "nesw")#pack(side=tk.TOP, fill=tk.BOTH, expand=1)
 
         # Annotator
         canvas.mpl_connect('button_press_event', self.clicked_diagram)
 
-        # Buttons.
-        self.pause_text = tk.StringVar()
-        self.pause_text.set("Pause")
-        self.buttonPause = tk.Button(self, textvariable=self.pause_text, bg=BUTTONBG, fg=BUTTONTEXT, command=self.pause)
-        self.buttonPause.pack()
 
-        self.buttonBack = tk.Button(self, text="Back", state="disabled", bg=BUTTONBG, fg=BUTTONTEXT, command=self.back)
-        self.buttonBack.pack()
+        # Time navigation buttons
+        self.buttonStart = tk.Button(self, text="|<", bg=BUTTONBG, fg=BUTTONTEXT, width=1, command=self.start)
+        self.buttonStart.grid(row=8, column=1, sticky = "nesw")
 
-        self.buttonForward = tk.Button(self, text="Forward", state="disabled", bg=BUTTONBG, fg=BUTTONTEXT, command=self.forward)
-        self.buttonForward.pack()
+        self.buttonBack = tk.Button(self, text="<", bg=BUTTONBG, fg=BUTTONTEXT, width=1, command=self.back)
+        self.buttonBack.grid(row=8, column=2, sticky = "nesw")
 
-        self.buttonJump = tk.Button(self, text="Jump", state="disabled", bg=BUTTONBG, fg=BUTTONTEXT, command=self.jump)
-        self.buttonJump.pack()
+        self.buttonForward = tk.Button(self, text=">", bg=BUTTONBG, fg=BUTTONTEXT, width=1, command=self.forward)
+        self.buttonForward.grid(row=8, column=4, sticky = "nesw")
 
+        self.buttonEnd = tk.Button(self, text=">|", bg=BUTTONBG, fg=BUTTONTEXT, width=1, command=self.end)
+        self.buttonEnd.grid(row=8, column=5, sticky = "nesw")
+
+        self.buttonJump = tk.Button(self, text="Jump", bg=BUTTONBG, fg=BUTTONTEXT, command=self.jump)
+        self.buttonJump.grid(column=3, row=9, padx=10, sticky = "nesw")
+
+        # Plot buttons
         self.buttonPlot = tk.Button(self, text="Plot", state="disabled", bg=BUTTONBG, fg=BUTTONTEXT, command=self.launch_paraview)
-        self.buttonPlot.pack()
+        self.buttonPlot.grid(row=8, column=8, sticky = "nesw")
 
-        self.buttonClear = tk.Button(self, text="Clear", bg=BUTTONBG, fg=BUTTONTEXT, command=self.clear)
-        self.buttonClear.pack()
+        self.buttonPlotBranch = tk.Button(self, text="Plot branch", state="disabled", bg=BUTTONBG, fg=BUTTONTEXT, command=self.launch_paraview)
+        self.buttonPlotBranch.grid(row=8, column=9, sticky = "nesw")
+
+        self.buttonParams = tk.Button(self, text="Plot params", state="disabled", bg=BUTTONBG, fg=BUTTONTEXT, command=self.launch_paraview)
+        self.buttonParams.grid(row=8, column=10, sticky = "nesw")
+
+        # Output Box
+        self.output_box_text = tk.StringVar()
+        tk.Label(self, textvariable=self.output_box_text, bg=BUTTONBG, fg=BUTTONTEXT, justify="left").grid(row=5, column=8, rowspan=3, columnspan=3, sticky = "nesw")
+        self.output_box_text.set("")
 
 
 
     def set_time(self, t):
         self.time_text.set("Time = %d" % t)
 
+    def set_output_box(self, text):
+        self.output_box_text.set(text)
+
     def clicked_diagram(self, event):
         """ Annotates the diagram, by plotting a tooltip with the params and branchid of the point the user clicked.
             If the diagram is already annotated, remove the annotation. """
         annotated = pc.annotate(event.xdata, event.ydata)
         if annotated: self.buttonPlot.config(state="normal")
-        else:             self.buttonPlot.config(state="disabled")
+        else:         self.buttonPlot.config(state="disabled")
 
-    def pause(self):
-        """ Pauses/Unpauses the plotting of the diagram, as well as changing the button text to whatever is appropriate. """
-        paused = pc.pause()
-        # Grey/ungrey the buttons.
-        if paused: 
-            self.pause_text.set("Resume")
-            self.buttonBack.config(state="normal")
-            self.buttonForward.config(state="normal")
-            self.buttonJump.config(state="normal")
-        else: 
-            self.pause_text.set("Pause")
-            self.buttonBack.config(state="disabled")
-            self.buttonForward.config(state="disabled")
-            self.buttonJump.config(state="disabled")
+    def start(self):
+        """ Set Time=0. """
+        t = pc.start()
+        self.set_time(t)
 
     def back(self):
         """ Set Time=Time-1. """
@@ -424,6 +441,11 @@ class BifurcationPage(tk.Tk):
     def forward(self):
         """ Set Time=Time+1. """
         t = pc.forward()
+        self.set_time(t)
+
+    def end(self):
+        """ Set Time=Maxtime. """
+        t = pc.end()
         self.set_time(t)
 
     def jump(self):
@@ -438,10 +460,6 @@ class BifurcationPage(tk.Tk):
         """ Launch Paraview to graph the highlighted solution. """
         pc.hdf5topvd()
 
-    def clear(self):
-        pc.clear()
-        self.set_time(0)
-
 
 ############
 ### Main ###
@@ -449,6 +467,10 @@ class BifurcationPage(tk.Tk):
 
 # Construct the app, name it and give it an icon.
 app = BifurcationPage()
+for col in range(12):
+    app.columnconfigure(col, weight=1)
+for row in range(10):
+    app.rowconfigure(row, weight=1)
 app.title("DEFCON")
 app.configure(bg=WINDOWBG)
 #app.iconbitmap('path/to/icon.ico')
