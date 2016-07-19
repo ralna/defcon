@@ -3,6 +3,8 @@ from parallellayout import ranktoteamno, teamnotoranks
 from parametertools import parameterstofloats, parameterstoconstants, nextparameters
 from newton import newton
 from tasks import QuitTask, ContinuationTask, DeflationTask, Response
+from journal import Journal, FileJournal
+
 
 import dolfin
 
@@ -26,7 +28,7 @@ class DeflatedContinuation(object):
     This class is the main driver that implements deflated continuation.
     """
 
-    def __init__(self, problem, io, deflation=None, teamsize=1, verbose=False, logfiles=False, externalgui=False, functional=None):
+    def __init__(self, problem, io, deflation=None, teamsize=1, verbose=False, logfiles=False, keep_journal=True):
         """
         Constructor.
 
@@ -43,10 +45,8 @@ class DeflatedContinuation(object):
             Activate verbose output.
           logfiles (:py:class:`bool`)
             Whether defcon should remap stdout/stderr to logfiles (useful for many processes).
-          externalgui (:py:class:`bool`)
-            Whether defcon should run in 'externalgui' mode, sending the points of the bifurcation diagram to a file for plotting by the external gui. 
-          functional (:py:class:`str`)
-            If we're in gui mode, which functional we should plot. 
+          keep_journal (:py:class:`bool`)
+            Whether defcon should keep a journal of its findings.
         """
         self.problem = problem
 
@@ -105,9 +105,10 @@ class DeflatedContinuation(object):
         io.setup(self.parameters, self.functionals, self.function_space)
         self.io = io
 
-        # Gui stuff.
-        self.externalgui = externalgui
-        self.functional = functional
+        # If instructed, keep a journal
+        self.keep_journal = keep_journal
+        if self.keep_journal:
+            self.journal = FileJournal(self.io.directory)
 
         # We keep track of what solution we actually have in memory in self.state
         # for efficiency
@@ -180,7 +181,7 @@ class DeflatedContinuation(object):
             self.master(freeindex, values)
         else:
             # join a worker team
-            self.worker(freeindex, values)
+            self.worker(freeindex, values)   
 
     def send_task(self, task, team):
         self.log("Sending task %s to team %s" % (task, team), master=True)
@@ -305,25 +306,14 @@ class DeflatedContinuation(object):
             sign = -1
             minvals = max
 
-        # If gui mode is on, get the functional
-        if self.externalgui:
-            assert(self.functional is not None) # We need to be told which functional to plot.
-            
-            # Find the functional index.
-            funcindex = None
-            for (i, functionaldata) in enumerate(self.functionals):
-                if functionaldata[1] == self.functional:
-                    funcindex = i
-                    break
-            assert funcindex is not None
+        # If there's only one process, show a warning. FIXME: do something more advanced so we can run anyway. 
+        if self.worldcomm.size < 2:
+            self.log("WARNING: DEFCON started with only 1 process. At least 2 processes are required. \nLaunch with mpiexec: mpiexec -n <number of processes> python <path to file>", master=True)
+            assert self.worldcomm.size >= 2
 
-
-            xlabel = self.parameters[freeindex][2]
-            ylabel = self.functionals[funcindex][2]
-            # Create the plot file.
-            self.io.create_plot_file(freeindex, funcindex, xlabel, ylabel)
-
-
+        # If we want to keep a journal of our findings, set it up.
+        if self.keep_journal:
+            self.journal.setup(self.parameters, self.functionals, freeindex)
 
         # Send off intial tasks
         initialparams = parameterstofloats(self.parameters, freeindex, values[0])
@@ -360,20 +350,20 @@ class DeflatedContinuation(object):
             while len(newtasks) > 0 and len(idleteams) > 0:
                 (priority, task) = heappop(newtasks)
 
+                # Let's check if we have found enough solutions already.
                 send = True
-                # Let's check if we have found enough solutions already
                 if isinstance(task, DeflationTask):
                     knownbranches = self.io.known_branches(task.newparams)
                     if task.newparams in ensure_branches:
                         knownbranches = knownbranches.union(ensure_branches[task.newparams])
                     if len(knownbranches) >= self.problem.number_solutions(task.newparams):
-                    # We've found all the branches the user's asked us for, let's roll
+                    # We've found all the branches the user's asked us for, let's roll.
                         self.log("Master not dispatching %s because we have enough solutions" % task, master=True)
                         continue
 
-                # If either there's still a continuation task looking for solutions on earlier parameters, 
-                # or there's a deflation task still looking for a new branch on earlier parameter values, 
-                # we want to not send this task out now and look at it again later.
+                    # If either there's still a continuation task looking for solutions on earlier parameters, 
+                    # or there's a deflation task still looking for a new branch on earlier parameter values, 
+                    # we want to not send this task out now and look at it again later.
                     for (t, r) in waittasks.values():
                         if (sign*t.newparams[freeindex]<=sign*task.newparams[freeindex]):
                             send = False
@@ -422,8 +412,6 @@ class DeflatedContinuation(object):
                             self.log("Waiting on response for %s" % conttask, master=True)
                         else:
                             idleteams.append(team)
-
-
 
                         # If there's still a continuation task looking for solutions on prior parameters, we don't want to send a new deflation task
                         # This task will still be scheduled, but that will happen at a later date. 
@@ -494,7 +482,7 @@ class DeflatedContinuation(object):
                         # As expected, deflation found nothing interesting. The team is now idle.
                         idleteams.append(team)
 
-            # We deferred some tasks because we didn't have enough information to judge if they were worthwhile. Now we must reschedule.
+            # We deferred some deflation tasks because we didn't have enough information to judge if they were worthwhile. Now we must reschedule.
             if len(deferredtasks) > 0:
                 # Take as many as there are idle teams. This makes things run much smoother than taking them all. 
                 for i in range(len(idleteams)):
@@ -506,11 +494,9 @@ class DeflatedContinuation(object):
 
         # All continuation tasks have been finished. Tell the workers to quit.
         quit = QuitTask()
-        if self.externalgui: self.io.finish_plot() # tell the gui we're done plotting new points. #TODO: add some scope for suspending/continuing computation.
         for teamno in range(self.nteams):
             self.send_task(quit, teamno)
-
-        
+       
     def worker(self, freeindex, values):
         """
         The main worker routine.
@@ -570,8 +556,8 @@ class DeflatedContinuation(object):
                         self.io.save_functionals(functionals, task.newparams, branchid)
                         self.log("Saved solution to %s to disk" % task)
 
-                        # If we're in GUI mode, lets plot this new point we're found.
-                        if self.externalgui: self.io.plot_to_file(task.newparams, task.branchid)
+                        # If we're in keeping a journal, lets record this new point we're found.
+                        if self.keep_journal: self.journal.entry(task.oldparams, task.branchid, task.newparams, functionals, False)
 
                         # Automatically start onto the continuation
                         newparams = nextparameters(values, freeindex, task.newparams)
@@ -613,8 +599,8 @@ class DeflatedContinuation(object):
                     self.io.save_solution(self.state, task.newparams, task.branchid)
                     self.io.save_functionals(functionals, task.newparams, task.branchid)
 
-                    # If we're in GUI mode, lets plot this new point we're found.
-                    if self.externalgui: self.io.plot_to_file(task.newparams, task.branchid)
+                    # If we're in keeping a journal, lets record this new point we're found.
+                    if self.keep_journal: self.journal.entry(task.oldparams, task.branchid, task.newparams, functionals, True)
                 else:
                     self.state_id = (None, None)
 

@@ -45,17 +45,6 @@ class IO(object):
     def max_branch(self):
         raise NotImplementedError
 
-    def create_plot_file(self, freeindex, funcindex, xlabel, ylabel):
-        raise NotImplementedError
- 
-    def plot_to_file(self, freeindex, funcindex, params, branchid):
-        raise NotImplementedError
-
-    def finish_plot(self):
-        raise NotImplementedError
-
-
-
 class FileIO(IO):
     """ I/O Module that uses HDF5 files to store the solutions and functionals. 
         We create one HDF5 file for each parameter value, with groups that contain the solutions for each branch.
@@ -66,7 +55,6 @@ class FileIO(IO):
     def __init__(self, directory):
         self.directory = directory
         self.maxbranch = -1
-        self.funcindex = None 
 
         # Create the output directory.
         try: os.mkdir(directory) 
@@ -188,42 +176,4 @@ class FileIO(IO):
         s = int(g.read())
         g.close()
         return s
-
-    def create_plot_file(self, freeindex, funcindex, xlabel, ylabel):
-        """ Create the file we're going to use to plot the bifurcation diagram, and add some basic information. """
-        # Store the funcindex in state. 
-        self.funcindex = funcindex
-
-        filename = self.directory + os.path.sep + "points_to_plot"
-
-        # Check if the points_to_plot file already exists, and if not, create it. 
-        if not os.path.exists(filename):
-            g = file(filename, 'w') # create the file
-            g.write("%s;%s;%s\n" % (freeindex, xlabel, ylabel))
-            g.flush()
-            g.close()
-
-    def plot_to_file(self, params, branchid):
-        """ Writes a pair of points to the file 'points_to_plot', so the external gui can read them in. 
-            Points are written to 15 decimal places of accuracy. """
-
-        # Urgh. The worker might not have the correct funcindex. Get it from the file...
-        if self.funcindex is None:
-            g = file(self.directory + os.path.sep + "points_to_plot", 'r')
-            self.funcindex = int(g.read()[0].split(';')[0])
-            g.close()
-
-        # Write this particular solution.
-        g = file(self.directory + os.path.sep + "points_to_plot", 'a')
-        y = self.fetch_functionals(params, [branchid])[0][self.funcindex]
-        g.write("%s;%.15f;%d \n" % (params, y, branchid)) # change '.15' to alter the decimal precision.
-        g.flush()
-        g.close()
-
-    def finish_plot(self):
-        g = file(self.directory + os.path.sep + "points_to_plot", 'a')
-        g.write("Finished")
-        g.flush()
-        g.close()
-
 

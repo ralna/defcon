@@ -9,8 +9,11 @@ from math import sqrt
 from subprocess import Popen
 import h5py as h5
 from dolfin import *
-from ast import literal_eval # FIXME: this is bad, get rid of it if possible. 
 from parametertools import parameterstostring
+
+# We'll use literal_eval to get lists and tuples back from the journal. 
+# This is not as bad as eval, as it only recognises: strings, bytes, numbers, tuples, lists, dicts, booleans, sets, and None.
+from ast import literal_eval 
 
 # For plotting the bifurcation diagram.
 import matplotlib
@@ -123,7 +126,7 @@ else:
 class PlotConstructor():
     """ Class for handling everything to do with the bifuraction diagram plot. """
 
-    def __init__(self, app, directory = output_dir):
+    def __init__(self, app):
         self.points = [] # Keep track of the points we've found, so we can redraw everything if necessary. Also for annotation.
 
         self.maxtime = 0 # Keep track of the furthest we have got in time. 
@@ -135,10 +138,13 @@ class PlotConstructor():
         self.annotation_highlight = None # The point we've annotated. 
         self.annotated_point = None # The (params, branchid) of the annotated point
 
-        self.directory = directory # The working directory.
+        self.path = output_dir + os.path.sep + "journal" + os.path.sep +"journal.txt" # The working directory.
 
         self.freeindex = None # The index of the free parameter.
         self.parameter_name = None
+
+        self.functional_names = None
+        self.current_functional = 0
 
         self.current_sol = None
 
@@ -168,8 +174,8 @@ class PlotConstructor():
 
     def end (self):
         if self.time < self.maxtime:
-            xs = [point[0] for point in self.points[self.time:]]
-            ys = [point[1] for point in self.points[self.time:]]
+            xs = [float(point[0][self.freeindex]) for point in self.points[:self.time]]
+            ys = [float(point[1][self.current_functional]) for point in self.points[:self.time]]
             bfdiag.plot(xs, ys, marker='.', color=MAIN, linestyle='None')
             self.time = self.maxtime
         if self.paused: self.unpause
@@ -180,8 +186,8 @@ class PlotConstructor():
         if not self.paused: self.pause()
         if self.time > 0:
             #FIXME: Extremely inefficient to replot everything
-            xs = [point[0] for point in self.points[:self.time]]
-            ys = [point[1] for point in self.points[:self.time]]
+            xs = [float(point[0][self.freeindex]) for point in self.points[:self.time]]
+            ys = [float(point[1][self.current_functional]) for point in self.points[:self.time]]
             self.time -= 1
             bfdiag.clear()
             bfdiag.grid(color=GRID)
@@ -192,9 +198,9 @@ class PlotConstructor():
         """ Take a step forwards in time. """
         if not self.paused: self.pause()
         if self.time < self.maxtime:
-            x, y, branchid, params = self.points[self.time]
+            xs, ys, branchid = self.points[self.time]
             self.time += 1
-            bfdiag.plot(x, y, marker='.', color=MAIN, linestyle='None')
+            bfdiag.plot(float(xs[self.freeindex]), float(ys[self.current_functional]), marker='.', color=MAIN, linestyle='None')
         if self.time==self.maxtime: self.pause
         return self.time
 
@@ -203,18 +209,27 @@ class PlotConstructor():
         if not self.paused: self.pause()
         if t <= self.maxtime:
             #FIXME: Extremely inefficient to replot everything
-            xs = [point[0] for point in self.points[:(t+1)]]
-            ys = [point[1] for point in self.points[:(t+1)]]
+            xs = [float(point[0][self.freeindex]) for point in self.points[:(t+1)]]
+            ys = [float(point[1][self.current_functional]) for point in self.points[:(t+1)]]
             self.time = t
             bfdiag.clear()
             bfdiag.grid(color=GRID)
             bfdiag.plot(xs, ys, marker='.', color=MAIN, linestyle='None') 
         return self.time
 
+    def switch_functional(self, i):
+        self.current_functional = i
+        xs = [float(point[0][self.freeindex]) for point in self.points[:self.time]]
+        ys = [float(point[1][self.current_functional]) for point in self.points[:self.time]]
+        bfdiag.clear()
+        bfdiag.set_ylabel(self.functional_names[self.current_functional])
+        bfdiag.grid(color=GRID)
+        bfdiag.plot(xs, ys, marker='.', color=MAIN, linestyle='None') 
+
     def grab_data(self):
         """ Get data from the file. """
         # If the file doesn't exist, just pass.
-        try: pullData = open(self.directory + os.path.sep + "points_to_plot",'r').read()
+        try: pullData = open(self.path, 'r').read()
         except Exception: pullData = None
         return pullData
 
@@ -228,8 +243,8 @@ class PlotConstructor():
         else:   
             # Catch up to the points we have in memory.
             if self.time < self.maxtime:
-                for x, y, branchid, params in self.points[self.time:]:
-                    bfdiag.plot(x, y, marker='.', color=MAIN, linestyle='None')
+                for xs, ys, branchid, params in self.points[self.time:]:
+                    bfdiag.plot(float(xs[self.freeindex]), float(ys[self.current_functional]), marker='.', color=MAIN, linestyle='None')
                     self.time += 1
 
             # Get new points, if they exist. If not, just pass. 
@@ -239,26 +254,26 @@ class PlotConstructor():
 
                 # Is this is first time, get the information from the first line of the data. 
                 if self.freeindex is None: 
-                    freeindex, xlabel, ylabel = dataList[0].split(';')
+                    freeindex, xlabel, functional_names = dataList[0].split(';')
                     self.freeindex = int(freeindex)
                     self.parameter_name = xlabel
-                    self.functional_name = ylabel
+                    self.functional_names = literal_eval(functional_names)
+                    app.make_radio_buttons(self.functional_names)
                     bfdiag.set_xlabel(xlabel)
-                    bfdiag.set_ylabel(ylabel)
+                    bfdiag.set_ylabel(self.functional_names[self.current_functional])
 
                 dataList = dataList[1:] # exclude the first line. 
 
                 # Plot new points one at a time.
                 for eachLine in dataList[self.time:]:
-                    if eachLine=="Finished":
-                        # FIXME: do something with this.
-                        pass
-                        #self.done = True
-                    elif len(eachLine) > 1:
-                        params, y, branchid = eachLine.split(';')
-                        x = literal_eval(params)[self.freeindex]
-                        self.points.append((float(x), float(y), int(branchid), params))
-                        bfdiag.plot(float(x), float(y), marker='.', color=MAIN, linestyle='None')
+                    if len(eachLine) > 1:
+                        oldparams, branchid, newparams, functionals, continuation = eachLine.split(';')
+                        xs = literal_eval(newparams)
+                        ys = literal_eval(functionals)
+                        x = float(xs[self.freeindex])
+                        y = float(ys[self.current_functional])
+                        self.points.append((xs, ys, int(branchid)))
+                        bfdiag.plot(x, y, marker='.', color=MAIN, linestyle='None')
                         self.time += 1
 
                 # Update the current time.
@@ -268,8 +283,8 @@ class PlotConstructor():
     def annotate(self, clickX, clickY):
          """ Annotate a point when clicking on it. If there's already an annotation, remove it. """
          if self.annotated_point is None:
-             xs = [point[0] for point in self.points[:self.time]]
-             ys = [point[1] for point in self.points[:self.time]]
+             xs = [float(point[0][self.freeindex]) for point in self.points[:self.time]]
+             ys = [float(point[1][self.current_functional]) for point in self.points[:self.time]]
  
              # FIXME: The *100 is because these were too small, might need some changing. Also doesn't work on, say allen-cahn, as xtol=0.
              xtol = 100*((max(xs) - min(xs))/float(len(xs)))/2 
@@ -278,13 +293,15 @@ class PlotConstructor():
              annotes = []
 
              # Find the point on the diagram closest to the point the user clicked.
-             for x, y, branchid, params in self.points:
+             for xs, ys, branchid in self.points:
+                  x = float(xs[self.freeindex])
+                  y = float(ys[self.current_functional])
                   if ((clickX-xtol < x < clickX+xtol) and (clickY-ytol < y < clickY+ytol)):
-                      annotes.append((self.distance(x, clickX, y, clickY), x, y, branchid, params))
+                      annotes.append((self.distance(x, clickX, y, clickY), x, y, branchid, xs))
 
              if annotes:
                  annotes.sort()
-                 distance, x, y, branchid, params = annotes[0]
+                 distance, x, y, branchid, xs = annotes[0]
 
                  # Plot the annotation, and keep a handle on all the stuff we plot so we can use/remove it later. 
                  # FIXME: Make it prettier.
@@ -296,7 +313,7 @@ class PlotConstructor():
 
                  self.annotation_highlight = bfdiag.scatter([x], [y], s=[50], marker='o', color=HIGHLIGHT) # Note: change 's' to make the highlight blob bigger/smaller
 
-                 self.annotated_point = (literal_eval(params), branchid)  
+                 self.annotated_point = (xs, branchid)  
 
                  app.set_output_box("Branch = %s\nx = %s\ny = %s" % (branchid, x, y))
 
@@ -345,14 +362,12 @@ class PlotConstructor():
 ##################   
 
 class CustomToolbar(NavigationToolbar2TkAgg):
-    """ A custom matplotlib toolbar, so we can remove those pesky buttons. """  
+    """ A custom matplotlib toolbar, so we can remove those pesky extra buttons. """  
     def __init__(self, canvas, parent):
         self.toolitems = (
             ('Home', 'Reset original view', 'home', 'home'),
-            (None, None, None, None),
             ('Pan', 'Pan axes with left mouse, zoom with right', 'move', 'pan'),
             ('Zoom', 'Zoom to rectangle', 'zoom_to_rect', 'zoom'),
-            (None, None, None, None),
             ('Save', 'Save the figure', 'filesave', 'save_figure'),
             )
         NavigationToolbar2TkAgg.__init__(self, canvas, parent)    
@@ -362,7 +377,7 @@ class BifurcationPage(tk.Tk):
     def __init__(self, *args, **kwargs):
         tk.Tk.__init__(self,*args, **kwargs)
         label = tk.Label(self, text="DEFCON", font=LARGE_FONT, bg=BUTTONBG, fg=BUTTONTEXT)
-        label.grid(row=0,column=4, columnspan=3)
+        label.grid(row=0,column=1, columnspan=5)
 
         # Time label
         self.time_text = tk.StringVar()
@@ -413,13 +428,25 @@ class BifurcationPage(tk.Tk):
         tk.Label(self, textvariable=self.output_box_text, bg=BUTTONBG, fg=BUTTONTEXT, justify="left").grid(row=5, column=8, rowspan=3, columnspan=3, sticky = "nesw")
         self.output_box_text.set("")
 
-
+        # Radio buttons
+        self.radio_button_int = tk.IntVar()
+        self.radio_buttons = []
 
     def set_time(self, t):
         self.time_text.set("Time = %d" % t)
 
     def set_output_box(self, text):
         self.output_box_text.set(text)
+
+    def make_radio_buttons(self, functionals):
+        for i in range(len(functionals)):
+            radio_button = tk.Radiobutton(self, text=functionals[i], variable=self.radio_button_int, value=i, command=self.switch_functional)
+            radio_button.grid(column=8, columnspan=3, row=1+i, sticky = "nesw")
+            self.radio_buttons.append(radio_button)
+
+    def switch_functional(self):
+        pc.switch_functional(self.radio_button_int.get())
+
 
     def clicked_diagram(self, event):
         """ Annotates the diagram, by plotting a tooltip with the params and branchid of the point the user clicked.
@@ -467,10 +494,17 @@ class BifurcationPage(tk.Tk):
 
 # Construct the app, name it and give it an icon.
 app = BifurcationPage()
-for col in range(12):
-    app.columnconfigure(col, weight=1)
-for row in range(10):
-    app.rowconfigure(row, weight=1)
+
+# Set up the rows and columns.
+# For some stupid reason, rowconfigure and columnconfigure do the opposite of what you expect...
+for col in range(10):
+    app.rowconfigure(col, weight=2)
+app.rowconfigure(8, weight=1)
+app.rowconfigure(9, weight=1)
+for row in [1,2,3,4,5,8,9,10]:
+    app.columnconfigure(row, weight=1)
+for row in [0,6]:
+    app.columnconfigure(row, weight=50)
 app.title("DEFCON")
 app.configure(bg=WINDOWBG)
 #app.iconbitmap('path/to/icon.ico')
