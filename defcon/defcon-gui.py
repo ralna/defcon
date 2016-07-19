@@ -114,9 +114,8 @@ else:
 # TODO: 1) Make the command line args less clunky.  
 #       2) Add support for selecting multiple solutions? 
 #       3) Add support for selecting and then graphing all solutions from one branch?
-#       4) Tidy up code. Maybe move PlotConstructor to its own file? 
-#       5) Grey out buttons that can't be pressed, or do something more sensible if we do press them. 
-#       6) There's a lot of lag when the diagram is finished. Have defcon write something to the last line of the file to say it's finished???
+#       4) There's a lot of lag when the diagram is finished. Have defcon write something to the last line of the file to say it's finished???
+#       5) Keep hold of the matplotlib plot objects, so we can delete one point at a time.  
 
 
 #####################
@@ -141,16 +140,12 @@ class PlotConstructor():
         self.path = output_dir + os.path.sep + "journal" + os.path.sep +"journal.txt" # The working directory.
 
         self.freeindex = None # The index of the free parameter.
-        self.parameter_name = None
 
-        self.functional_names = None
         self.current_functional = 0
 
         self.current_sol = None
 
         self.app = app # The BifurcationPage window, so that we can set the time.
-
-        self.done = False # Are we done?
     
     def distance(self, x1, x2, y1, y2):
         """ Return the L2 distance between two points. """
@@ -174,8 +169,8 @@ class PlotConstructor():
 
     def end (self):
         if self.time < self.maxtime:
-            xs = [float(point[0][self.freeindex]) for point in self.points[:self.time]]
-            ys = [float(point[1][self.current_functional]) for point in self.points[:self.time]]
+            xs = [float(point[0][self.freeindex]) for point in self.points[self.time:]]
+            ys = [float(point[1][self.current_functional]) for point in self.points[self.time:]]
             bfdiag.plot(xs, ys, marker='.', color=MAIN, linestyle='None')
             self.time = self.maxtime
         if self.paused: self.unpause
@@ -190,6 +185,8 @@ class PlotConstructor():
             ys = [float(point[1][self.current_functional]) for point in self.points[:self.time]]
             self.time -= 1
             bfdiag.clear()
+            bfdiag.set_xlabel(self.parameter_name)
+            bfdiag.set_ylabel(self.functional_names[self.current_functional])
             bfdiag.grid(color=GRID)
             bfdiag.plot(xs, ys, marker='.', color=MAIN, linestyle='None') 
         return self.time
@@ -213,6 +210,8 @@ class PlotConstructor():
             ys = [float(point[1][self.current_functional]) for point in self.points[:(t+1)]]
             self.time = t
             bfdiag.clear()
+            bfdiag.set_xlabel(self.parameter_name)
+            bfdiag.set_ylabel(self.functional_names[self.current_functional])
             bfdiag.grid(color=GRID)
             bfdiag.plot(xs, ys, marker='.', color=MAIN, linestyle='None') 
         return self.time
@@ -222,6 +221,7 @@ class PlotConstructor():
         xs = [float(point[0][self.freeindex]) for point in self.points[:self.time]]
         ys = [float(point[1][self.current_functional]) for point in self.points[:self.time]]
         bfdiag.clear()
+        bfdiag.set_xlabel(self.parameter_name)
         bfdiag.set_ylabel(self.functional_names[self.current_functional])
         bfdiag.grid(color=GRID)
         bfdiag.plot(xs, ys, marker='.', color=MAIN, linestyle='None') 
@@ -236,7 +236,7 @@ class PlotConstructor():
     def animate(self, i):
         """ Handles the redrawing of the graph. """
         # If we're in pause mode, or we're done, then do nothing.
-        if self.paused or self.done:
+        if self.paused:
             pass
 
         # If we're not paused, we draw all the points that have come in since we last drew something.
@@ -254,12 +254,11 @@ class PlotConstructor():
 
                 # Is this is first time, get the information from the first line of the data. 
                 if self.freeindex is None: 
-                    freeindex, xlabel, functional_names = dataList[0].split(';')
+                    freeindex, self.parameter_name, functional_names = dataList[0].split(';')
                     self.freeindex = int(freeindex)
-                    self.parameter_name = xlabel
                     self.functional_names = literal_eval(functional_names)
                     app.make_radio_buttons(self.functional_names)
-                    bfdiag.set_xlabel(xlabel)
+                    bfdiag.set_xlabel(self.parameter_name)
                     bfdiag.set_ylabel(self.functional_names[self.current_functional])
 
                 dataList = dataList[1:] # exclude the first line. 
@@ -304,15 +303,7 @@ class PlotConstructor():
                  distance, x, y, branchid, xs = annotes[0]
 
                  # Plot the annotation, and keep a handle on all the stuff we plot so we can use/remove it later. 
-                 # FIXME: Make it prettier.
-                 """self.annotation = bfdiag.annotate("%s=%.5f, Branch=%d" % (self.parameter_name, x, branchid),
-                            xy = (x, y), xytext = (-20, 20),
-                            textcoords = 'offset points', ha = 'right', va = 'bottom',
-                            bbox = dict(boxstyle = 'round,pad=0.5', fc = 'yellow', alpha = 0.5))
-                            #arrowprops = dict(arrowstyle = '->', connectionstyle = 'arc3,rad=0'))"""
-
                  self.annotation_highlight = bfdiag.scatter([x], [y], s=[50], marker='o', color=HIGHLIGHT) # Note: change 's' to make the highlight blob bigger/smaller
-
                  self.annotated_point = (xs, branchid)  
 
                  app.set_output_box("Branch = %s\nx = %s\ny = %s" % (branchid, x, y))
@@ -478,7 +469,6 @@ class BifurcationPage(tk.Tk):
     def jump(self):
         """ Jump to Time=t. """
         t = tkSimpleDialog.askinteger("Jump to", "Enter a time to jump to")
-        print t
         if t is not None: 
             new_time = pc.jump(t)
             self.set_time(new_time)
