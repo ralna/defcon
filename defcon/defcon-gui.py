@@ -1,6 +1,9 @@
-import Tkinter as tk
-import ttk
-import tkSimpleDialog
+from matplotlib.backends import qt_compat
+use_pyside = qt_compat.QT_API == qt_compat.QT_API_PYSIDE
+if use_pyside:
+    from PySide import QtGui, QtCore
+else:
+    from PyQt4 import QtGui, QtCore
 
 import sys, getopt, os
 from math import sqrt
@@ -18,7 +21,8 @@ from ast import literal_eval
 # For plotting the bifurcation diagram.
 import matplotlib
 matplotlib.use("TkAgg")
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2TkAgg
+from matplotlib.backends.backend_qt4agg import FigureCanvasQTAgg as FigureCanvas
+from matplotlib.backends.backend_qt4agg import NavigationToolbar2QT
 from matplotlib.figure import Figure
 
 # Needed for animating the graph.
@@ -71,7 +75,7 @@ if problem_type is None: problem_type = working_dir.split(os.path.sep)[-1]
 solutions_dir = output_dir + os.path.sep + "solutions" + os.path.sep
 
 # Set up the figure.
-figure = Figure(figsize=(5,4), dpi=100)
+figure = Figure(figsize=(7,6), dpi=100)
 bfdiag = figure.add_subplot(111)
 bfdiag.grid(color=GRID)
 
@@ -110,13 +114,6 @@ if problem_type and problem_class:
 else:
     print "In order to use paraview for graphing solutions, you must specify the class of the problem, eg 'NavierStokesProblem'."
     print("Usage: %s -p <problem type> -c <problem_class> -w <working dir> \n" % sys.argv[0])
-
-# TODO: 1) Make the command line args less clunky.  
-#       2) Add support for selecting multiple solutions? 
-#       3) Add support for selecting and then graphing all solutions from one branch?
-#       4) There's a lot of lag when the diagram is finished. Have defcon write something to the last line of the file to say it's finished???
-#       5) Keep hold of the matplotlib plot objects, so we can delete one point at a time.  
-
 
 #####################
 ### Utility Class ###
@@ -164,6 +161,8 @@ class PlotConstructor():
         if not self.paused: self.pause()
         self.time = 0
         bfdiag.clear()
+        bfdiag.set_xlabel(self.parameter_name)
+        bfdiag.set_ylabel(self.functional_names[self.current_functional])
         bfdiag.grid(color=GRID)
         return self.time
 
@@ -233,7 +232,7 @@ class PlotConstructor():
         except Exception: pullData = None
         return pullData
 
-    def animate(self, i):
+    def animate(self):
         """ Handles the redrawing of the graph. """
         # If we're in pause mode, or we're done, then do nothing.
         if self.paused:
@@ -257,7 +256,7 @@ class PlotConstructor():
                     freeindex, self.parameter_name, functional_names = dataList[0].split(';')
                     self.freeindex = int(freeindex)
                     self.functional_names = literal_eval(functional_names)
-                    app.make_radio_buttons(self.functional_names)
+                    self.app.make_radio_buttons(self.functional_names)
                     bfdiag.set_xlabel(self.parameter_name)
                     bfdiag.set_ylabel(self.functional_names[self.current_functional])
 
@@ -306,7 +305,7 @@ class PlotConstructor():
                  self.annotation_highlight = bfdiag.scatter([x], [y], s=[50], marker='o', color=HIGHLIGHT) # Note: change 's' to make the highlight blob bigger/smaller
                  self.annotated_point = (xs, branchid)  
 
-                 app.set_output_box("Branch = %s\nx = %s\ny = %s" % (branchid, x, y))
+                 self.app.set_output_box("Branch = %s\nx = %s\ny = %s" % (branchid, x, y))
 
                  return True
              else: return False
@@ -315,7 +314,7 @@ class PlotConstructor():
             self.annotation_highlight.remove()
             self.annotation_highlight = None
             self.annotated_point = None
-            app.set_output_box("")
+            self.app.set_output_box("")
             return False
 
     def hdf5topvd(self):
@@ -346,13 +345,25 @@ class PlotConstructor():
     def launch_paraview(self, filename):
         """ Utility function for launching paraview. Popen launches it in a separate process, so we may carry on with whatever we are doing."""
         Popen(["paraview", filename])
-    
-        
-##################
-### Tk Classes ###
-##################   
 
-class CustomToolbar(NavigationToolbar2TkAgg):
+######################################################################
+class DynamicCanvas(FigureCanvas):
+    """A canvas that updates itself every second with a new plot."""
+
+    def __init__(self, parent=None, width=5, height=4, dpi=100):
+        FigureCanvas.__init__(self, figure)
+        self.setParent(parent)
+        FigureCanvas.setSizePolicy(self, QtGui.QSizePolicy.Expanding, QtGui.QSizePolicy.Expanding)
+        FigureCanvas.updateGeometry(self)
+        timer = QtCore.QTimer(self)
+        timer.timeout.connect(self.update_figure)
+        timer.start(1)
+
+    def update_figure(self):
+        pc.animate()
+        self.draw()
+
+class CustomToolbar(NavigationToolbar2QT):
     """ A custom matplotlib toolbar, so we can remove those pesky extra buttons. """  
     def __init__(self, canvas, parent):
         self.toolitems = (
@@ -361,90 +372,166 @@ class CustomToolbar(NavigationToolbar2TkAgg):
             ('Zoom', 'Zoom to rectangle', 'zoom_to_rect', 'zoom'),
             ('Save', 'Save the figure', 'filesave', 'save_figure'),
             )
-        NavigationToolbar2TkAgg.__init__(self, canvas, parent)    
-      
-class BifurcationPage(tk.Tk):
-    """ A page with a plot of the bifurcation diagram. """
-    def __init__(self, *args, **kwargs):
-        tk.Tk.__init__(self,*args, **kwargs)
-        label = tk.Label(self, text="DEFCON", font=LARGE_FONT, bg=BUTTONBG, fg=BUTTONTEXT)
-        label.grid(row=0,column=1, columnspan=5)
+        NavigationToolbar2QT.__init__(self, canvas, parent)    
 
-        # Time label
-        self.time_text = tk.StringVar()
-        tk.Label(self, textvariable=self.time_text, bg=BUTTONBG, fg=BUTTONTEXT).grid(row=8, column=3)
-        self.time_text.set("Time = 0")
+class ApplicationWindow(QtGui.QMainWindow):
+    def __init__(self):
+        QtGui.QMainWindow.__init__(self)
+        
+        self.setAttribute(QtCore.Qt.WA_DeleteOnClose)
+        self.setWindowTitle("DEFCON")
 
-        # Draw the canvas for the figure.
-        canvas = FigureCanvasTkAgg(figure, self)
-        canvas.show()
-        canvas.get_tk_widget().grid(row=1, column=0, rowspan=7, columnspan=7, sticky = "nesw") #.pack(side=tk.TOP, fill=tk.BOTH, expand=1)
+        #self.file_menu = QtGui.QMenu('&File', self)
+        #self.file_menu.addAction('&Quit', self.fileQuit, QtCore.Qt.CTRL + QtCore.Qt.Key_Q)
+        #self.menuBar().addMenu(self.file_menu)
 
-        #toolbar = CustomToolbar( canvas, self )
-        #toolbar.update()
-        canvas._tkcanvas.grid(row=1, column=0, rowspan=7, columnspan=7, sticky = "nesw")#pack(side=tk.TOP, fill=tk.BOTH, expand=1)
+        #self.help_menu = QtGui.QMenu('&Help', self)
+        #self.menuBar().addSeparator()
+        #self.menuBar().addMenu(self.help_menu)
 
-        # Annotator
-        canvas.mpl_connect('button_press_event', self.clicked_diagram)
+        #self.help_menu.addAction('&About', self.about)
 
+        # Main widget
+        self.main_widget = QtGui.QWidget(self)
+        self.main_widget.setFocus()
+        self.setCentralWidget(self.main_widget)
+
+        if darkmode: self.main_widget.setStyleSheet('color: green; background-color: black')
+
+        # Layout
+        main_layout = QtGui.QHBoxLayout(self.main_widget)
+        lVBox = QtGui.QVBoxLayout()
+        rVBox = QtGui.QVBoxLayout()
+        main_layout.addLayout(lVBox)
+        main_layout.addLayout(rVBox)
+
+        canvasBox = QtGui.QVBoxLayout()
+        lVBox.addLayout(canvasBox)
+        timeBox = QtGui.QHBoxLayout()
+        timeBox.setAlignment(QtCore.Qt.AlignCenter)
+        lVBox.addLayout(timeBox)
+        lowerBox = QtGui.QHBoxLayout()
+        lowerBox.setAlignment(QtCore.Qt.AlignCenter)
+        lVBox.addLayout(lowerBox)
+
+        self.functionalBox = QtGui.QVBoxLayout()
+        rVBox.addLayout(self.functionalBox)
+        infoBox = QtGui.QVBoxLayout()
+        rVBox.addLayout(infoBox)
+        plotBox = QtGui.QHBoxLayout()
+        rVBox.addLayout(plotBox)
+        plotBox.setAlignment(QtCore.Qt.AlignTop)
+
+
+        # Canvas.
+        self.dc = DynamicCanvas(self.main_widget, width=5, height=4, dpi=100)
+        canvasBox.addWidget(self.dc)
+        self.dc.mpl_connect('button_press_event', self.clicked_diagram)
+
+        toolbar = CustomToolbar( self.dc, self )
+        toolbar.update()
+        canvasBox.addWidget(toolbar)
 
         # Time navigation buttons
-        self.buttonStart = tk.Button(self, text="|<", bg=BUTTONBG, fg=BUTTONTEXT, width=1, command=self.start)
-        self.buttonStart.grid(row=8, column=1, sticky = "nesw")
+        self.buttonStart = QtGui.QPushButton("|<")
+        self.buttonStart.clicked.connect(lambda:self.start())
+        self.buttonStart.setFixedWidth(30)
+        timeBox.addWidget(self.buttonStart)
 
-        self.buttonBack = tk.Button(self, text="<", bg=BUTTONBG, fg=BUTTONTEXT, width=1, command=self.back)
-        self.buttonBack.grid(row=8, column=2, sticky = "nesw")
+        self.buttonBack = QtGui.QPushButton("<")
+        self.buttonBack.clicked.connect(lambda:self.back())
+        self.buttonBack.setFixedWidth(30)
+        timeBox.addWidget(self.buttonBack)
 
-        self.buttonForward = tk.Button(self, text=">", bg=BUTTONBG, fg=BUTTONTEXT, width=1, command=self.forward)
-        self.buttonForward.grid(row=8, column=4, sticky = "nesw")
+        self.timeLabel = QtGui.QLabel("")
+        timeBox.addWidget(self.timeLabel)
+        self.timeLabel.setFixedWidth(100)
+        self.timeLabel.setAlignment(QtCore.Qt.AlignCenter)
 
-        self.buttonEnd = tk.Button(self, text=">|", bg=BUTTONBG, fg=BUTTONTEXT, width=1, command=self.end)
-        self.buttonEnd.grid(row=8, column=5, sticky = "nesw")
+        self.buttonForward = QtGui.QPushButton(">")
+        self.buttonForward.clicked.connect(lambda:self.forward())
+        self.buttonForward.setFixedWidth(30)
+        timeBox.addWidget(self.buttonForward)
 
-        self.buttonJump = tk.Button(self, text="Jump", bg=BUTTONBG, fg=BUTTONTEXT, command=self.jump)
-        self.buttonJump.grid(column=3, row=9, padx=10, sticky = "nesw")
+        self.buttonEnd = QtGui.QPushButton(">|")
+        self.buttonEnd.clicked.connect(lambda:self.end())
+        self.buttonEnd.setFixedWidth(30)
+        timeBox.addWidget(self.buttonEnd)
 
-        # Plot buttons
-        self.buttonPlot = tk.Button(self, text="Plot", state="disabled", bg=BUTTONBG, fg=BUTTONTEXT, command=self.launch_paraview)
-        self.buttonPlot.grid(row=8, column=8, sticky = "nesw")
+        # TODO: Define a custom one of these, to do just we want it to do.
+        self.jumpInput = QtGui.QLineEdit()
+        self.jumpInput.setMaxLength(4) #FIXME: Get appropriate value.
+        self.jumpInput.setText("0")
+        self.jumpInput.setFixedWidth(40)
+        lowerBox.addWidget(self.jumpInput)
 
-        self.buttonPlotBranch = tk.Button(self, text="Plot branch", state="disabled", bg=BUTTONBG, fg=BUTTONTEXT, command=self.launch_paraview)
-        self.buttonPlotBranch.grid(row=8, column=9, sticky = "nesw")
+        self.buttonJump = QtGui.QPushButton("Jump")
+        self.buttonJump.clicked.connect(lambda:self.jump())
+        self.buttonJump.setFixedWidth(40)
+        lowerBox.addWidget(self.buttonJump)
 
-        self.buttonParams = tk.Button(self, text="Plot params", state="disabled", bg=BUTTONBG, fg=BUTTONTEXT, command=self.launch_paraview)
-        self.buttonParams.grid(row=8, column=10, sticky = "nesw")
 
-        # Output Box
-        self.output_box_text = tk.StringVar()
-        tk.Label(self, textvariable=self.output_box_text, bg=BUTTONBG, fg=BUTTONTEXT, justify="left").grid(row=5, column=8, rowspan=3, columnspan=3, sticky = "nesw")
-        self.output_box_text.set("")
+        # Plot Buttons
+        self.buttonPlot = QtGui.QPushButton("Plot")
+        self.buttonPlot.clicked.connect(lambda:self.launch_paraview())
+        plotBox.addWidget(self.buttonPlot)
+
+        self.buttonPlotBranch = QtGui.QPushButton("Plot Branch")
+        self.buttonPlotBranch.clicked.connect(lambda:self.launch_paraview())
+        plotBox.addWidget(self.buttonPlotBranch)
+
+        self.buttonParams = QtGui.QPushButton("Plot Branch")
+        self.buttonParams.clicked.connect(lambda:self.launch_paraview())
+        plotBox.addWidget(self.buttonParams)
 
         # Radio buttons
-        self.radio_button_int = tk.IntVar()
+        label = QtGui.QLabel("Functionals:")
+        label.setFixedHeight(20)
+        self.functionalBox.addWidget(label)
         self.radio_buttons = []
 
+        # Output Box
+        self.infobox = QtGui.QLabel("")
+        self.infobox.setFixedHeight(450)
+        self.infobox.setAlignment(QtCore.Qt.AlignTop)
+        font = QtGui.QFont()
+        font.setPointSize(18)
+        font.setBold(True)
+        font.setWeight(75)
+        self.infobox.setFont(font)
+        self.infobox.setStyleSheet('border-color: black; border-style: outset; border-width: 2px')
+        infoBox.addWidget(self.infobox)
+
+
+
+    # Utility Functions
     def set_time(self, t):
-        self.time_text.set("Time = %d" % t)
+        self.timeLabel.setText("Time = %d" % t)
 
     def set_output_box(self, text):
-        self.output_box_text.set(text)
+        self.infobox.setText(text)
 
     def make_radio_buttons(self, functionals):
         for i in range(len(functionals)):
-            radio_button = tk.Radiobutton(self, text=functionals[i], variable=self.radio_button_int, value=i, command=self.switch_functional)
-            radio_button.grid(column=8, columnspan=3, row=1+i, sticky = "nesw")
+            radio_button = QtGui.QRadioButton(text=functionals[i])
+            radio_button.clicked.connect(lambda: self.switch_functional())
+            self.functionalBox.addWidget(radio_button)
             self.radio_buttons.append(radio_button)
+        self.radio_buttons[0].setChecked(True)
 
     def switch_functional(self):
-        pc.switch_functional(self.radio_button_int.get())
+        for i in range(1000):
+            if self.radio_buttons[i].isChecked(): 
+                pc.switch_functional(i)
+                break
 
 
     def clicked_diagram(self, event):
         """ Annotates the diagram, by plotting a tooltip with the params and branchid of the point the user clicked.
             If the diagram is already annotated, remove the annotation. """
         annotated = pc.annotate(event.xdata, event.ydata)
-        if annotated: self.buttonPlot.config(state="normal")
-        else:         self.buttonPlot.config(state="disabled")
+        #if annotated: self.buttonPlot.config(state="normal")
+        #else:         self.buttonPlot.config(state="disabled")
 
     def start(self):
         """ Set Time=0. """
@@ -468,7 +555,8 @@ class BifurcationPage(tk.Tk):
 
     def jump(self):
         """ Jump to Time=t. """
-        t = tkSimpleDialog.askinteger("Jump to", "Enter a time to jump to")
+        #t = tkSimpleDialog.askinteger("Jump to", "Enter a time to jump to")
+        t = None
         if t is not None: 
             new_time = pc.jump(t)
             self.set_time(new_time)
@@ -478,30 +566,14 @@ class BifurcationPage(tk.Tk):
         pc.hdf5topvd()
 
 
-############
-### Main ###
-############
+qApp = QtGui.QApplication(sys.argv)
 
-# Construct the app, name it and give it an icon.
-app = BifurcationPage()
+aw = ApplicationWindow()
+pc = PlotConstructor(aw)
+aw.setWindowTitle("DEFCON")
+aw.show()
+sys.exit(qApp.exec_())
+#qApp.exec_()
 
-# Set up the rows and columns.
-# For some stupid reason, rowconfigure and columnconfigure do the opposite of what you expect...
-for col in range(10):
-    app.rowconfigure(col, weight=2)
-app.rowconfigure(8, weight=1)
-app.rowconfigure(9, weight=1)
-for row in [1,2,3,4,5,8,9,10]:
-    app.columnconfigure(row, weight=1)
-for row in [0,6]:
-    app.columnconfigure(row, weight=50)
-app.title("DEFCON")
-app.configure(bg=WINDOWBG)
-#app.iconbitmap('path/to/icon.ico')
 
-# Build and set up the animation object for the plot
-pc = PlotConstructor(app)
-ani = animation.FuncAnimation(figure, pc.animate, interval=update_interval)
 
-# Start the app. 
-app.mainloop()
