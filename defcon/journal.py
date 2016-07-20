@@ -33,16 +33,17 @@ class FileJournal(Journal):
 
         xlabel = self.parameters[freeindex][2]
         ylabels = [func[2] for func in self.functionals]
+        unicodeylabels = [func[1] for func in self.functionals]
         with file(self.directory + os.path.sep + "journal.txt", 'w') as f:
-            f.write("%s;%s;%s\n" % (freeindex, xlabel, ylabels))
+            f.write("%s;%s;%s;%s\n" % (freeindex, xlabel, ylabels, unicodeylabels))
             f.flush()
             f.close()
 
-    def entry(self, oldparams, branchid, newparams, functionals, continuation):
+    def entry(self, teamid, oldparams, branchid, newparams, functionals, continuation):
         """ Enqueue the journal entry. """
         self.lock.acquire()
         with file(self.directory + os.path.sep + "journal.txt", 'a') as f:
-            f.write("%s;%s;%s;%s;%s \n" % (oldparams, branchid, newparams, functionals, continuation))
+            f.write("%s;%s;%s;%s;%s;%s \n" % (teamid, oldparams, branchid, newparams, functionals, continuation))
             f.flush()
         self.lock.release()
 

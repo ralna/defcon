@@ -557,7 +557,7 @@ class DeflatedContinuation(object):
                         self.log("Saved solution to %s to disk" % task)
 
                         # If we're in keeping a journal, lets record this new point we're found.
-                        if self.keep_journal: self.journal.entry(task.oldparams, task.branchid, task.newparams, functionals, False)
+                        if self.keep_journal: self.journal.entry(self.teamno, task.oldparams, task.branchid, task.newparams, functionals, False)
 
                         # Automatically start onto the continuation
                         newparams = nextparameters(values, freeindex, task.newparams)
@@ -600,7 +600,7 @@ class DeflatedContinuation(object):
                     self.io.save_functionals(functionals, task.newparams, task.branchid)
 
                     # If we're in keeping a journal, lets record this new point we're found.
-                    if self.keep_journal: self.journal.entry(task.oldparams, task.branchid, task.newparams, functionals, True)
+                    if self.keep_journal: self.journal.entry(self.teamno, task.oldparams, task.branchid, task.newparams, functionals, True)
                 else:
                     self.state_id = (None, None)
 

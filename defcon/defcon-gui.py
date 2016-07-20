@@ -33,9 +33,6 @@ try:
 except AttributeError:
     print "Update to the latest version of matplotlib to use styles."
 
-# Fonts.
-LARGE_FONT = ("Verdana", 36)
-
 # Colours.
 MAIN = 'black' # colour for points.
 HIGHLIGHT = 'red' # colour for selected points.
@@ -51,6 +48,7 @@ problem_mesh = None
 working_dir= "."
 output_dir = None 
 darkmode = False
+plot_with_mpl = False
 update_interval = 100
 
 # Get commandline args.
@@ -105,6 +103,7 @@ if problem_type and problem_class:
     # Get the mesh. If the user has specified a file, then great, otherwise try to get it from the problem. 
     if problem_mesh is not None: mesh = Mesh(mpi_comm_world(), problem_mesh)
     else: mesh = problem.mesh(mpi_comm_world())
+    if mesh.geometry().dim() < 2: plot_with_mpl = True # if the mesh is 1D, we don't want to use paraview. 
 
     V = problem.function_space(mesh)
     problem_parameters = problem.parameters()
@@ -113,6 +112,8 @@ else:
     print("Usage: %s -p <problem type> -c <problem_class> -w <working dir> \n" % sys.argv[0])
 
 # TODO:
+#     1) Implement plot branch and plot params
+#     2) grey out buttons when they can't be used. 
 
 
 #####################
@@ -130,7 +131,6 @@ class PlotConstructor():
 
         self.paused = False # Are we updating we new points, or are we frozen in time?
 
-        self.annotation = None # The annotation on the diagram. 
         self.annotation_highlight = None # The point we've annotated. 
         self.annotated_point = None # The (params, branchid) of the annotated point
 
@@ -139,8 +139,6 @@ class PlotConstructor():
         self.freeindex = None # The index of the free parameter.
 
         self.current_functional = 0
-
-        self.current_sol = None
 
         self.app = app # The BifurcationPage window, so that we can set the time.
     
@@ -198,7 +196,7 @@ class PlotConstructor():
         """ Take a step forwards in time. """
         if not self.paused: self.pause()
         if self.time < self.maxtime:
-            xs, ys, branchid = self.points[self.time]
+            xs, ys, branchid, teamno, cont = self.points[self.time]
             self.time += 1
             bfdiag.plot(float(xs[self.freeindex]), float(ys[self.current_functional]), marker='.', color=MAIN, linestyle='None')
         if self.time==self.maxtime: self.pause
@@ -261,10 +259,11 @@ class PlotConstructor():
 
                 # Is this is first time, get the information from the first line of the data. 
                 if self.freeindex is None: 
-                    freeindex, self.parameter_name, functional_names = dataList[0].split(';')
+                    freeindex, self.parameter_name, functional_names, unicode_functional_names = dataList[0].split(';')
                     self.freeindex = int(freeindex)
                     self.functional_names = literal_eval(functional_names)
-                    self.app.make_radio_buttons(self.functional_names)
+                    self.unicode_functional_names = literal_eval(unicode_functional_names)
+                    self.app.make_radio_buttons(self.unicode_functional_names)
                     bfdiag.set_xlabel(self.parameter_name)
                     bfdiag.set_ylabel(self.functional_names[self.current_functional])
 
@@ -273,12 +272,12 @@ class PlotConstructor():
                 # Plot new points one at a time.
                 for eachLine in dataList[self.time:]:
                     if len(eachLine) > 1:
-                        oldparams, branchid, newparams, functionals, continuation = eachLine.split(';')
+                        teamno, oldparams, branchid, newparams, functionals, cont = eachLine.split(';')
                         xs = literal_eval(newparams)
                         ys = literal_eval(functionals)
                         x = float(xs[self.freeindex])
                         y = float(ys[self.current_functional])
-                        self.points.append((xs, ys, int(branchid)))
+                        self.points.append((xs, ys, int(branchid), int(teamno), literal_eval(cont)))
                         bfdiag.plot(x, y, marker='.', color=MAIN, linestyle='None')
                         self.time += 1
 
@@ -296,24 +295,33 @@ class PlotConstructor():
              xtol = 100*((max(xs) - min(xs))/float(len(xs)))/2 
              ytol = 100*((max(ys) - min(ys))/float(len(ys)))/2 
 
+             # xtol and ytol might end up being zero, if all points have same x/y values. Do something in this case.
+             if xtol==0: xtol = 1
+             if ytol==0: ytol = 1
+
              annotes = []
 
              # Find the point on the diagram closest to the point the user clicked.
-             for xs, ys, branchid in self.points:
+             time = 1
+             for xs, ys, branchid, teamno, cont in self.points[:self.time]:
                   x = float(xs[self.freeindex])
                   y = float(ys[self.current_functional])
                   if ((clickX-xtol < x < clickX+xtol) and (clickY-ytol < y < clickY+ytol)):
-                      annotes.append((self.distance(x, clickX, y, clickY), x, y, branchid, xs))
+                      annotes.append((self.distance(x, clickX, y, clickY), x, y, branchid, xs, teamno, cont, time))
+                  time += 1
 
              if annotes:
                  annotes.sort()
-                 distance, x, y, branchid, xs = annotes[0]
+                 distance, x, y, branchid, xs, teamno, cont, time = annotes[0]
 
                  # Plot the annotation, and keep a handle on all the stuff we plot so we can use/remove it later. 
                  self.annotation_highlight = bfdiag.scatter([x], [y], s=[50], marker='o', color=HIGHLIGHT) # Note: change 's' to make the highlight blob bigger/smaller
                  self.annotated_point = (xs, branchid)  
 
-                 self.app.set_output_box("Branch = %s\nx = %s\ny = %s" % (branchid, x, y))
+                 if cont: s = "continuation"
+                 else: s = "deflation"
+
+                 self.app.set_output_box("Solution on branch %d\nFound by team %d\nUsing %s\nAt time %d\n\nx = %s\ny = %s" % (branchid, teamno, s, time, x, y))
 
                  return True
              else: return False
@@ -328,7 +336,7 @@ class PlotConstructor():
         self.app.set_output_box("")
         return False
 
-    def hdf5topvd(self):
+    def hdf52pvd(self):
         """ Utility function for creating a pvd from hdf5. Uses the point that is annotated. """
         if self.annotated_point is not None:
             # Get the params and branchid of the point.
@@ -356,6 +364,23 @@ class PlotConstructor():
     def launch_paraview(self, filename):
         """ Utility function for launching paraview. Popen launches it in a separate process, so we may carry on with whatever we are doing."""
         Popen(["paraview", filename])
+
+    def mpl_plot(self):
+        if self.annotated_point is not None:
+            # Make a directory to put solutions in, if it doesn't exist. 
+            try: os.mkdir(output_dir + os.path.sep + "solutions")
+            except OSError: pass
+
+            params, branchid = self.annotated_point
+            filename = output_dir + os.path.sep + parameterstostring(problem_parameters, params) + ".hdf5"
+            with HDF5File(mesh.mpi_comm(), filename, 'r') as f:
+                y = Function(V)
+                f.read(y, "solution-%d" % branchid)
+                f.flush() 
+            p = plot(y, title="Solution on branch %s, params %s" % (branchid, params), hardcopy_prefix=output_dir + os.path.sep + "solutions" + os.path.sep +"branch-%s$params-%s" % (branchid, params), backend='vtk', interactive=True)
+            #p.write_png() # write to a file. This dumps the file in the working directory, doesn't save to a nice place. Why???
+
+          
 
 ######################################################################
 class DynamicCanvas(FigureCanvas):
@@ -431,6 +456,7 @@ class ApplicationWindow(QtGui.QMainWindow):
         self.functionalBox = QtGui.QVBoxLayout()
         rVBox.addLayout(self.functionalBox)
         infoBox = QtGui.QVBoxLayout()
+        infoBox.setContentsMargins(0, 10, 0, 10)
         rVBox.addLayout(infoBox)
         plotBox = QtGui.QHBoxLayout()
         rVBox.addLayout(plotBox)
@@ -506,7 +532,7 @@ class ApplicationWindow(QtGui.QMainWindow):
 
         # Output Box
         self.infobox = QtGui.QLabel("")
-        self.infobox.setFixedHeight(450)
+        self.infobox.setFixedHeight(250)
         self.infobox.setAlignment(QtCore.Qt.AlignTop)
         font = QtGui.QFont()
         font.setPointSize(18)
@@ -577,7 +603,8 @@ class ApplicationWindow(QtGui.QMainWindow):
 
     def launch_paraview(self):
         """ Launch Paraview to graph the highlighted solution. """
-        pc.hdf5topvd()
+        if not plot_with_mpl: pc.hdf52pvd()
+        else: pc.mpl_plot()
 
 
 qApp = QtGui.QApplication(sys.argv)
