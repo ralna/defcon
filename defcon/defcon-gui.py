@@ -20,13 +20,10 @@ from ast import literal_eval
 
 # For plotting the bifurcation diagram.
 import matplotlib
-matplotlib.use("TkAgg")
+matplotlib.use("Qt4Agg")
 from matplotlib.backends.backend_qt4agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.backends.backend_qt4agg import NavigationToolbar2QT
 from matplotlib.figure import Figure
-
-# Needed for animating the graph.
-import matplotlib.animation as animation
 
 # Styles for matplotlib.
 # See matpoltlib.styles.available for options.
@@ -54,7 +51,7 @@ problem_mesh = None
 working_dir= "."
 output_dir = None 
 darkmode = False
-update_interval = 20
+update_interval = 100
 
 # Get commandline args.
 # Example usage: python defcon-gui.py -p unity -c RootsOfUnityProblem -w /home/joseph/defcon/examples/unity
@@ -115,6 +112,9 @@ else:
     print "In order to use paraview for graphing solutions, you must specify the class of the problem, eg 'NavierStokesProblem'."
     print("Usage: %s -p <problem type> -c <problem_class> -w <working dir> \n" % sys.argv[0])
 
+# TODO:
+
+
 #####################
 ### Utility Class ###
 #####################
@@ -160,6 +160,8 @@ class PlotConstructor():
         """ Go to Time=0 """
         if not self.paused: self.pause()
         self.time = 0
+
+        if self.annotated_point is not None: self.unannotate()
         bfdiag.clear()
         bfdiag.set_xlabel(self.parameter_name)
         bfdiag.set_ylabel(self.functional_names[self.current_functional])
@@ -183,6 +185,8 @@ class PlotConstructor():
             xs = [float(point[0][self.freeindex]) for point in self.points[:self.time]]
             ys = [float(point[1][self.current_functional]) for point in self.points[:self.time]]
             self.time -= 1
+
+            if self.annotated_point is not None: self.unannotate()
             bfdiag.clear()
             bfdiag.set_xlabel(self.parameter_name)
             bfdiag.set_ylabel(self.functional_names[self.current_functional])
@@ -208,6 +212,8 @@ class PlotConstructor():
             xs = [float(point[0][self.freeindex]) for point in self.points[:(t+1)]]
             ys = [float(point[1][self.current_functional]) for point in self.points[:(t+1)]]
             self.time = t
+
+            if self.annotated_point is not None: self.unannotate()
             bfdiag.clear()
             bfdiag.set_xlabel(self.parameter_name)
             bfdiag.set_ylabel(self.functional_names[self.current_functional])
@@ -219,6 +225,8 @@ class PlotConstructor():
         self.current_functional = i
         xs = [float(point[0][self.freeindex]) for point in self.points[:self.time]]
         ys = [float(point[1][self.current_functional]) for point in self.points[:self.time]]
+
+        if self.annotated_point is not None: self.unannotate()
         bfdiag.clear()
         bfdiag.set_xlabel(self.parameter_name)
         bfdiag.set_ylabel(self.functional_names[self.current_functional])
@@ -310,12 +318,15 @@ class PlotConstructor():
                  return True
              else: return False
 
-         else:
-            self.annotation_highlight.remove()
-            self.annotation_highlight = None
-            self.annotated_point = None
-            self.app.set_output_box("")
-            return False
+         else: self.unannotate()
+
+
+    def unannotate(self):
+        self.annotation_highlight.remove()
+        self.annotation_highlight = None
+        self.annotated_point = None
+        self.app.set_output_box("")
+        return False
 
     def hdf5topvd(self):
         """ Utility function for creating a pvd from hdf5. Uses the point that is annotated. """
@@ -348,8 +359,7 @@ class PlotConstructor():
 
 ######################################################################
 class DynamicCanvas(FigureCanvas):
-    """A canvas that updates itself every second with a new plot."""
-
+    """A canvas that updates itself with a new plot."""
     def __init__(self, parent=None, width=5, height=4, dpi=100):
         FigureCanvas.__init__(self, figure)
         self.setParent(parent)
@@ -357,11 +367,15 @@ class DynamicCanvas(FigureCanvas):
         FigureCanvas.updateGeometry(self)
         timer = QtCore.QTimer(self)
         timer.timeout.connect(self.update_figure)
-        timer.start(1)
+        timer.start(update_interval)
 
     def update_figure(self):
         pc.animate()
         self.draw()
+
+    # TODO: have defcon write a line to the journal when it's done. Then 
+    def finish(self):
+        raise NotImplementedError
 
 class CustomToolbar(NavigationToolbar2QT):
     """ A custom matplotlib toolbar, so we can remove those pesky extra buttons. """  
@@ -480,7 +494,7 @@ class ApplicationWindow(QtGui.QMainWindow):
         self.buttonPlotBranch.clicked.connect(lambda:self.launch_paraview())
         plotBox.addWidget(self.buttonPlotBranch)
 
-        self.buttonParams = QtGui.QPushButton("Plot Branch")
+        self.buttonParams = QtGui.QPushButton("Plot Params")
         self.buttonParams.clicked.connect(lambda:self.launch_paraview())
         plotBox.addWidget(self.buttonParams)
 
@@ -567,13 +581,8 @@ class ApplicationWindow(QtGui.QMainWindow):
 
 
 qApp = QtGui.QApplication(sys.argv)
-
 aw = ApplicationWindow()
 pc = PlotConstructor(aw)
 aw.setWindowTitle("DEFCON")
 aw.show()
 sys.exit(qApp.exec_())
-#qApp.exec_()
-
-
-
