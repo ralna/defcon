@@ -133,7 +133,7 @@ else:
 # TODO:
 #     1) Implement plot branch and plot params
 #     2) grey out buttons when they can't be used.
-#     3) Save a movie 
+#     3) Have hdf52pvd use the problem's io module. 
 #     4) Save to tikz: can it even be done???
 
 
@@ -367,6 +367,7 @@ class PlotConstructor():
 
     def hdf52pvd(self):
         """ Utility function for creating a pvd from hdf5. Uses the point that is annotated. """
+        # FIXME: have this use the problems iomodule
         if self.annotated_point is not None:
             # Get the params and branchid of the point.
             params, branchid = self.annotated_point    
@@ -411,8 +412,9 @@ class PlotConstructor():
                 plt.title("%s: branch %s, params %s" % (problem_class, branchid, params))
                 plt.axhline(0, color='k')
                 plt.show(False) # false here means the window is non-blocking, so we may continue using defcon while the plot shows. 
-            except RuntimeError:
-                print "Error plotting expression. Are your solutions numbers rather than functions? If so, this is why I failed..."
+            except RuntimeError, e:
+                print "Error plotting expression. Are your solutions numbers rather than functions? If so, this is why I failed. Anyway, the error was:"
+                print str(e)
                 pass
 
     def animate(self, i):
@@ -423,6 +425,7 @@ class PlotConstructor():
             if cont: c, m= MAIN, '.'
             else: c, m= DEF, 'o'
             self.ax.plot(x, y, marker=m, color=c, linestyle='None')
+            if i % 50 == 0: print "Completed %d/%d frames" % (i, self.maxtime)
         except StopIteration: pass
 
     def init(self):
@@ -433,18 +436,22 @@ class PlotConstructor():
         # Create the current list of points into an iterator.
         self.points_iter = iter(self.points)
 
-        # Free the functional we're currently on, to avoid unplesantness. 
+        # Fix the functional we're currently on, to avoid unplesantness if we try and change it while the movie is writing.
         self.func_index = self.current_functional
 
         # Set up the animated figure.
         self.anim_fig = plt.figure()
         self.ax = plt.axes()
-        self.anim = animation.FuncAnimation(self.anim_fig, self.animate, frames=200, interval=20, blit=False)
+        self.ax.clear()
+        self.ax.set_xlabel(self.parameter_name)
+        self.ax.set_ylabel(self.functional_names[self.func_index])
+        self.anim = animation.FuncAnimation(self.anim_fig, self.animate, frames=self.maxtime, interval=1, blit=False)
 
-        self.anim_fig.show()
         # Save it.
         mywriter = animation.FFMpegWriter()
-        self.anim.save('basic_animation.mp4', fps=30, writer=mywriter, extra_args=['-vcodec', 'libx264'])
+        self.anim.save(filename+'.mp4', fps=30, writer=mywriter, extra_args=['-vcodec', 'libx264'])
+
+        self.ax.clear()
           
 
 ######################################################################
@@ -477,8 +484,50 @@ class CustomToolbar(NavigationToolbar2QT):
             ('Pan', 'Pan axes with left mouse, zoom with right', 'move', 'pan'),
             ('Zoom', 'Zoom to rectangle', 'zoom_to_rect', 'zoom'),
             ('Save', 'Save the figure', 'filesave', 'save_figure'),
+            ('Save Movie', 'Save an animation of the plot', 'filesave', 'save_movie') #FIXME: get a new icon for this...
             )
-        NavigationToolbar2QT.__init__(self, canvas, parent)    
+        NavigationToolbar2QT.__init__(self, canvas, parent)
+        self.layout().takeAt(5)
+
+    def save_figure(self):
+        pc.start()
+        NavigationToolbar2QT.save_figure(self)
+        pc.end()
+
+    def save_movie(self):
+        pc.start()
+        # FIXME: understand this properly, and modify it so that it does the correct thing re filetypes
+        filetypes = self.canvas.get_supported_filetypes_grouped()
+        sorted_filetypes = filetypes.items()
+        sorted_filetypes.sort()
+        default_filetype = self.canvas.get_default_filetype()
+
+        start = "image." + default_filetype
+        filters = []
+        selectedFilter = None
+        for name, exts in sorted_filetypes:
+            exts_list = " ".join(['*.%s' % ext for ext in exts])
+            filter = '%s (%s)' % (name, exts_list)
+            if default_filetype in exts:
+                selectedFilter = filter
+            filters.append(filter)
+        filters = ';;'.join(filters)
+ 
+        fname = QtGui.QFileDialog.getSaveFileName(self, "Choose a filename to save to", start, filters, selectedFilter)
+        if fname:
+            try:
+                print "Saving movie. This may take a little while..."
+                pc.movie(str(fname))
+                print "Movie saved."    
+            except Exception, e:
+                raise
+                #QtGui.QMessageBox.critical(self, "Error saving file", str(e), QtGui.QMessageBox.Ok, QtGui.QMessageBox.NoButton)
+        pc.end()
+
+class CustomLineEdit(QtGui.QLineEdit):
+    def __init__(self, *args, **kwargs):
+        QtGui.QLineEdit.__init__(self, *args, **kwargs)
+
 
 class ApplicationWindow(QtGui.QMainWindow):
     def __init__(self):
@@ -563,12 +612,9 @@ class ApplicationWindow(QtGui.QMainWindow):
         self.buttonEnd = QtGui.QPushButton(">|")
         self.buttonEnd.clicked.connect(lambda:self.end())
         self.buttonEnd.setFixedWidth(30)
+        self.buttonEnd.setEnabled(False)
         timeBox.addWidget(self.buttonEnd)
 
-        self.buttonMovie = QtGui.QPushButton("mov")
-        self.buttonMovie.clicked.connect(lambda:self.movie())
-        self.buttonMovie.setFixedWidth(30)
-        timeBox.addWidget(self.buttonMovie)
 
         # TODO: Define a custom one of these, to do just we want it to do.
         self.jumpInput = QtGui.QLineEdit()
@@ -586,15 +632,19 @@ class ApplicationWindow(QtGui.QMainWindow):
         # Plot Buttons
         self.buttonPlot = QtGui.QPushButton("Plot")
         self.buttonPlot.clicked.connect(lambda:self.launch_paraview())
+        self.buttonPlot.setEnabled(False)
         plotBox.addWidget(self.buttonPlot)
 
         self.buttonPlotBranch = QtGui.QPushButton("Plot Branch")
         self.buttonPlotBranch.clicked.connect(lambda:self.launch_paraview())
+        self.buttonPlotBranch.setEnabled(False)
         plotBox.addWidget(self.buttonPlotBranch)
 
         self.buttonParams = QtGui.QPushButton("Plot Params")
         self.buttonParams.clicked.connect(lambda:self.launch_paraview())
+        self.buttonParams.setEnabled(False)
         plotBox.addWidget(self.buttonParams)
+
 
         # Radio buttons
         label = QtGui.QLabel("Functionals:")
@@ -644,8 +694,14 @@ class ApplicationWindow(QtGui.QMainWindow):
         """ Annotates the diagram, by plotting a tooltip with the params and branchid of the point the user clicked.
             If the diagram is already annotated, remove the annotation. """
         annotated = pc.annotate(event.xdata, event.ydata)
-        #if annotated: self.buttonPlot.config(state="normal")
-        #else:         self.buttonPlot.config(state="disabled")
+        if annotated:
+            self.buttonPlot.setEnabled(True)
+            self.buttonPlotBranch.setEnabled(True)
+            self.buttonParams.setEnabled(True)
+        else:     
+            self.buttonPlot.setEnabled(False)
+            self.buttonPlotBranch.setEnabled(False)
+            self.buttonParams.setEnabled(False)    
 
     def start(self):
         """ Set Time=0. """
@@ -661,6 +717,7 @@ class ApplicationWindow(QtGui.QMainWindow):
         """ Set Time=Time+1. """
         t = pc.forward()
         self.set_time(t)
+
 
     def end(self):
         """ Set Time=Maxtime. """
