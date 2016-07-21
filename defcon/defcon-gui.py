@@ -37,8 +37,16 @@ try:
     from matplotlib import style
     style.use('ggplot')
 except AttributeError:
-    print "Update to the latest version of matplotlib to use styles."
+    print "[Warning] Update to the latest version of matplotlib to use styles.\n"
     pass
+
+# Saving tikz pictures.
+try: 
+    from matplotlib2tikz import save as tikz_save
+    tikz = True
+except Exception: 
+    print "[Warning] Could not import the library matplotlib2tikz. You will unable to save the file as a .tikz.\nTo use this functionality, install matplotlib2tikz, eg with:\n     # pip install matplotlib2tikz\n"
+    tikz = False
 
 # Colours.
 MAIN = 'black' # colour for points.
@@ -127,15 +135,13 @@ if problem_type and problem_class:
     V = problem.function_space(mesh)
     problem_parameters = problem.parameters()
 else:
-    print "In order to graph solutions, you must specify the class of the problem, eg 'NavierStokesProblem'."
+    print "[Warning] In order to graph solutions, you must specify the class of the problem, eg 'NavierStokesProblem'."
     print("Usage: %s -p <problem type> -c <problem_class> -w <working dir> \n" % sys.argv[0])
 
 # TODO:
-#     1) Implement plot branch and plot params
-#     2) grey out buttons when they can't be used.
-#     3) Have hdf52pvd use the problem's io module. 
-#     4) Save to tikz: can it even be done???
-
+#     1) Implement plot branch and plot params.
+#     2) Have hdf52pvd use the problem's io module. 
+#     3) Have the time jump thing working properly.
 
 #####################
 ### Utility Class ###
@@ -151,15 +157,16 @@ class PlotConstructor():
         self.time = 0 # Keep track of where we currently are in time.
 
         self.paused = False # Are we updating we new points, or are we frozen in time?
+        self.done = False # Are we done?
 
         self.annotation_highlight = None # The point we've annotated. 
         self.annotated_point = None # The (params, branchid) of the annotated point
 
-        self.path = output_dir + os.path.sep + "journal" + os.path.sep +"journal.txt" # The working directory.
+        self.path = output_dir + os.path.sep + "journal" + os.path.sep +"journal.txt" # Journal file.
 
         self.freeindex = None # The index of the free parameter.
 
-        self.current_functional = 0
+        self.current_functional = 0 # The index of the functional we're currently on.
 
         self.app = app # The BifurcationPage window, so that we can set the time.
     
@@ -268,7 +275,7 @@ class PlotConstructor():
     def update(self):
         """ Handles the redrawing of the graph. """
         # If we're in pause mode, or we're done, then do nothing.
-        if self.paused:
+        if self.paused or self.done:
             pass
 
         # If we're not paused, we draw all the points that have come in since we last drew something.
@@ -298,7 +305,10 @@ class PlotConstructor():
 
                 # Plot new points one at a time.
                 for eachLine in dataList[self.time:]:
-                    if len(eachLine) > 1:
+                    if eachLine == "Done": 
+                        self.done = True
+                        self.app.done()
+                    elif len(eachLine) > 1:
                         teamno, oldparams, branchid, newparams, functionals, cont = eachLine.split(';')
                         xs = literal_eval(newparams)
                         ys = literal_eval(functionals)
@@ -428,10 +438,7 @@ class PlotConstructor():
             if i % 50 == 0: print "Completed %d/%d frames" % (i, self.maxtime)
         except StopIteration: pass
 
-    def init(self):
-        return self.ax
-
-    def movie(self, filename):
+    def save_movie(self, filename):
         """ Creates a matplotlib animation of the plotting up to the current maxtime. """
         # Create the current list of points into an iterator.
         self.points_iter = iter(self.points)
@@ -452,7 +459,22 @@ class PlotConstructor():
         self.anim.save(filename+'.mp4', fps=30, writer=mywriter, extra_args=['-vcodec', 'libx264'])
 
         self.ax.clear()
-          
+
+    def save_tikz(self, filename):
+        """ Save the bfdiag window as a tikz plot. """
+        fig = plt.figure()
+        ax = plt.axes()
+        ax.clear()
+        ax.set_xlabel(self.parameter_name)
+        ax.set_ylabel(self.functional_names[self.current_functional])
+        for xs, ys, branchid, teamno, cont in self.points:
+            x = float(xs[self.freeindex])
+            y = float(ys[self.current_functional])
+            if cont: c, m= MAIN, '.'
+            else: c, m= DEF, 'o'
+            ax.plot(x, y, marker=m, color=c, linestyle='None')
+        tikz_save(filename+'.tex')
+        ax.clear()
 
 ######################################################################
 class DynamicCanvas(FigureCanvas):
@@ -462,17 +484,17 @@ class DynamicCanvas(FigureCanvas):
         self.setParent(parent)
         FigureCanvas.setSizePolicy(self, QtGui.QSizePolicy.Expanding, QtGui.QSizePolicy.Expanding)
         FigureCanvas.updateGeometry(self)
-        timer = QtCore.QTimer(self)
-        timer.timeout.connect(self.update_figure)
-        timer.start(update_interval)
+        self.timer = QtCore.QTimer(self)
+        self.timer.timeout.connect(self.update_figure)
+        self.timer.start(update_interval)
 
     def update_figure(self):
         pc.update()
         self.draw()
 
     # TODO: have defcon write a line to the journal when it's done. Then 
-    def finish(self):
-        raise NotImplementedError
+    def done(self):
+       pass
 
     # TODO: Can we override the save_figure method to add an option for tikz, if some flag is set????
 
@@ -484,10 +506,13 @@ class CustomToolbar(NavigationToolbar2QT):
             ('Pan', 'Pan axes with left mouse, zoom with right', 'move', 'pan'),
             ('Zoom', 'Zoom to rectangle', 'zoom_to_rect', 'zoom'),
             ('Save', 'Save the figure', 'filesave', 'save_figure'),
-            ('Save Movie', 'Save an animation of the plot', 'filesave', 'save_movie') #FIXME: get a new icon for this...
             )
         NavigationToolbar2QT.__init__(self, canvas, parent)
-        self.layout().takeAt(5)
+        self.layout().takeAt(4)
+
+        """ Try:
+        self.a = self.addAction(QIcon(iconDir + "BYE2.ico"), "Bye", self.bye)
+        self.a.setToolTip("GoodBye")"""
 
     def save_figure(self):
         pc.start()
@@ -520,9 +545,10 @@ class CustomToolbar(NavigationToolbar2QT):
                 pc.movie(str(fname))
                 print "Movie saved."    
             except Exception, e:
-                raise
-                #QtGui.QMessageBox.critical(self, "Error saving file", str(e), QtGui.QMessageBox.Ok, QtGui.QMessageBox.NoButton)
+                QtGui.QMessageBox.critical(self, "Error saving file", str(e), QtGui.QMessageBox.Ok, QtGui.QMessageBox.NoButton)
         pc.end()
+
+
 
 class CustomLineEdit(QtGui.QLineEdit):
     def __init__(self, *args, **kwargs):
@@ -584,19 +610,41 @@ class ApplicationWindow(QtGui.QMainWindow):
         canvasBox.addWidget(self.dc)
         self.dc.mpl_connect('button_press_event', self.clicked_diagram)
 
+        # Toolbar, with save_movie and save_tikz buttons.
         toolbar = CustomToolbar( self.dc, self )
         toolbar.update()
         canvasBox.addWidget(toolbar)
 
+        self.buttonMov = QtGui.QPushButton()
+        self.buttonMov.setIcon(QtGui.QIcon('resources'+os.path.sep+'save_movie.png'))
+        self.buttonMov.setIconSize(QtCore.QSize(24,24))
+        self.buttonMov.clicked.connect(lambda:self.save_movie())
+        self.buttonMov.setToolTip("Save a animation of the plot")
+        toolbar.addWidget(self.buttonMov)
+
+        self.buttonTikz = QtGui.QPushButton()
+        self.buttonTikz.setIcon(QtGui.QIcon('resources'+os.path.sep+'save_tikz.png'))
+        self.buttonTikz.setIconSize(QtCore.QSize(24,24))
+        self.buttonTikz.clicked.connect(lambda:self.save_tikz())
+        self.buttonTikz.setToolTip("Save to Tikz")
+        toolbar.addWidget(self.buttonTikz)
+
+
         # Time navigation buttons
-        self.buttonStart = QtGui.QPushButton("|<")
+        self.buttonStart = QtGui.QPushButton()
+        self.buttonStart.setIcon(QtGui.QIcon('resources'+os.path.sep+'start.png'))
+        self.buttonStart.setIconSize(QtCore.QSize(18,18))
         self.buttonStart.clicked.connect(lambda:self.start())
         self.buttonStart.setFixedWidth(30)
+        self.buttonStart.setToolTip("Start")
         timeBox.addWidget(self.buttonStart)
 
-        self.buttonBack = QtGui.QPushButton("<")
+        self.buttonBack = QtGui.QPushButton()
+        self.buttonBack.setIcon(QtGui.QIcon('resources'+os.path.sep+'back.png'))
+        self.buttonBack.setIconSize(QtCore.QSize(18,18))
         self.buttonBack.clicked.connect(lambda:self.back())
         self.buttonBack.setFixedWidth(30)
+        self.buttonBack.setToolTip("Back")
         timeBox.addWidget(self.buttonBack)
 
         self.timeLabel = QtGui.QLabel("")
@@ -604,15 +652,20 @@ class ApplicationWindow(QtGui.QMainWindow):
         self.timeLabel.setFixedWidth(100)
         self.timeLabel.setAlignment(QtCore.Qt.AlignCenter)
 
-        self.buttonForward = QtGui.QPushButton(">")
+        self.buttonForward = QtGui.QPushButton()
+        self.buttonForward.setIcon(QtGui.QIcon('resources'+os.path.sep+'forward.png'))
+        self.buttonForward.setIconSize(QtCore.QSize(18,18))
         self.buttonForward.clicked.connect(lambda:self.forward())
+        self.buttonForward.setToolTip("Forward")
         self.buttonForward.setFixedWidth(30)
         timeBox.addWidget(self.buttonForward)
 
-        self.buttonEnd = QtGui.QPushButton(">|")
+        self.buttonEnd = QtGui.QPushButton()
+        self.buttonEnd.setIcon(QtGui.QIcon('resources'+os.path.sep+'end.png'))
+        self.buttonEnd.setIconSize(QtCore.QSize(18,18))
         self.buttonEnd.clicked.connect(lambda:self.end())
+        self.buttonEnd.setToolTip("End")
         self.buttonEnd.setFixedWidth(30)
-        self.buttonEnd.setEnabled(False)
         timeBox.addWidget(self.buttonEnd)
 
 
@@ -633,16 +686,19 @@ class ApplicationWindow(QtGui.QMainWindow):
         self.buttonPlot = QtGui.QPushButton("Plot")
         self.buttonPlot.clicked.connect(lambda:self.launch_paraview())
         self.buttonPlot.setEnabled(False)
+        self.buttonPlot.setToolTip("Plot currently selected solution")
         plotBox.addWidget(self.buttonPlot)
 
         self.buttonPlotBranch = QtGui.QPushButton("Plot Branch")
         self.buttonPlotBranch.clicked.connect(lambda:self.launch_paraview())
         self.buttonPlotBranch.setEnabled(False)
+        self.buttonPlotBranch.setToolTip("Plot all solutions in currently selected branch")
         plotBox.addWidget(self.buttonPlotBranch)
 
         self.buttonParams = QtGui.QPushButton("Plot Params")
         self.buttonParams.clicked.connect(lambda:self.launch_paraview())
         self.buttonParams.setEnabled(False)
+        self.buttonParams.setToolTip("Plot all solutions for currently selected parameter value")
         plotBox.addWidget(self.buttonParams)
 
 
@@ -737,9 +793,19 @@ class ApplicationWindow(QtGui.QMainWindow):
         if not plot_with_mpl: pc.hdf52pvd()
         else: pc.mpl_plot()
 
-    def movie(self):
-        pc.movie("")
+    # FIXME: add file dialogues.
+    def save_movie(self):
+        pc.start()
+        pc.movie("/home/joseph/movie")
+        pc.end()
 
+    def save_tikz(self):
+        pc.start()
+        pc.save_tikz("/home/joseph/tikz")
+        pc.end()
+
+    def done(self):
+        self.dc.done()
 
 qApp = QtGui.QApplication(sys.argv)
 aw = ApplicationWindow()

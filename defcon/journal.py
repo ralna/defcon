@@ -17,6 +17,7 @@ class Journal(object):
         raise NotImplementedError
 
 # TODO: The queue tries to implement parallel writes with locks. Does this work???
+# No, it doesn't. 
 class FileJournal(Journal):
     def __init__(self, directory):
         self.directory = directory + os.path.sep + "journal"
@@ -46,4 +47,10 @@ class FileJournal(Journal):
             f.write("%s;%s;%s;%s;%s;%s \n" % (teamid, oldparams, branchid, newparams, functionals, continuation))
             f.flush()
         self.lock.release()
+
+    def done(self):
+        """ Writes 'Done' to the file, so the gui knows we're finished. """
+        with file(self.directory + os.path.sep + "journal.txt", 'a') as f:
+            f.write("Done")
+            f.flush()
 

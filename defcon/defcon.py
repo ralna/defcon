@@ -496,6 +496,9 @@ class DeflatedContinuation(object):
         quit = QuitTask()
         for teamno in range(self.nteams):
             self.send_task(quit, teamno)
+
+        # Tell the journal we're done. 
+        if self.keep_journal: self.journal.done()
        
     def worker(self, freeindex, values):
         """
@@ -549,6 +552,7 @@ class DeflatedContinuation(object):
                         # We do care about this solution, so record the fact we have it in memory
                         self.state_id = (task.newparams, branchid)
                         # Save it to disk with the I/O module
+                        print "got here"
                         functionals = self.compute_functionals(self.state, task.newparams)
                         self.log("Found new solution at parameters %s (branchid=%s) with functionals %s" % (task.newparams, branchid, functionals))
                         self.problem.monitor(task.newparams, branchid, self.state, functionals)
@@ -557,7 +561,7 @@ class DeflatedContinuation(object):
                         self.log("Saved solution to %s to disk" % task)
 
                         # If we're in keeping a journal, lets record this new point we're found.
-                        if self.keep_journal: self.journal.entry(self.teamno, task.oldparams, task.branchid, task.newparams, functionals, False)
+                        if self.keep_journal: self.journal.entry(self.teamno, task.oldparams, branchid, task.newparams, functionals, False)
 
                         # Automatically start onto the continuation
                         newparams = nextparameters(values, freeindex, task.newparams)
