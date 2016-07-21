@@ -7,6 +7,7 @@ except ImportError:
     pass
 
 import dolfin
+assert dolfin.has_petsc4py()
 dolfin.set_log_level(dolfin.ERROR)
 
 from numpy                import arange, linspace
