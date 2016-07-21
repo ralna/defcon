@@ -1,3 +1,5 @@
+import matplotlib
+matplotlib.use("Qt4Agg")
 from matplotlib.backends import qt_compat
 use_pyside = qt_compat.QT_API == qt_compat.QT_API_PYSIDE
 if use_pyside:
@@ -19,8 +21,6 @@ from parametertools import parameterstostring
 from ast import literal_eval 
 
 # For plotting the bifurcation diagram.
-import matplotlib
-matplotlib.use("Qt4Agg")
 from matplotlib.backends.backend_qt4agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.backends.backend_qt4agg import NavigationToolbar2QT
 from matplotlib.figure import Figure
