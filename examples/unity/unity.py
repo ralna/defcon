@@ -7,10 +7,7 @@ from dolfin import *
 
 import matplotlib.pyplot as plt
 
-from numpy                import arange, linspace
-from bifurcationproblem   import BifurcationProblem
-from defcon                 import DeflatedContinuation
-from iomodule             import IO, FileIO
+from numpy import arange, linspace
 
 args = [sys.argv[0]] + """
                        --petsc.snes_max_it 50
@@ -85,7 +82,7 @@ class RootsOfUnityProblem(BifurcationProblem):
 if __name__ == "__main__":
     io = FileIO("output")
     dc = DeflatedContinuation(problem=RootsOfUnityProblem(), io=io, teamsize=1, verbose=True, logfiles=False)
-    dc.run(free={"p": linspace(2.0, 9.0, 21)})
+    dc.run(free={"p": linspace(2.0, 9.0, 501)})
 
     dc.bifurcation_diagram("arg")
     plt.title(r"Bifurcation diagram for the roots of unity")
