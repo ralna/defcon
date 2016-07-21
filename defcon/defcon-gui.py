@@ -10,12 +10,12 @@ from math import sqrt
 
 # Imports for the paraview and hdf5topvd methods
 from subprocess import Popen
-import h5py as h5
 from dolfin import *
 from parametertools import parameterstostring
 
 # We'll use literal_eval to get lists and tuples back from the journal. 
 # This is not as bad as eval, as it only recognises: strings, bytes, numbers, tuples, lists, dicts, booleans, sets, and None.
+# It can't do anything bad if you pass it, for example, the string "os.system("rm -rf /")".
 from ast import literal_eval 
 
 # For plotting the bifurcation diagram.
@@ -25,6 +25,12 @@ from matplotlib.backends.backend_qt4agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.backends.backend_qt4agg import NavigationToolbar2QT
 from matplotlib.figure import Figure
 
+# For saving movies.
+from matplotlib import animation
+
+# For plotting solutions, if we don't use paraview
+import matplotlib.pyplot as plt
+
 # Styles for matplotlib.
 # See matpoltlib.styles.available for options.
 try:
@@ -32,42 +38,56 @@ try:
     style.use('ggplot')
 except AttributeError:
     print "Update to the latest version of matplotlib to use styles."
+    pass
 
 # Colours.
 MAIN = 'black' # colour for points.
+DEF = 'blue' # colour for points found via deflation
 HIGHLIGHT = 'red' # colour for selected points.
 GRID = 'white' # colour the for grid.
-BUTTONBG = 'grey' # backgound colour for buttons and labels.
-BUTTONTEXT = 'black' # colour for the text on the buttons and labels.
-WINDOWBG = 'grey' # background colour for the window.
+BORDER = 'black' # borders on the UI
 
 # Set some defaults.
 problem_type = None
 problem_class = None
 problem_mesh = None
 working_dir= "."
-output_dir = None 
+output_dir = None
+solutions_dir = None
 darkmode = False
 plot_with_mpl = False
 update_interval = 100
 
+# Markers to use for points discovered by continuation.deflation respectively.
+CONTPLOT = '.'
+DEFPLOT = 'o'
+
 # Get commandline args.
 # Example usage: python defcon-gui.py -p unity -c RootsOfUnityProblem -w /home/joseph/defcon/examples/unity
-myopts, args = getopt.getopt(sys.argv[1:],"dp:o:w:c:m:i:")
+myopts, args = getopt.getopt(sys.argv[1:],"dp:o:w:c:m:i:s:")
 
 for o, a in myopts:
     if o == '-p':   problem_type = a
-    elif o == '-o': output_dir = a
-    elif o == '-w': working_dir = a
+    elif o == '-o': output_dir = os.path.expanduser(a)
+    elif o == '-w': working_dir = os.path.expanduser(a)
+    elif o == '-s': solutions_dir = os.path.expanduser(a)
     elif o == '-c': problem_class = a
     elif o == '-m': problem_mesh = a
     elif o == '-d': darkmode = True
     elif o == '-i': update_interval = int(a)
     else:           print("Usage: %s -d -p <problem_type> -c <problem_class> -w <working_dir> -o <defcon_output_directory> -m <mesh> -i <update interval in ms>" % sys.argv[0])
 
+# If we didn't specify an output directory, default to the folder "output" in the working directory
 if output_dir is None: output_dir = working_dir + os.path.sep + "output"
-if problem_type is None: problem_type = working_dir.split(os.path.sep)[-1] 
-solutions_dir = output_dir + os.path.sep + "solutions" + os.path.sep
+
+# If we didn't specify the name of the python file for the problem (eg, elastica), assume it's the same as the directory we're working in. 
+if problem_type is None: 
+    dirs = working_dir.split(os.path.sep)
+    if dirs[-1]: problem_type = dirs[-1] # no trailing slash
+    else: problem_type = dirs[-2] # trailing slash
+
+# If we didn't specify a directory for solutions we plot, store them in the "solutions" subdir of the output directory.
+if solutions_dir is None: solutions_dir = output_dir + os.path.sep + "solutions" + os.path.sep
 
 # Set up the figure.
 figure = Figure(figsize=(7,6), dpi=100)
@@ -83,17 +103,16 @@ if darkmode:
     bfdiag.tick_params(axis='y', colors='#76EE00')
     bfdiag.tick_params(axis='x', colors='#76EE00')
     MAIN = 'w' 
+    DEF = 'yellow'
     HIGHLIGHT = '#76EE00'
-    GRID = '0.75' 
-    BUTTONBG = 'black'
-    BUTTONTEXT = '#76EE00'
-    WINDOWBG = 'black'
+    GRID = '0.75'
+    BORDER = 'white'
 
 # Put the working directory on our path.
 sys.path.insert(0, working_dir) 
 sys.path.insert(0, "%s/.." % os.path.dirname(os.path.realpath(sys.argv[0]))) #FIXME: This is ugly, but does always work. It seems to need this, else the problem_type fails to import 'BifurcationProblem'. even though the defcon directory is in PYTHONPATH. Why, and how to get rid of it?
 
-# If we've been told about the problem, then get the name and type of the problem we're dealing with, as well as everything else we're going to need for plotting solutions in paraview
+# If we've been told about the problem, then get the name and type of the problem we're dealing with, as well as everything else we're going to need for plotting solutions.
 if problem_type and problem_class:
     problem_name = __import__(problem_type)
     globals().update(vars(problem_name))
@@ -108,12 +127,14 @@ if problem_type and problem_class:
     V = problem.function_space(mesh)
     problem_parameters = problem.parameters()
 else:
-    print "In order to use paraview for graphing solutions, you must specify the class of the problem, eg 'NavierStokesProblem'."
+    print "In order to graph solutions, you must specify the class of the problem, eg 'NavierStokesProblem'."
     print("Usage: %s -p <problem type> -c <problem_class> -w <working dir> \n" % sys.argv[0])
 
 # TODO:
 #     1) Implement plot branch and plot params
-#     2) grey out buttons when they can't be used. 
+#     2) grey out buttons when they can't be used.
+#     3) Save a movie 
+#     4) Save to tikz: can it even be done???
 
 
 #####################
@@ -146,6 +167,13 @@ class PlotConstructor():
         """ Return the L2 distance between two points. """
         return(sqrt((x1 - x2)**2 + (y1 - y2)**2))
 
+    def redraw(self):
+        "Clears the window, redraws the labels and the grid. """
+        bfdiag.clear()
+        bfdiag.set_xlabel(self.parameter_name)
+        bfdiag.set_ylabel(self.functional_names[self.current_functional])
+        bfdiag.grid(color=GRID)
+
     def pause(self):
         """ Pause the drawing. """
         self.paused = True
@@ -158,19 +186,18 @@ class PlotConstructor():
         """ Go to Time=0 """
         if not self.paused: self.pause()
         self.time = 0
-
         if self.annotated_point is not None: self.unannotate()
-        bfdiag.clear()
-        bfdiag.set_xlabel(self.parameter_name)
-        bfdiag.set_ylabel(self.functional_names[self.current_functional])
-        bfdiag.grid(color=GRID)
+        self.redraw()
         return self.time
 
     def end (self):
         if self.time < self.maxtime:
-            xs = [float(point[0][self.freeindex]) for point in self.points[self.time:]]
-            ys = [float(point[1][self.current_functional]) for point in self.points[self.time:]]
-            bfdiag.plot(xs, ys, marker='.', color=MAIN, linestyle='None')
+            for xs, ys, branchid, teamno, cont in self.points[self.time:]:
+                x = float(xs[self.freeindex])
+                y = float(ys[self.current_functional])
+                if cont: c, m= MAIN, '.'
+                else: c, m = DEF, 'o'
+                bfdiag.plot(x, y, marker=m, color=c, linestyle='None')
             self.time = self.maxtime
         if self.paused: self.unpause
         return self.maxtime
@@ -179,17 +206,16 @@ class PlotConstructor():
         """ Take a step backwards in time. """
         if not self.paused: self.pause()
         if self.time > 0:
-            #FIXME: Extremely inefficient to replot everything
-            xs = [float(point[0][self.freeindex]) for point in self.points[:self.time]]
-            ys = [float(point[1][self.current_functional]) for point in self.points[:self.time]]
-            self.time -= 1
-
             if self.annotated_point is not None: self.unannotate()
-            bfdiag.clear()
-            bfdiag.set_xlabel(self.parameter_name)
-            bfdiag.set_ylabel(self.functional_names[self.current_functional])
-            bfdiag.grid(color=GRID)
-            bfdiag.plot(xs, ys, marker='.', color=MAIN, linestyle='None') 
+            self.redraw()
+            #FIXME: Extremely inefficient to replot everything
+            for xs, ys, branchid, teamno, cont in self.points[:self.time]:
+                x = float(xs[self.freeindex])
+                y = float(ys[self.current_functional])
+                if cont: c, m= MAIN, '.'
+                else: c, m = DEF, 'o'
+                bfdiag.plot(x, y, marker=m, color=c, linestyle='None')
+            self.time -= 1
         return self.time
 
     def forward(self):
@@ -198,7 +224,9 @@ class PlotConstructor():
         if self.time < self.maxtime:
             xs, ys, branchid, teamno, cont = self.points[self.time]
             self.time += 1
-            bfdiag.plot(float(xs[self.freeindex]), float(ys[self.current_functional]), marker='.', color=MAIN, linestyle='None')
+            if cont: c, m= MAIN, '.'
+            else: c, m= DEF, 'o'
+            bfdiag.plot(float(xs[self.freeindex]), float(ys[self.current_functional]), marker=m, color=c, linestyle='None')
         if self.time==self.maxtime: self.pause
         return self.time
 
@@ -206,30 +234,29 @@ class PlotConstructor():
         """ Jump to time t. """
         if not self.paused: self.pause()
         if t <= self.maxtime:
-            #FIXME: Extremely inefficient to replot everything
-            xs = [float(point[0][self.freeindex]) for point in self.points[:(t+1)]]
-            ys = [float(point[1][self.current_functional]) for point in self.points[:(t+1)]]
-            self.time = t
-
             if self.annotated_point is not None: self.unannotate()
-            bfdiag.clear()
-            bfdiag.set_xlabel(self.parameter_name)
-            bfdiag.set_ylabel(self.functional_names[self.current_functional])
-            bfdiag.grid(color=GRID)
-            bfdiag.plot(xs, ys, marker='.', color=MAIN, linestyle='None') 
+            self.redraw()
+            #FIXME: Extremely inefficient to replot everything
+            for xs, ys, branchid, teamno, cont in self.points[:(t+1)]:
+                x = float(xs[self.freeindex])
+                y = float(ys[self.current_functional])
+                if cont: c, m= MAIN, '.'
+                else: c, m= DEF, 'o'
+                bfdiag.plot(x, y, marker=m, color=c, linestyle='None')
+            self.time = t 
         return self.time
 
     def switch_functional(self, i):
         self.current_functional = i
-        xs = [float(point[0][self.freeindex]) for point in self.points[:self.time]]
-        ys = [float(point[1][self.current_functional]) for point in self.points[:self.time]]
-
         if self.annotated_point is not None: self.unannotate()
-        bfdiag.clear()
-        bfdiag.set_xlabel(self.parameter_name)
-        bfdiag.set_ylabel(self.functional_names[self.current_functional])
-        bfdiag.grid(color=GRID)
-        bfdiag.plot(xs, ys, marker='.', color=MAIN, linestyle='None') 
+        self.redraw()
+        for xs, ys, branchid, teamno, cont in self.points[:self.time]:
+            x = float(xs[self.freeindex])
+            y = float(ys[self.current_functional])
+            if cont: c, m= MAIN, '.'
+            else: c, m= DEF, 'o'
+            bfdiag.plot(x, y, marker=m, color=c, linestyle='None')
+
 
     def grab_data(self):
         """ Get data from the file. """
@@ -238,7 +265,7 @@ class PlotConstructor():
         except Exception: pullData = None
         return pullData
 
-    def animate(self):
+    def update(self):
         """ Handles the redrawing of the graph. """
         # If we're in pause mode, or we're done, then do nothing.
         if self.paused:
@@ -248,7 +275,7 @@ class PlotConstructor():
         else:   
             # Catch up to the points we have in memory.
             if self.time < self.maxtime:
-                for xs, ys, branchid, params in self.points[self.time:]:
+                for xs, ys, branchid, teamno, cont in self.points[self.time:]:
                     bfdiag.plot(float(xs[self.freeindex]), float(ys[self.current_functional]), marker='.', color=MAIN, linestyle='None')
                     self.time += 1
 
@@ -277,8 +304,12 @@ class PlotConstructor():
                         ys = literal_eval(functionals)
                         x = float(xs[self.freeindex])
                         y = float(ys[self.current_functional])
+                        
+                        # Use different colours/plot styles for points found by continuation/deflation.
+                        if literal_eval(cont): c, m= MAIN, '.'
+                        else: c, m= DEF, 'o'
                         self.points.append((xs, ys, int(branchid), int(teamno), literal_eval(cont)))
-                        bfdiag.plot(x, y, marker='.', color=MAIN, linestyle='None')
+                        bfdiag.plot(x, y, marker=m, color=c, linestyle='None')
                         self.time += 1
 
                 # Update the current time.
@@ -317,11 +348,9 @@ class PlotConstructor():
                  # Plot the annotation, and keep a handle on all the stuff we plot so we can use/remove it later. 
                  self.annotation_highlight = bfdiag.scatter([x], [y], s=[50], marker='o', color=HIGHLIGHT) # Note: change 's' to make the highlight blob bigger/smaller
                  self.annotated_point = (xs, branchid)  
-
                  if cont: s = "continuation"
                  else: s = "deflation"
-
-                 self.app.set_output_box("Solution on branch %d\nFound by team %d\nUsing %s\nAt time %d\n\nx = %s\ny = %s" % (branchid, teamno, s, time, x, y))
+                 self.app.set_output_box("Solution on branch %d\nFound by team %d\nUsing %s\nAs event #%d\n\nx = %s\ny = %s" % (branchid, teamno, s, time, x, y))
 
                  return True
              else: return False
@@ -366,20 +395,56 @@ class PlotConstructor():
         Popen(["paraview", filename])
 
     def mpl_plot(self):
+        """ Fetch a solution and plot it with matplotlib. Used when the solutions are 1D. """
         if self.annotated_point is not None:
-            # Make a directory to put solutions in, if it doesn't exist. 
-            try: os.mkdir(output_dir + os.path.sep + "solutions")
-            except OSError: pass
-
             params, branchid = self.annotated_point
             filename = output_dir + os.path.sep + parameterstostring(problem_parameters, params) + ".hdf5"
             with HDF5File(mesh.mpi_comm(), filename, 'r') as f:
                 y = Function(V)
                 f.read(y, "solution-%d" % branchid)
                 f.flush() 
-            p = plot(y, title="Solution on branch %s, params %s" % (branchid, params), hardcopy_prefix=output_dir + os.path.sep + "solutions" + os.path.sep +"branch-%s$params-%s" % (branchid, params), backend='vtk', interactive=True)
-            #p.write_png() # write to a file. This dumps the file in the working directory, doesn't save to a nice place. Why???
 
+            try:
+                x = interpolate(Expression("x[0]", degree=1), V)
+                # FIXME: For functions f other than CG1, we might need to sort both arrays so that x is increasing. Check this out!
+                plt.plot(x.vector().array(), y.vector().array(), '-', linewidth=3, color='b')
+                plt.title("%s: branch %s, params %s" % (problem_class, branchid, params))
+                plt.axhline(0, color='k')
+                plt.show(False) # false here means the window is non-blocking, so we may continue using defcon while the plot shows. 
+            except RuntimeError:
+                print "Error plotting expression. Are your solutions numbers rather than functions? If so, this is why I failed..."
+                pass
+
+    def animate(self, i):
+        try:
+            xs, ys, branchid, teamno, cont = self.points_iter.next()
+            x = float(xs[self.freeindex])
+            y = float(ys[self.func_index])
+            if cont: c, m= MAIN, '.'
+            else: c, m= DEF, 'o'
+            self.ax.plot(x, y, marker=m, color=c, linestyle='None')
+        except StopIteration: pass
+
+    def init(self):
+        return self.ax
+
+    def movie(self, filename):
+        """ Creates a matplotlib animation of the plotting up to the current maxtime. """
+        # Create the current list of points into an iterator.
+        self.points_iter = iter(self.points)
+
+        # Free the functional we're currently on, to avoid unplesantness. 
+        self.func_index = self.current_functional
+
+        # Set up the animated figure.
+        self.anim_fig = plt.figure()
+        self.ax = plt.axes()
+        self.anim = animation.FuncAnimation(self.anim_fig, self.animate, frames=200, interval=20, blit=False)
+
+        self.anim_fig.show()
+        # Save it.
+        mywriter = animation.FFMpegWriter()
+        self.anim.save('basic_animation.mp4', fps=30, writer=mywriter, extra_args=['-vcodec', 'libx264'])
           
 
 ######################################################################
@@ -395,12 +460,14 @@ class DynamicCanvas(FigureCanvas):
         timer.start(update_interval)
 
     def update_figure(self):
-        pc.animate()
+        pc.update()
         self.draw()
 
     # TODO: have defcon write a line to the journal when it's done. Then 
     def finish(self):
         raise NotImplementedError
+
+    # TODO: Can we override the save_figure method to add an option for tikz, if some flag is set????
 
 class CustomToolbar(NavigationToolbar2QT):
     """ A custom matplotlib toolbar, so we can remove those pesky extra buttons. """  
@@ -435,7 +502,7 @@ class ApplicationWindow(QtGui.QMainWindow):
         self.main_widget.setFocus()
         self.setCentralWidget(self.main_widget)
 
-        if darkmode: self.main_widget.setStyleSheet('color: green; background-color: black')
+        if darkmode: self.main_widget.setStyleSheet('color: #76EE00; background-color: black')
 
         # Layout
         main_layout = QtGui.QHBoxLayout(self.main_widget)
@@ -498,6 +565,11 @@ class ApplicationWindow(QtGui.QMainWindow):
         self.buttonEnd.setFixedWidth(30)
         timeBox.addWidget(self.buttonEnd)
 
+        self.buttonMovie = QtGui.QPushButton("mov")
+        self.buttonMovie.clicked.connect(lambda:self.movie())
+        self.buttonMovie.setFixedWidth(30)
+        timeBox.addWidget(self.buttonMovie)
+
         # TODO: Define a custom one of these, to do just we want it to do.
         self.jumpInput = QtGui.QLineEdit()
         self.jumpInput.setMaxLength(4) #FIXME: Get appropriate value.
@@ -535,11 +607,11 @@ class ApplicationWindow(QtGui.QMainWindow):
         self.infobox.setFixedHeight(250)
         self.infobox.setAlignment(QtCore.Qt.AlignTop)
         font = QtGui.QFont()
-        font.setPointSize(18)
+        font.setPointSize(17)
         font.setBold(True)
         font.setWeight(75)
         self.infobox.setFont(font)
-        self.infobox.setStyleSheet('border-color: black; border-style: outset; border-width: 2px')
+        self.infobox.setStyleSheet('border-color: %s; border-style: outset; border-width: 2px' % BORDER)
         infoBox.addWidget(self.infobox)
 
 
@@ -560,10 +632,12 @@ class ApplicationWindow(QtGui.QMainWindow):
         self.radio_buttons[0].setChecked(True)
 
     def switch_functional(self):
-        for i in range(1000):
-            if self.radio_buttons[i].isChecked(): 
+        i = 0
+        for rb in self.radio_buttons:
+            if rb.isChecked(): 
                 pc.switch_functional(i)
                 break
+            else: i+=1
 
 
     def clicked_diagram(self, event):
@@ -605,6 +679,9 @@ class ApplicationWindow(QtGui.QMainWindow):
         """ Launch Paraview to graph the highlighted solution. """
         if not plot_with_mpl: pc.hdf52pvd()
         else: pc.mpl_plot()
+
+    def movie(self):
+        pc.movie("")
 
 
 qApp = QtGui.QApplication(sys.argv)
