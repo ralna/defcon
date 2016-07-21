@@ -23,7 +23,6 @@ http://arxiv.org/abs/1603.00809
 
 Defcon depends on
 
-* an MPI library that supports MPI_THREAD_MULTIPLE. In practice this means MPICH and not OpenMPI.
 * mpi4py (http://pythonhosted.org/mpi4py/)
 * FEniCS, compiled with PETSc and petsc4py support (http://fenicsproject.org)
 
