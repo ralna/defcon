@@ -457,7 +457,11 @@ class PlotConstructor():
 
         # Save it.
         mywriter = animation.FFMpegWriter()
-        self.anim.save(filename, fps=30, writer=mywriter, extra_args=['-vcodec', 'libx264'])
+        try: self.anim.save(filename, fps=30, writer=mywriter, extra_args=['-vcodec', 'libx264'])
+        except Exception, e: 
+            print "\033[91m[Warning] Saving mvoie failed. Perhaps you don't have ffmpeg installed? Anyway, the error was: \033[00m"
+            print str(e)
+            pass
 
         self.ax.clear()
 
