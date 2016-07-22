@@ -37,16 +37,16 @@ try:
     from matplotlib import style
     style.use('ggplot')
 except AttributeError:
-    print "[Warning] Update to the latest version of matplotlib to use styles.\n"
+    print "\033[91m[Warning] Update to the latest version of matplotlib to use styles.\033[00m\n"
     pass
 
 # Saving tikz pictures.
 try: 
     from matplotlib2tikz import save as tikz_save
-    tikz = True
+    use_tikz = True
 except Exception: 
-    print "[Warning] Could not import the library matplotlib2tikz. You will unable to save the file as a .tikz.\nTo use this functionality, install matplotlib2tikz, eg with:\n     # pip install matplotlib2tikz\n"
-    tikz = False
+    print "\033[91m[Warning] Could not import the library matplotlib2tikz. You will unable to save the file as a .tikz.\nTo use this functionality, install matplotlib2tikz, eg with:\n     # pip install matplotlib2tikz\033[00m\n"
+    use_tikz = False
 
 # Colours.
 MAIN = 'black' # colour for points.
@@ -72,7 +72,7 @@ DEFPLOT = 'o'
 
 # Get commandline args.
 # Example usage: python defcon-gui.py -p unity -c RootsOfUnityProblem -w /home/joseph/defcon/examples/unity
-myopts, args = getopt.getopt(sys.argv[1:],"dp:o:w:c:m:i:s:")
+myopts, args = getopt.getopt(sys.argv[1:],"dp:o:w:c:m:i:")
 
 for o, a in myopts:
     if o == '-p':   problem_type = a
@@ -135,9 +135,7 @@ if problem_type and problem_class:
     V = problem.function_space(mesh)
     problem_parameters = problem.parameters()
     
-else:
-    print "[Warning] In order to graph solutions, you must specify the class of the problem, eg 'NavierStokesProblem'."
-    print("Usage: %s -p <problem type> -c <problem_class> -w <working dir> \n" % sys.argv[0])
+else: print "\033[91m[Warning] In order to graph solutions, you must specify the class of the problem, eg 'NavierStokesProblem'.\nUsage: %s -p <problem type> -c <problem_class> -w <working dir> \033[00m \n" % sys.argv[0]
 
 # TODO:
 #     1) Implement plot branch and plot params.
@@ -327,7 +325,7 @@ class PlotConstructor():
                 self.app.set_time(self.time)         
 
     def annotate(self, clickX, clickY):
-         """ Annotate a point when clicking on it. If there's already an annotation, remove it. """
+         """ Annotate a point when clicking on it. """
          if self.annotated_point is None:
              xs = [float(point[0][self.freeindex]) for point in self.points[:self.time]]
              ys = [float(point[1][self.current_functional]) for point in self.points[:self.time]]
@@ -369,6 +367,7 @@ class PlotConstructor():
 
 
     def unannotate(self):
+        """ Remove annotation from the graph. """
         self.annotation_highlight.remove()
         self.annotation_highlight = None
         self.annotated_point = None
@@ -422,7 +421,7 @@ class PlotConstructor():
                 plt.axhline(0, color='k')
                 plt.show(False) # false here means the window is non-blocking, so we may continue using defcon while the plot shows. 
             except RuntimeError, e:
-                print "Error plotting expression. Are your solutions numbers rather than functions? If so, this is why I failed. Anyway, the error was:"
+                print "\033[91m [Warning] Error plotting expression. Are your solutions numbers rather than functions? If so, this is why I failed. Anyway, the error was: \033[00m"
                 print str(e)
                 pass
 
@@ -458,25 +457,27 @@ class PlotConstructor():
 
         # Save it.
         mywriter = animation.FFMpegWriter()
-        self.anim.save(filename+'.mp4', fps=30, writer=mywriter, extra_args=['-vcodec', 'libx264'])
+        self.anim.save(filename, fps=30, writer=mywriter, extra_args=['-vcodec', 'libx264'])
 
         self.ax.clear()
 
     def save_tikz(self, filename):
         """ Save the bfdiag window as a tikz plot. """
-        fig = plt.figure()
-        ax = plt.axes()
-        ax.clear()
-        ax.set_xlabel(self.parameter_name)
-        ax.set_ylabel(self.functional_names[self.current_functional])
-        for xs, ys, branchid, teamno, cont in self.points:
-            x = float(xs[self.freeindex])
-            y = float(ys[self.current_functional])
-            if cont: c, m= MAIN, '.'
-            else: c, m= DEF, 'o'
-            ax.plot(x, y, marker=m, color=c, linestyle='None')
-        tikz_save(filename+'.tex')
-        ax.clear()
+        if use_tikz:
+            fig = plt.figure()
+            ax = plt.axes()
+            ax.clear()
+            ax.set_xlabel(self.parameter_name)
+            ax.set_ylabel(self.functional_names[self.current_functional])
+            for xs, ys, branchid, teamno, cont in self.points:
+                x = float(xs[self.freeindex])
+                y = float(ys[self.current_functional])
+                if cont: c, m= MAIN, '.'
+                else: c, m= DEF, 'o'
+                ax.plot(x, y, marker=m, color=c, linestyle='None')
+            tikz_save(filename)
+            ax.clear()
+        else: print "\033[91m[Warning] matplotlib2tikz not installed. I can't save to tikz! \033[00m \n"
 
 ######################################################################
 class DynamicCanvas(FigureCanvas):
@@ -494,7 +495,7 @@ class DynamicCanvas(FigureCanvas):
         pc.update()
         self.draw()
 
-    # TODO: have defcon write a line to the journal when it's done. Then 
+    # TODO: have defcon write a line to the journal when it's done. Then do something here.
     def done(self):
        pass
 
