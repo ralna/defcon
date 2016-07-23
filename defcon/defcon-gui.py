@@ -56,6 +56,7 @@ DEF = 'blue' # colour for points found via deflation
 HIGHLIGHT = 'red' # colour for selected points.
 GRID = 'white' # colour the for grid.
 BORDER = 'black' # borders on the UI
+SWEEP = 'red' # colour for the sweep line
 
 # Set some defaults.
 problem_type = None
@@ -69,9 +70,10 @@ plot_with_mpl = False
 update_interval = 100
 resources_dir = os.path.dirname(os.path.realpath(sys.argv[0])) + os.path.sep + 'resources' + os.path.sep
 
-# Markers to use for points discovered by continuation/deflation respectively.
+# Markers to use for points discovered by continuation/deflation respectively. Also various other styles
 CONTPLOT = '.'
 DEFPLOT = 'o'
+SWEEPSTYLE = 'dashed'
 
 # Get commandline args.
 # Example usage: python defcon-gui.py -p unity -c RootsOfUnityProblem -w /home/joseph/defcon/examples/unity
@@ -143,6 +145,7 @@ else: print "\033[91m[Warning] In order to graph solutions, you must specify the
 # TODO:
 #     1) Implement plot branch and plot params.
 #     2) Have hdf52pvd use the problem's io module. 
+#     3) set more sensible scaling of y lims. 
 
 #####################
 ### Utility Class ###
@@ -170,6 +173,11 @@ class PlotConstructor():
         self.current_functional = 0 # The index of the functional we're currently on.
 
         self.app = app # The BifurcationPage window, so that we can set the time.
+
+        self.teamstats = [] # The status of each team. 
+
+        self.sweep = 0
+        self.sweepline = None
     
     def distance(self, x1, x2, y1, y2):
         """ Return the L2 distance between two points. """
@@ -181,6 +189,7 @@ class PlotConstructor():
         bfdiag.set_xlabel(self.parameter_name)
         bfdiag.set_ylabel(self.functional_names[self.current_functional])
         bfdiag.grid(color=GRID)
+        self.sweepline = bfdiag.axvline(x=self.sweep, linewidth=1, linestyle=SWEEPSTYLE, color=SWEEP)
 
     def pause(self):
         """ Pause the drawing. """
@@ -294,34 +303,49 @@ class PlotConstructor():
 
                 # Is this is first time, get the information from the first line of the data. 
                 if self.freeindex is None: 
-                    freeindex, self.parameter_name, functional_names, unicode_functional_names = dataList[0].split(';')
+                    freeindex, self.parameter_name, functional_names, unicode_functional_names, nteams, minparam, maxparam = dataList[0].split(';')
+
+                    # Set up info about what the teams are doing.
+                    self.nteams = int(nteams)
+                    for team in range(self.nteams): self.teamstats.append('i')
+
+                    # Info about functionals
                     self.freeindex = int(freeindex)
                     self.functional_names = literal_eval(functional_names)
                     self.unicode_functional_names = literal_eval(unicode_functional_names)
                     self.app.make_radio_buttons(self.unicode_functional_names)
                     bfdiag.set_xlabel(self.parameter_name)
                     bfdiag.set_ylabel(self.functional_names[self.current_functional])
+                    bfdiag.set_xlim([float(minparam), float(maxparam)])
+                    bfdiag.autoscale(axis='y')
 
                 dataList = dataList[1:] # exclude the first line. 
 
                 # Plot new points one at a time.
                 for eachLine in dataList[self.time:]:
-                    if eachLine == "Done": 
-                        self.done = True
-                        self.app.done()
-                    elif len(eachLine) > 1:
-                        teamno, oldparams, branchid, newparams, functionals, cont = eachLine.split(';')
-                        xs = literal_eval(newparams)
-                        ys = literal_eval(functionals)
-                        x = float(xs[self.freeindex])
-                        y = float(ys[self.current_functional])
-                        
-                        # Use different colours/plot styles for points found by continuation/deflation.
-                        if literal_eval(cont): c, m= MAIN, '.'
-                        else: c, m= DEF, 'o'
-                        self.points.append((xs, ys, int(branchid), int(teamno), literal_eval(cont)))
-                        bfdiag.plot(x, y, marker=m, color=c, linestyle='None')
-                        self.time += 1
+                    if len(eachLine) > 1:
+                        if eachLine[0] == '$':
+                            params = eachLine[1:]
+                            self.sweep = float(params)
+                            if self.sweepline is not None: self.sweepline.remove()
+                            self.sweepline = bfdiag.axvline(x=self.sweep, linewidth=1, linestyle=SWEEPSTYLE, color=SWEEP)
+                        elif eachLine[0] == '~':
+                            team, task = eachLine[1:].split(';')
+                            self.teamstats[int(team)] = task
+                            self.app.update_teamstats(self.teamstats)
+                        else:
+                            teamno, oldparams, branchid, newparams, functionals, cont = eachLine.split(';')
+                            xs = literal_eval(newparams)
+                            ys = literal_eval(functionals)
+                            x = float(xs[self.freeindex])
+                            y = float(ys[self.current_functional])
+                            
+                            # Use different colours/plot styles for points found by continuation/deflation.
+                            if literal_eval(cont): c, m= MAIN, '.'
+                            else: c, m= DEF, 'o'
+                            self.points.append((xs, ys, int(branchid), int(teamno), literal_eval(cont)))
+                            bfdiag.plot(x, y, marker=m, color=c, linestyle='None')
+                            self.time += 1
 
                 # Update the current time.
                 self.maxtime = self.time
@@ -391,7 +415,7 @@ class PlotConstructor():
             pvd_filename = solutions_dir +  "SOLUTION$%s$branchid=%d.pvd" % (parameterstostring(problem_parameters, params), branchid)
             pvd = File(pvd_filename)
     
-            # Read the file, then write the solution.
+            # Read the file, then write the solution. FIXME: adapt to new iomodule. 
             filename = output_dir + os.path.sep + parameterstostring(problem_parameters, params) + ".hdf5"
             with HDF5File(mesh.mpi_comm(), filename, 'r') as f:
                 y = Function(V)
@@ -410,10 +434,11 @@ class PlotConstructor():
         """ Fetch a solution and plot it with matplotlib. Used when the solutions are 1D. """
         if self.annotated_point is not None:
             params, branchid = self.annotated_point
-            filename = output_dir + os.path.sep + "branch-%s.hdf5" % branchid
+            #FIXME: adapt to new iomodule. 
+            filename = output_dir + os.path.sep + parameterstostring(problem_parameters, params) + ".hdf5"
             with HDF5File(mesh.mpi_comm(), filename, 'r') as f:
                 y = Function(V)
-                f.read(y, parameterstostring(problem_parameters, params))
+                f.read(y, "solution-%d" % branchid)
                 f.flush() 
 
             try:
@@ -597,6 +622,7 @@ class ApplicationWindow(QtGui.QMainWindow):
         main_layout = QtGui.QHBoxLayout(self.main_widget)
         lVBox = QtGui.QVBoxLayout()
         rVBox = QtGui.QVBoxLayout()
+        rVBox.setAlignment(QtCore.Qt.AlignTop)
         main_layout.addLayout(lVBox)
         main_layout.addLayout(rVBox)
 
@@ -617,6 +643,9 @@ class ApplicationWindow(QtGui.QMainWindow):
         plotBox = QtGui.QHBoxLayout()
         rVBox.addLayout(plotBox)
         plotBox.setAlignment(QtCore.Qt.AlignTop | QtCore.Qt.AlignCenter)
+        teamBox = QtGui.QVBoxLayout()
+        teamBox.setContentsMargins(0, 10, 0, 10)
+        rVBox.addLayout(teamBox)
 
 
         # Canvas.
@@ -714,6 +743,19 @@ class ApplicationWindow(QtGui.QMainWindow):
         self.infobox.setStyleSheet('border-color: %s; border-style: outset; border-width: 2px' % BORDER)
         infoBox.addWidget(self.infobox)
 
+        # Teamstats Box
+        label = QtGui.QLabel("Team Status:")
+        label.setFixedHeight(20)
+        label.setAlignment(QtCore.Qt.AlignCenter)
+        teamBox.addWidget(label)
+
+        self.teambox = QtGui.QLabel("")
+        #self.infobox.setFixedHeight(250)
+        self.teambox.setFixedWidth(250)
+        self.teambox.setAlignment(QtCore.Qt.AlignTop | QtCore.Qt.AlignCenter)
+        #self.teambox.setStyleSheet('border-color: %s; border-style: outset; border-width: 2px' % BORDER)
+        teamBox.addWidget(self.teambox)
+
 
 
     # Utility Functions
@@ -729,6 +771,17 @@ class ApplicationWindow(QtGui.QMainWindow):
     def set_output_box(self, text):
         """ Set the text describing our annotated point. """
         self.infobox.setText(text)
+
+    def update_teamstats(self, teamstats):
+        text = ""
+        for i in range(len(teamstats)):
+            if teamstats[i] == "d": colour = 'blue'
+            if teamstats[i] == "c": colour = 'green'
+            if teamstats[i] == "i": colour = 'yellow'
+            if teamstats[i] == "q": colour = 'red'    
+            text += "<p style='margin:0;' ><font color=%s size='+2'> Team %d</FONT></p>\n" % (colour, i)
+        self.teambox.setText(text)
+            
 
     def make_radio_buttons(self, functionals):
         """ Build the radio buttons for switching functionals. """
