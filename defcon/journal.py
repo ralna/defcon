@@ -1,7 +1,5 @@
 from dolfin import *
 
-from multiprocessing import Queue
-from threading import Lock
 import time
 import os
 
@@ -13,8 +11,12 @@ class Journal(object):
     def entry(self, oldparams, branchid, newparams, functionals, continuation):
         raise NotImplementedError
 
-    def write(self):
+    def sweep(self, params):
         raise NotImplementedError
+
+    def team_job(self, team, task):
+        raise NotImplementedError
+
 
 # TODO: The queue tries to implement parallel writes with locks. Does this work???
 # No, it doesn't. 
@@ -22,8 +24,7 @@ class FileJournal(Journal):
     def __init__(self, directory):
         self.directory = directory + os.path.sep + "journal"
 
-        self.lock = Lock()
-    def setup(self, parameters, functionals, freeindex):
+    def setup(self, parameters, functionals, freeindex, nteams, minparam, maxparam):
         self.parameters = parameters
         self.functionals = functionals
         self.freeindex = freeindex
@@ -36,21 +37,26 @@ class FileJournal(Journal):
         ylabels = [func[2] for func in self.functionals]
         unicodeylabels = [func[1] for func in self.functionals]
         with file(self.directory + os.path.sep + "journal.txt", 'w') as f:
-            f.write("%s;%s;%s;%s\n" % (freeindex, xlabel, ylabels, unicodeylabels))
+            f.write("%s;%s;%s;%s;%s;%s;%s\n" % (freeindex, xlabel, ylabels, unicodeylabels, nteams, minparam, maxparam))
             f.flush()
             f.close()
 
     def entry(self, teamid, oldparams, branchid, newparams, functionals, continuation):
         """ Enqueue the journal entry. """
-        self.lock.acquire()
         with file(self.directory + os.path.sep + "journal.txt", 'a') as f:
             f.write("%s;%s;%s;%s;%s;%s \n" % (teamid, oldparams, branchid, newparams, functionals, continuation))
             f.flush()
-        self.lock.release()
+            f.close()
 
-    def done(self):
-        """ Writes 'Done' to the file, so the gui knows we're finished. """
+    def sweep(self, params):
         with file(self.directory + os.path.sep + "journal.txt", 'a') as f:
-            f.write("Done")
+            f.write("$%s\n" % params)
             f.flush()
+            f.close()
+
+    def team_job(self, team, task):
+        with file(self.directory + os.path.sep + "journal.txt", 'a') as f:
+            f.write("~%s;%s\n" % (team, task))
+            f.flush()
+            f.close()
 

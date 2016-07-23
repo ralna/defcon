@@ -143,7 +143,6 @@ if problem_type and problem_class:
 else: print "\033[91m[Warning] In order to graph solutions, you must specify the class of the problem, eg 'NavierStokesProblem'.\nUsage: %s -p <problem type> -c <problem_class> -w <working dir> \033[00m \n" % sys.argv[0]
 
 # TODO:
-#     1) Implement plot branch and plot params.
 #     2) Have hdf52pvd use the problem's io module. 
 #     3) set more sensible scaling of y lims. 
 
