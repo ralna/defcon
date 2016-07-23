@@ -48,6 +48,8 @@ except Exception:
     print "\033[91m[Warning] Could not import the library matplotlib2tikz. You will unable to save the file as a .tikz.\nTo use this functionality, install matplotlib2tikz, eg with:\n     # pip install matplotlib2tikz\033[00m\n"
     use_tikz = False
 
+
+
 # Colours.
 MAIN = 'black' # colour for points.
 DEF = 'blue' # colour for points found via deflation
@@ -65,8 +67,9 @@ solutions_dir = None
 darkmode = False
 plot_with_mpl = False
 update_interval = 100
+resources_dir = os.path.dirname(os.path.realpath(sys.argv[0])) + os.path.sep + 'resources' + os.path.sep
 
-# Markers to use for points discovered by continuation.deflation respectively.
+# Markers to use for points discovered by continuation/deflation respectively.
 CONTPLOT = '.'
 DEFPLOT = 'o'
 
@@ -407,10 +410,10 @@ class PlotConstructor():
         """ Fetch a solution and plot it with matplotlib. Used when the solutions are 1D. """
         if self.annotated_point is not None:
             params, branchid = self.annotated_point
-            filename = output_dir + os.path.sep + parameterstostring(problem_parameters, params) + ".hdf5"
+            filename = output_dir + os.path.sep + "branch-%s.hdf5" % branchid
             with HDF5File(mesh.mpi_comm(), filename, 'r') as f:
                 y = Function(V)
-                f.read(y, "solution-%d" % branchid)
+                f.read(y, parameterstostring(problem_parameters, params))
                 f.flush() 
 
             try:
@@ -516,10 +519,10 @@ class CustomToolbar(NavigationToolbar2QT):
         self.layout().takeAt(4)
 
         
-        self.buttonSaveMovie = self.addAction(QtGui.QIcon("resources" + os.path.sep + "save_movie.png"), "Save Movie", self.save_movie)
+        self.buttonSaveMovie = self.addAction(QtGui.QIcon(resources_dir + "save_movie.png"), "Save Movie", self.save_movie)
         self.buttonSaveMovie.setToolTip("Save the figure as an animation")
 
-        self.buttonSaveTikz= self.addAction(QtGui.QIcon("resources" + os.path.sep + "save_tikz.png"), "Save Tikz", self.save_tikz)
+        self.buttonSaveTikz= self.addAction(QtGui.QIcon(resources_dir + "save_tikz.png"), "Save Tikz", self.save_tikz)
         self.buttonSaveTikz.setToolTip("Save the figure as tikz")
 
     def save_figure(self):
@@ -630,7 +633,7 @@ class ApplicationWindow(QtGui.QMainWindow):
 
         # Time navigation buttons
         self.buttonStart = QtGui.QPushButton()
-        self.buttonStart.setIcon(QtGui.QIcon('resources'+os.path.sep+'start.png'))
+        self.buttonStart.setIcon(QtGui.QIcon(resources_dir+'start.png'))
         self.buttonStart.setIconSize(QtCore.QSize(18,18))
         self.buttonStart.clicked.connect(lambda:self.start())
         self.buttonStart.setFixedWidth(30)
@@ -638,7 +641,7 @@ class ApplicationWindow(QtGui.QMainWindow):
         timeBox.addWidget(self.buttonStart)
 
         self.buttonBack = QtGui.QPushButton()
-        self.buttonBack.setIcon(QtGui.QIcon('resources'+os.path.sep+'back.png'))
+        self.buttonBack.setIcon(QtGui.QIcon(resources_dir+'back.png'))
         self.buttonBack.setIconSize(QtCore.QSize(18,18))
         self.buttonBack.clicked.connect(lambda:self.back())
         self.buttonBack.setFixedWidth(30)
@@ -655,7 +658,7 @@ class ApplicationWindow(QtGui.QMainWindow):
         timeBox.addWidget(self.jumpInput)
 
         self.buttonForward = QtGui.QPushButton()
-        self.buttonForward.setIcon(QtGui.QIcon('resources'+os.path.sep+'forward.png'))
+        self.buttonForward.setIcon(QtGui.QIcon(resources_dir+'forward.png'))
         self.buttonForward.setIconSize(QtCore.QSize(18,18))
         self.buttonForward.clicked.connect(lambda:self.forward())
         self.buttonForward.setToolTip("Forward")
@@ -663,7 +666,7 @@ class ApplicationWindow(QtGui.QMainWindow):
         timeBox.addWidget(self.buttonForward)
 
         self.buttonEnd = QtGui.QPushButton()
-        self.buttonEnd.setIcon(QtGui.QIcon('resources'+os.path.sep+'end.png'))
+        self.buttonEnd.setIcon(QtGui.QIcon(resources_dir+'end.png'))
         self.buttonEnd.setIconSize(QtCore.QSize(18,18))
         self.buttonEnd.clicked.connect(lambda:self.end())
         self.buttonEnd.setToolTip("End")
@@ -799,6 +802,6 @@ qApp = QtGui.QApplication(sys.argv)
 aw = ApplicationWindow()
 pc = PlotConstructor(aw)
 aw.setWindowTitle("DEFCON")
-aw.setWindowIcon(QtGui.QIcon('resources' + os.path.sep + 'defcon_icon.png'))
+aw.setWindowIcon(QtGui.QIcon(resources_dir + 'defcon_icon.png'))
 aw.show()
 sys.exit(qApp.exec_())
