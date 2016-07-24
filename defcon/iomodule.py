@@ -54,40 +54,38 @@ class FileIO(IO):
 
     def __init__(self, directory):
         self.directory = directory
-        self.maxbranch = -1
 
         # Create the output directory.
         try: os.mkdir(directory) 
         except OSError: pass
 
-        # If we're resuming a computation, get the maxbranch.
-        try: self.maxbranch = self.max_branch()
-        except Exception: pass
+    def dir(self, branchid):
+        return self.directory + os.path.sep + "branch-%d.hdf5" % branchid
 
-    def dir(self, params):
-        return self.directory + os.path.sep + parameterstostring(self.parameters, params) + ".hdf5"
-
+    def known_params_file(self, branchid, params, mode):
+        g = file(self.directory + os.path.sep + "branch-%s.txt" % branchid, mode)
+        g.write(str(params)+';')
+        g.flush()
+        g.close()
+        
     def save_solution(self, solution, params, branchid):
-        """ Save a solution to the file params.hdf5. """
+        """ Save a solution to the file branch-branchid.hdf5. """
         # Urgh... we need to check if the file already exists to decide if we use write mode or append mode. HDF5File's 'a' mode fails if the file doesn't exist.
         # This behaviour is different from h5py's 'a' mode, which can create a file if it doesn't exist and modify otherwise.
-        if os.path.exists(self.dir(params)): mode='a'
+        if os.path.exists(self.dir(branchid)): mode='a'
         else: mode = 'w'
 
-        # Opne file and white the solution. Flush afterwards to ensure it is written to disk. 
-        with HDF5File(self.function_space.mesh().mpi_comm(), self.dir(params), mode) as f:
-            f.write(solution, "/solution-%d" % branchid)
+        # Open file and write the solution. Flush afterwards to ensure it is written to disk. 
+        with HDF5File(self.function_space.mesh().mpi_comm(), self.dir(branchid), mode) as f:
+            f.write(solution, "/%s" % parameterstostring(self.parameters, params))
             f.flush()
-     
-        # This is potentially a new branch, so let's update the maxbranch file if need be.
-        # FIXME: We need the file because for some reason the variable doesn't persist (we get -1 if we call from BifurcationDiagram). Figure out some other way to do this?
-        if branchid > self.maxbranch:
-            self.maxbranch = branchid
-            g = file(self.directory + os.path.sep + "maxbranch", 'w')
-            g.write(str(self.maxbranch))
-            g.flush()
-            g.close()
+            f.close()
 
+        if os.path.exists(self.directory + os.path.sep + "branch-%s.txt" % branchid): mode='a'
+        else: mode = 'w'
+
+        self.known_params_file(branchid, params, mode)
+     
     def fetch_solutions(self, params, branchids):
         """ Fetch solutions for a particular parameter value for each branchid in branchids. """
         solns = []
@@ -95,10 +93,11 @@ class FileIO(IO):
             failcount = 0
             while True:
                 try:
-                    with HDF5File(self.function_space.mesh().mpi_comm(), self.dir(params), 'r') as f:
+                    with HDF5File(self.function_space.mesh().mpi_comm(), self.dir(branchid), 'r') as f:
                         soln = Function(self.function_space)
-                        f.read(soln, "solution-%d" % branchid)
+                        f.read(soln, parameterstostring(self.parameters, params))
                         f.flush()
+                        f.close()
                     solns.append(soln)
                     break
   
@@ -114,30 +113,33 @@ class FileIO(IO):
 
     def known_branches(self, params):
         """ Load the branches we know about for this particular parameter value, by opening the file and seeing which groups it has. """
-        try:
-            f = h5.File(self.dir(params), 'r')
-            names = f.keys()
-            branches = [int(name.split('-')[-1]) for name in names]
-            f.close()
-        except Exception:
-            branches = []
+        saved_branch_files = glob.glob(self.directory + os.path.sep + "*.txt")
+        branches = []
+        for branch_file in saved_branch_files:
+            pullData = open(branch_file, 'r').read().split(';')
+            if str(params) in pullData: 
+                branches.append(int(branch_file.split('-')[-1].split('.')[0]))
         return set(branches)
      
     def save_functionals(self, funcs, params, branchid):
         """ Stores the functionals as attribute 'functional-branchid' of the /solution-branchid group of the appropriate file. """
         s = parameterstostring(self.functionals, funcs)
-        with HDF5File(self.function_space.mesh().mpi_comm(), self.dir(params), 'a') as f:
-            f.attributes("/solution-%d" % branchid)["functional-%d" % branchid] = s
+        with HDF5File(self.function_space.mesh().mpi_comm(), self.dir(branchid), 'a') as f:
+            f.attributes(parameterstostring(self.parameters, params))["functional"] = s
             f.flush()
-
+            f.close()
 
     def fetch_functionals(self, params, branchids):
         """ Gets the functionals back. Output [[all functionals...]]. """
         funcs = []
-        with HDF5File(self.function_space.mesh().mpi_comm(), self.dir(params), 'r') as f:
-            for branchid in branchids:
-                newfuncs = [float(line.split('=')[-1]) for line in f.attributes("/solution-%d" % branchid)["functional-%d" % branchid].split('@')]
-                funcs.append(newfuncs)
+        for branchid in branchids:
+            with HDF5File(self.function_space.mesh().mpi_comm(), self.dir(branchid), 'r') as f:
+                try: 
+                    newfuncs = [float(line.split('=')[-1]) for line in f.attributes(parameterstostring(self.parameters, params))["functional"].split('@')]
+                    funcs.append(newfuncs)
+                    f.flush()
+                except Exception: pass
+            f.close()       
         return funcs
 
     def known_parameters(self, fixed):
@@ -154,9 +156,19 @@ class FileIO(IO):
 
         seen = set()
 
-        # Pull up each file and then break them apart to get a list of tuples of diferent parameter values.
-        saved_param_files = glob.glob(self.directory + "/*.hdf5")
-        saved_params = [tuple([float(x.split('=')[-1]) for x in dirname[0:-5].split('/')[-1].split('@')]) for dirname in saved_param_files] 
+        # Pull up each file and then break them apart to get a list of tuples of different parameter values.
+        #saved_param_files = glob.glob(self.directory + "/*.hdf5")
+
+        saved_branch_files = glob.glob(self.directory + os.path.sep + "*.hdf5")
+        all_keys = []
+        for branch_file in saved_branch_files:
+            with h5.File(branch_file, 'r') as f:
+                keys = f.keys()
+                f.flush()
+                f.close()
+            for params in keys: all_keys.append(params)
+        saved_params = [tuple([float(x.split('=')[-1]) for x in key.split('@')]) for key in all_keys]      
+        
 
         for param in saved_params:
             should_add = True
@@ -171,9 +183,7 @@ class FileIO(IO):
         return seen
 
     def max_branch(self):
-        """ Read the single number in the maxbranch file. """
-        g = file(self.directory + os.path.sep + "maxbranch", 'r')
-        s = int(g.read())
-        g.close()
-        return s
+        saved_branch_files = glob.glob(self.directory + os.path.sep + "*.hdf5")
+        branchids = [int(branch_file.split('-')[-1].split('.')[0]) for branch_file in saved_branch_files]
+        return max(branchids)
 

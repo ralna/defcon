@@ -77,9 +77,10 @@ class Response(object):
     """
     A class that encapsulates whether a given task was successful or not."
     """
-    def __init__(self, taskid, success):
+    def __init__(self, taskid, success, functionals=None):
         self.taskid = taskid
         self.success = success
+        self.functionals = functionals
 
     def __str__(self):
         return "Response(taskid=%s, success=%s)" % (self.taskid, self.success)

@@ -107,8 +107,6 @@ class DeflatedContinuation(object):
 
         # If instructed, keep a journal
         self.keep_journal = keep_journal
-        if self.keep_journal:
-            self.journal = FileJournal(self.io.directory)
 
         # We keep track of what solution we actually have in memory in self.state
         # for efficiency
@@ -313,7 +311,8 @@ class DeflatedContinuation(object):
 
         # If we want to keep a journal of our findings, set it up.
         if self.keep_journal:
-            self.journal.setup(self.parameters, self.functionals, freeindex, self.nteams, min(values), max(values))
+            journal = FileJournal(self.io.directory)
+            journal.setup(self.parameters, self.functionals, freeindex, self.nteams, min(values), max(values))
 
         # Send off intial tasks
         initialparams = parameterstofloats(self.parameters, freeindex, values[0])
@@ -378,8 +377,8 @@ class DeflatedContinuation(object):
                     self.send_task(task, idleteam)
                     waittasks[task.taskid] = (task, idleteam)
 
-                    # Write to the journal, saying that this team is now doin deflation. 
-                    if self.keep_journal: self.journal.team_job(idleteam, "d")
+                    # Write to the journal, saying that this team is now performing deflation. 
+                    if self.keep_journal: journal.team_job(idleteam, "d")
                 else: 
                     # Best reschedule for later, as there is still pertinent information yet to come in. 
                     self.log("Deferring task %s." % task, master=True)
@@ -393,7 +392,8 @@ class DeflatedContinuation(object):
             if len(waittasks) > 0:
                 minwait = minvals([wtask[0].newparams[freeindex] for wtask in waittasks.values()] + [ntask[1].newparams[freeindex] for ntask in newtasks])
                 self.log("Cannot dispatch any tasks, waiting for response. Sweep completed up to: %14.12e" % (minwait), master=True)
-                self.journal.sweep(minwait)
+                # Write to the journal saying where we've completed our sweep up to.
+                journal.sweep(minwait)
                 response = self.worldcomm.recv(status=stat, source=MPI.ANY_SOURCE, tag=self.responsetag)
 
                 (task, team) = waittasks[response.taskid]
@@ -404,6 +404,9 @@ class DeflatedContinuation(object):
                 # kinds of tasks.
                 if isinstance(task, ContinuationTask):
                     if response.success:
+
+                        # If we're keeping the journal, record this entry. 
+                        if self.keep_journal: journal.entry(team, task.oldparams, task.branchid, task.newparams, response.functionals, True)
 
                         # The worker will keep continuing, record that fact
                         newparams = nextparameters(values, freeindex, task.newparams)
@@ -416,6 +419,7 @@ class DeflatedContinuation(object):
                             self.log("Waiting on response for %s" % conttask, master=True)
                         else:
                             idleteams.append(team)
+                            if self.keep_journal: journal.team_job(team, "i")
 
                         # If there's still a continuation task looking for solutions on prior parameters, we don't want to send a new deflation task
                         # This task will still be scheduled, but that will happen at a later date. 
@@ -438,15 +442,16 @@ class DeflatedContinuation(object):
                         # We tried to continue a branch, but the continuation died. Oh well.
                         # The team is now idle.
                         idleteams.append(team)
-
-                        # Tell the journal this team is now idle. 
-                        if self.keep_journal: self.journal.team_job(team, "i")
+                        if self.keep_journal: journal.team_job(team, "i")
 
                 elif isinstance(task, DeflationTask):
                     if response.success:
                         # In this case, we want the master to
                         # 1. Allocate a new branch id for the discovered branch. There cannot be duplicates. 
                         self.send_branchid(branchid_counter, team)
+
+                        # Record this new solution in the journa;
+                        if self.keep_journal: journal.entry(team, task.oldparams, branchid_counter, task.newparams, response.functionals, False)
 
                         # 2. Insert a new deflation task, to seek again with the same settings.
                         newtask = DeflationTask(taskid=taskid_counter,
@@ -473,13 +478,12 @@ class DeflatedContinuation(object):
                             self.log("Waiting on response for %s" % conttask, master=True)
 
                             # Write to the journal, saying that this team is now doing continuation.
-                            if self.keep_journal: self.journal.team_job(team, "c")
+                            if self.keep_journal: journal.team_job(team, "c")
                         else:
                             # It's at the end of the continuation, there's no more continuation
                             # to do. Mark the team as idle.
                             idleteams.append(team)
-                            # Tell the journal this team is now idle. 
-                            if self.keep_journal: self.journal.team_job(team, "i")
+                            if self.keep_journal: journal.team_job(team, "i")
 
                         # We'll also make sure that any other DeflationTasks in the queue
                         # that have these parameters know about the existence of this branch.
@@ -492,6 +496,7 @@ class DeflatedContinuation(object):
                     else:
                         # As expected, deflation found nothing interesting. The team is now idle.
                         idleteams.append(team)
+                        if self.keep_journal: journal.team_job(team, "i")
 
             # We deferred some deflation tasks because we didn't have enough information to judge if they were worthwhile. Now we must reschedule.
             if len(deferredtasks) > 0:
@@ -507,7 +512,7 @@ class DeflatedContinuation(object):
         quit = QuitTask()
         for teamno in range(self.nteams):
             self.send_task(quit, teamno)
-            if self.keep_journal: self.journal.team_job(teamno, "q")
+            if self.keep_journal: journal.team_job(teamno, "q")
 
        
     def worker(self, freeindex, values):
@@ -551,7 +556,10 @@ class DeflatedContinuation(object):
 
                 self.state_id = (None, None) # not sure if it is a solution we care about yet
 
-                response = Response(task.taskid, success=success)
+                # Get the functionals now, so we can send them to the master.
+                if success: functionals = self.compute_functionals(self.state, task.newparams)
+
+                response = Response(task.taskid, success=success, functionals=functionals)
                 if self.teamrank == 0:
                     self.log("Sending response %s to master" % response)
                     self.worldcomm.send(response, dest=0, tag=self.responsetag)
@@ -562,15 +570,11 @@ class DeflatedContinuation(object):
                         # We do care about this solution, so record the fact we have it in memory
                         self.state_id = (task.newparams, branchid)
                         # Save it to disk with the I/O module
-                        functionals = self.compute_functionals(self.state, task.newparams)
                         self.log("Found new solution at parameters %s (branchid=%s) with functionals %s" % (task.newparams, branchid, functionals))
                         self.problem.monitor(task.newparams, branchid, self.state, functionals)
                         self.io.save_solution(self.state, task.newparams, branchid)
                         self.io.save_functionals(functionals, task.newparams, branchid)
                         self.log("Saved solution to %s to disk" % task)
-
-                        # If we're in keeping a journal, lets record this new point we're found.
-                        if self.keep_journal: self.journal.entry(self.teamno, task.oldparams, branchid, task.newparams, functionals, False)
 
                         # Automatically start onto the continuation
                         newparams = nextparameters(values, freeindex, task.newparams)
@@ -581,15 +585,12 @@ class DeflatedContinuation(object):
                                                     newparams=newparams)
                         else:
                             # Reached the end of the continuation, don't want to continue, move on
-                            if self.keep_journal: self.journal.team_job(self.teamno, "i")
                             task = self.fetch_task()
                     else:
                         # Branch id is None, ignore the solution and move on
-                        if self.keep_journal: self.journal.team_job(self.teamno, "i")
                         task = self.fetch_task()
                 else:
                     # Deflation failed, move on
-                    if self.keep_journal: self.journal.team_job(self.teamno, "i")
                     task = self.fetch_task()
 
             elif isinstance(task, ContinuationTask):
@@ -615,12 +616,10 @@ class DeflatedContinuation(object):
                     self.io.save_solution(self.state, task.newparams, task.branchid)
                     self.io.save_functionals(functionals, task.newparams, task.branchid)
 
-                    # If we're in keeping a journal, lets record this new point we're found.
-                    if self.keep_journal: self.journal.entry(self.teamno, task.oldparams, task.branchid, task.newparams, functionals, True)
                 else:
                     self.state_id = (None, None)
 
-                response = Response(task.taskid, success=success)
+                response = Response(task.taskid, success=success, functionals=functionals)
                 if self.teamrank == 0:
                     self.log("Sending response %s to master" % response)
                     self.worldcomm.send(response, dest=0, tag=self.responsetag)
@@ -632,7 +631,6 @@ class DeflatedContinuation(object):
                                             branchid=task.branchid,
                                             newparams=newparams)
                 else:
-                    if self.keep_journal: self.journal.team_job(self.teamno, "i")
                     task = self.fetch_task()
 
     def bifurcation_diagram(self, functional, fixed={}):
