@@ -640,6 +640,7 @@ class DeflatedContinuation(object):
         import matplotlib.pyplot as plt
 
         params = self.io.known_parameters(fixed)
+        print params
 
         # Argh. Find the functional index.
         funcindex = None

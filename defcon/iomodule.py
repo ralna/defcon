@@ -13,6 +13,7 @@ import glob
 import time
 import numpy as np
 import h5py as h5
+from ast import literal_eval
 
 class IO(object):
     """
@@ -156,18 +157,16 @@ class FileIO(IO):
 
         seen = set()
 
-        # Pull up each file and then break them apart to get a list of tuples of different parameter values.
-        #saved_param_files = glob.glob(self.directory + "/*.hdf5")
-
-        saved_branch_files = glob.glob(self.directory + os.path.sep + "*.hdf5")
+        # FIXME: this doesn't quite work. 
+        saved_branch_files = glob.glob(self.directory + os.path.sep + "*.txt")
         all_keys = []
+        saved_params = []
         for branch_file in saved_branch_files:
-            with h5.File(branch_file, 'r') as f:
-                keys = f.keys()
-                f.flush()
-                f.close()
-            for params in keys: all_keys.append(params)
-        saved_params = [tuple([float(x.split('=')[-1]) for x in key.split('@')]) for key in all_keys]      
+            pullData = open(branch_file, 'r').read().split(';')
+            all_params = []
+            for param in pullData: 
+                if len(param) > 0: all_params.append(param)
+            saved_params += [tuple([float(param) for param in literal_eval(params)]) for params in all_params]
         
 
         for param in saved_params:

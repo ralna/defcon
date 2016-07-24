@@ -48,15 +48,18 @@ except Exception:
     print "\033[91m[Warning] Could not import the library matplotlib2tikz. You will unable to save the file as a .tikz.\nTo use this functionality, install matplotlib2tikz, eg with:\n     # pip install matplotlib2tikz\033[00m\n"
     use_tikz = False
 
-
-
 # Colours.
-MAIN = 'black' # colour for points.
+MAIN = 'black' # colour for points
 DEF = 'blue' # colour for points found via deflation
-HIGHLIGHT = 'red' # colour for selected points.
+HIGHLIGHT = 'red' # colour for selected points
 GRID = 'white' # colour the for grid.
 BORDER = 'black' # borders on the UI
 SWEEP = 'red' # colour for the sweep line
+
+# Markers and various other styles.
+CONTPLOT = '.' # marker to use for points found by continuation
+DEFPLOT = 'o' # marker to use for points found by deflation
+SWEEPSTYLE = 'dashed' # line style for the sweep line
 
 # Set some defaults.
 problem_type = None
@@ -66,18 +69,13 @@ working_dir= "."
 output_dir = None
 solutions_dir = None
 darkmode = False
-plot_with_mpl = False
-update_interval = 100
-resources_dir = os.path.dirname(os.path.realpath(sys.argv[0])) + os.path.sep + 'resources' + os.path.sep
-
-# Markers to use for points discovered by continuation/deflation respectively. Also various other styles
-CONTPLOT = '.'
-DEFPLOT = 'o'
-SWEEPSTYLE = 'dashed'
+plot_with_mpl = False # where we will try to plot solutions with paraview or matplotlib
+update_interval = 100 # update interval for the diagram
+resources_dir = os.path.dirname(os.path.realpath(sys.argv[0])) + os.path.sep + 'resources' + os.path.sep # icons, etc. 
 
 # Get commandline args.
 # Example usage: python defcon-gui.py -p unity -c RootsOfUnityProblem -w /home/joseph/defcon/examples/unity
-myopts, args = getopt.getopt(sys.argv[1:],"dp:o:w:c:m:i:")
+myopts, args = getopt.getopt(sys.argv[1:],"dp:o:w:c:m:i:s:")
 
 for o, a in myopts:
     if o == '-p':   problem_type = a
@@ -102,11 +100,6 @@ if problem_type is None:
 # If we didn't specify a directory for solutions we plot, store them in the "solutions" subdir of the output directory.
 if solutions_dir is None: solutions_dir = output_dir + os.path.sep + "solutions" + os.path.sep
 
-# Set up the figure.
-figure = Figure(figsize=(7,6), dpi=100)
-bfdiag = figure.add_subplot(111)
-bfdiag.grid(color=GRID)
-
 # Darkmode colour scheme.
 if darkmode: 
     figure.patch.set_facecolor('black')
@@ -120,6 +113,12 @@ if darkmode:
     HIGHLIGHT = '#76EE00'
     GRID = '0.75'
     BORDER = 'white'
+
+
+# Set up the figure.
+figure = Figure(figsize=(7,6), dpi=100)
+bfdiag = figure.add_subplot(111)
+bfdiag.grid(color=GRID)
 
 # Put the working directory on our path.
 sys.path.insert(0, working_dir) 
@@ -139,12 +138,10 @@ if problem_type and problem_class:
 
     V = problem.function_space(mesh)
     problem_parameters = problem.parameters()
+    io = FileIO(output_dir)
+    io.setup(problem_parameters, None, V)
     
 else: print "\033[91m[Warning] In order to graph solutions, you must specify the class of the problem, eg 'NavierStokesProblem'.\nUsage: %s -p <problem type> -c <problem_class> -w <working dir> \033[00m \n" % sys.argv[0]
-
-# TODO:
-#     2) Have hdf52pvd use the problem's io module. 
-#     3) set more sensible scaling of y lims. 
 
 #####################
 ### Utility Class ###
@@ -178,6 +175,7 @@ class PlotConstructor():
         self.sweep = 0
         self.sweepline = None
     
+    ## Private utility functions. ##
     def distance(self, x1, x2, y1, y2):
         """ Return the L2 distance between two points. """
         return(sqrt((x1 - x2)**2 + (y1 - y2)**2))
@@ -190,6 +188,25 @@ class PlotConstructor():
         bfdiag.grid(color=GRID)
         self.sweepline = bfdiag.axvline(x=self.sweep, linewidth=1, linestyle=SWEEPSTYLE, color=SWEEP)
 
+    def launch_paraview(self, filename):
+        """ Utility function for launching paraview. Popen launches it in a separate process, so we may carry on with whatever we are doing."""
+        Popen(["paraview", filename])
+
+    def animate(self, i):
+        """ Utility function for animating a plot. """
+        try:
+            xs, ys, branchid, teamno, cont = self.points_iter.next()
+            x = float(xs[self.freeindex])
+            y = float(ys[self.func_index])
+            if cont: c, m= MAIN, '.'
+            else: c, m= DEF, 'o'
+            self.ax.plot(x, y, marker=m, color=c, linestyle='None')
+
+            # Let's output a little log of how we're doing, so the user can see that something is in fact being done.
+            if i % 50 == 0: print "Completed %d/%d frames" % (i, self.maxtime)
+        except StopIteration: pass
+
+    ## Controls for moving backwards and forwards in the diagram, or otherwise manipulating it. ##
     def pause(self):
         """ Pause the drawing. """
         self.paused = True
@@ -207,6 +224,7 @@ class PlotConstructor():
         return self.time
 
     def end (self):
+        """ Go to Time=maxtime. """
         if self.time < self.maxtime:
             for xs, ys, branchid, teamno, cont in self.points[self.time:]:
                 x = float(xs[self.freeindex])
@@ -262,7 +280,9 @@ class PlotConstructor():
             self.time = t 
         return self.time
 
+    
     def switch_functional(self, i):
+        """ Change the functional being plotted. """
         self.current_functional = i
         if self.annotated_point is not None: self.unannotate()
         self.redraw()
@@ -273,7 +293,7 @@ class PlotConstructor():
             else: c, m= DEF, 'o'
             bfdiag.plot(x, y, marker=m, color=c, linestyle='None')
 
-
+    ## Functions for getting new points and updating the diagram ##
     def grab_data(self):
         """ Get data from the file. """
         # If the file doesn't exist, just pass.
@@ -350,6 +370,8 @@ class PlotConstructor():
                 self.maxtime = self.time
                 self.app.set_time(self.time)         
 
+
+    ## Functions for handling annotation. ##
     def annotate(self, clickX, clickY):
          """ Annotate a point when clicking on it. """
          if self.annotated_point is None:
@@ -400,8 +422,9 @@ class PlotConstructor():
         self.app.set_output_box("")
         return False
 
+    ## Functions that handle the plotting of solutions. ##
     def hdf52pvd(self):
-        """ Utility function for creating a pvd from hdf5. Uses the point that is annotated. """
+        """Function for creating a pvd from hdf5. Uses the point that is annotated. """
         if self.annotated_point is not None:
             # Get the params and branchid of the point.
             params, branchid = self.annotated_point
@@ -414,31 +437,17 @@ class PlotConstructor():
             pvd_filename = solutions_dir +  "SOLUTION$%s$branchid=%d.pvd" % (parameterstostring(problem_parameters, params), branchid)
             pvd = File(pvd_filename)
     
-            # Read the file, then write the solution. FIXME: adapt to new iomodule. 
-            filename = output_dir + os.path.sep + parameterstostring(problem_parameters, params) + ".hdf5"
-            with HDF5File(mesh.mpi_comm(), filename, 'r') as f:
-                y = Function(V)
-                f.read(y, "solution-%d" % branchid)
-                f.flush()
-                pvd << y
-                pvd
+            y = io.fetch_solutions(params, [branchid])[0]
+            pvd << y
+            pvd
 
             self.launch_paraview(pvd_filename)
-
-    def launch_paraview(self, filename):
-        """ Utility function for launching paraview. Popen launches it in a separate process, so we may carry on with whatever we are doing."""
-        Popen(["paraview", filename])
 
     def mpl_plot(self):
         """ Fetch a solution and plot it with matplotlib. Used when the solutions are 1D. """
         if self.annotated_point is not None:
             params, branchid = self.annotated_point
-            #FIXME: adapt to new iomodule. 
-            filename = output_dir + os.path.sep + parameterstostring(problem_parameters, params) + ".hdf5"
-            with HDF5File(mesh.mpi_comm(), filename, 'r') as f:
-                y = Function(V)
-                f.read(y, "solution-%d" % branchid)
-                f.flush() 
+            y = io.fetch_solutions(params, [branchid])[0]
 
             try:
                 x = interpolate(Expression("x[0]", degree=1), V)
@@ -452,20 +461,7 @@ class PlotConstructor():
                 print str(e)
                 pass
 
-    def animate(self, i):
-        """ Utility function for animating a plot. """
-        try:
-            xs, ys, branchid, teamno, cont = self.points_iter.next()
-            x = float(xs[self.freeindex])
-            y = float(ys[self.func_index])
-            if cont: c, m= MAIN, '.'
-            else: c, m= DEF, 'o'
-            self.ax.plot(x, y, marker=m, color=c, linestyle='None')
-
-            # Let's output a little log of how we're doing, so the user can see that something is in fact being done.
-            if i % 50 == 0: print "Completed %d/%d frames" % (i, self.maxtime)
-        except StopIteration: pass
-
+    ## Functions for saving to disk ##
     def save_movie(self, filename):
         """ Creates a matplotlib animation of the plotting up to the current maxtime. """
         # Create the current list of points into an iterator.
@@ -510,7 +506,9 @@ class PlotConstructor():
             ax.clear()
         else: print "\033[91m[Warning] matplotlib2tikz not installed. I can't save to tikz! \033[00m \n"
 
-######################################################################
+################################
+### Custom matplotlib Figure ###
+################################
 class DynamicCanvas(FigureCanvas):
     """A canvas that updates itself with a new plot."""
     def __init__(self, parent=None, width=5, height=4, dpi=100):
@@ -525,10 +523,6 @@ class DynamicCanvas(FigureCanvas):
     def update_figure(self):
         pc.update()
         self.draw()
-
-    # TODO: have defcon write a line to the journal when it's done. Then do something here.
-    def done(self):
-       pass
 
 class CustomToolbar(NavigationToolbar2QT):
     """ A custom matplotlib toolbar, so we can remove those pesky extra buttons. """  
@@ -582,19 +576,15 @@ class CustomToolbar(NavigationToolbar2QT):
                 pc.save_tikz(str(fname))
             except Exception, e:
                 QtGui.QMessageBox.critical(self, "Error saving file", str(e), QtGui.QMessageBox.Ok, QtGui.QMessageBox.NoButton)
-
         pc.end()
 
-class CustomLineEdit(QtGui.QLineEdit):
-    def __init__(self, *args, **kwargs):
-        QtGui.QLineEdit.__init__(self, *args, **kwargs)
-
-
+######################
+### Main QT Window ###
+######################
 class ApplicationWindow(QtGui.QMainWindow):
     def __init__(self):
         QtGui.QMainWindow.__init__(self)     
         self.setAttribute(QtCore.Qt.WA_DeleteOnClose)
-        self.setWindowTitle("DEFCON")
 
         # Use these to add a toolbar, if desired. 
         #self.file_menu = QtGui.QMenu('&File', self)
@@ -710,6 +700,7 @@ class ApplicationWindow(QtGui.QMainWindow):
         self.buttonPlot.setFixedWidth(80)
         plotBox.addWidget(self.buttonPlot)
 
+        # Unused plot buttons
         self.buttonPlotBranch = QtGui.QPushButton("Plot Branch")
         self.buttonPlotBranch.clicked.connect(lambda:self.launch_paraview())
         self.buttonPlotBranch.setEnabled(False)
@@ -729,6 +720,7 @@ class ApplicationWindow(QtGui.QMainWindow):
         self.functionalBox.addWidget(label)
         self.radio_buttons = []
 
+
         # Output Box
         self.infobox = QtGui.QLabel("")
         self.infobox.setFixedHeight(250)
@@ -741,6 +733,7 @@ class ApplicationWindow(QtGui.QMainWindow):
         self.infobox.setFont(font)
         self.infobox.setStyleSheet('border-color: %s; border-style: outset; border-width: 2px' % BORDER)
         infoBox.addWidget(self.infobox)
+
 
         # Teamstats Box
         label = QtGui.QLabel("Team Status:")
@@ -756,8 +749,7 @@ class ApplicationWindow(QtGui.QMainWindow):
         teamBox.addWidget(self.teambox)
 
 
-
-    # Utility Functions
+    ## Utility Functions. ##
     def set_time(self, t):
         """ Set the time, and also update the limits of time jump box if we need to. """
         self.time = t
@@ -772,6 +764,7 @@ class ApplicationWindow(QtGui.QMainWindow):
         self.infobox.setText(text)
 
     def update_teamstats(self, teamstats):
+        """ Update the text that tells us what each team is doing. """
         text = ""
         for i in range(len(teamstats)):
             if teamstats[i] == "d": colour = 'blue'
@@ -780,7 +773,6 @@ class ApplicationWindow(QtGui.QMainWindow):
             if teamstats[i] == "q": colour = 'red'    
             text += "<p style='margin:0;' ><font color=%s size='+2'> Team %d</FONT></p>\n" % (colour, i)
         self.teambox.setText(text)
-            
 
     def make_radio_buttons(self, functionals):
         """ Build the radio buttons for switching functionals. """
@@ -799,7 +791,6 @@ class ApplicationWindow(QtGui.QMainWindow):
                 pc.switch_functional(i)
                 break
             else: i+=1
-
 
     def clicked_diagram(self, event):
         """ Annotates the diagram, by plotting a tooltip with the params and branchid of the point the user clicked.
@@ -829,7 +820,6 @@ class ApplicationWindow(QtGui.QMainWindow):
         t = pc.forward()
         self.set_time(t)
 
-
     def end(self):
         """ Set Time=Maxtime. """
         t = pc.end()
@@ -846,10 +836,11 @@ class ApplicationWindow(QtGui.QMainWindow):
         if not plot_with_mpl: pc.hdf52pvd()
         else: pc.mpl_plot()
 
-    def done(self):
-        self.dc.done()
 
-## Main Loop ##
+
+#################
+### Main Loop ###
+#################
 qApp = QtGui.QApplication(sys.argv)
 aw = ApplicationWindow()
 pc = PlotConstructor(aw)
