@@ -8,7 +8,7 @@ else:
     from PyQt4 import QtGui, QtCore
 
 import sys, getopt, os
-from math import sqrt
+from math import sqrt, floor, ceil
 
 # Imports for the paraview and hdf5topvd methods
 from subprocess import Popen
@@ -152,6 +152,7 @@ class PlotConstructor():
 
     def __init__(self, app):
         self.points = [] # Keep track of the points we've found, so we can redraw everything if necessary. Also for annotation.
+        self.pointers = [] # Pointers to each point on the plot, so we can remove them. 
 
         self.maxtime = 0 # Keep track of the furthest we have got in time. 
         self.time = 0 # Keep track of where we currently are in time.
@@ -189,6 +190,8 @@ class PlotConstructor():
         bfdiag.set_xlabel(self.parameter_name)
         bfdiag.set_ylabel(self.functional_names[self.current_functional])
         bfdiag.grid(color=GRID)
+        ys = [point[1][self.current_functional] for point in self.points]
+        bfdiag.set_ylim([floor(min(ys)), ceil(max(ys))])
         self.sweepline = bfdiag.axvline(x=self.sweep, linewidth=1, linestyle=SWEEPSTYLE, color=SWEEP)
 
     def launch_paraview(self, filename):
@@ -215,6 +218,10 @@ class PlotConstructor():
         """ Unpause the drawing. """
         self.paused = False
 
+    def seen(self):
+        """ Tell the PlotConstructor we've got all the new points. """
+        self.changed = False
+
     def start(self):
         """ Go to Time=0 """
         if not self.paused: self.pause()
@@ -227,12 +234,13 @@ class PlotConstructor():
     def end (self):
         """ Go to Time=maxtime. """
         if self.time < self.maxtime:
-            for xs, ys, branchid, teamno, cont in self.points[self.time:]:
+            for i in range(self.time, self.maxtime):
+                xs, ys, branchid, teamno, cont = self.points[i]
                 x = float(xs[self.freeindex])
                 y = float(ys[self.current_functional])
                 if cont: c, m= MAIN, '.'
                 else: c, m = DEF, 'o'
-                bfdiag.plot(x, y, marker=m, color=c, linestyle='None')
+                self.pointers[i] = bfdiag.plot(x, y, marker=m, color=c, linestyle='None')
             self.time = self.maxtime
             self.changed = True
             if self.paused: self.unpause
@@ -243,15 +251,8 @@ class PlotConstructor():
         if not self.paused: self.pause()
         if self.time > 0:
             if self.annotated_point is not None: self.unannotate()
-            self.redraw()
-            #FIXME: Extremely inefficient to replot everything
-            for xs, ys, branchid, teamno, cont in self.points[:self.time]:
-                x = float(xs[self.freeindex])
-                y = float(ys[self.current_functional])
-                if cont: c, m= MAIN, '.'
-                else: c, m = DEF, 'o'
-                bfdiag.plot(x, y, marker=m, color=c, linestyle='None')
             self.time -= 1
+            self.pointers[self.time][0].remove()
             self.changed = True
         return self.time
 
@@ -260,10 +261,12 @@ class PlotConstructor():
         if not self.paused: self.pause()
         if self.time < self.maxtime:
             xs, ys, branchid, teamno, cont = self.points[self.time]
-            self.time += 1
+            x = float(xs[self.freeindex])
+            y = float(ys[self.current_functional])
             if cont: c, m= MAIN, '.'
             else: c, m= DEF, 'o'
-            bfdiag.plot(float(xs[self.freeindex]), float(ys[self.current_functional]), marker=m, color=c, linestyle='None')
+            self.pointers[self.time] = bfdiag.plot(x, y, marker=m, color=c, linestyle='None')
+            self.time += 1
             self.changed = True
         if self.time==self.maxtime: self.pause
         return self.time
@@ -271,18 +274,20 @@ class PlotConstructor():
     def jump(self, t):
         """ Jump to time t. """
         if not self.paused: self.pause()
-        if t <= self.maxtime:
-            if self.annotated_point is not None: self.unannotate()
-            self.redraw()
-            #FIXME: Extremely inefficient to replot everything
-            for xs, ys, branchid, teamno, cont in self.points[:(t+1)]:
+        if self.annotated_point is not None: self.unannotate()
+        if t < self.time:
+            for i in range(t, self.time):
+                self.pointers[i][0].remove()
+        elif t > self.time:
+            for i in range(self.time, t):
+                xs, ys, branchid, teamno, cont = self.points[i]
                 x = float(xs[self.freeindex])
                 y = float(ys[self.current_functional])
                 if cont: c, m= MAIN, '.'
                 else: c, m= DEF, 'o'
-                bfdiag.plot(x, y, marker=m, color=c, linestyle='None')
-            self.time = t 
-            self.changed = True
+                self.pointers[i] = bfdiag.plot(x, y, marker=m, color=c, linestyle='None')
+        self.time = t 
+        self.changed = True
         return self.time
 
     
@@ -291,12 +296,13 @@ class PlotConstructor():
         self.current_functional = i
         if self.annotated_point is not None: self.unannotate()
         self.redraw()
-        for xs, ys, branchid, teamno, cont in self.points[:self.time]:
+        for j in range(0, self.time):
+            xs, ys, branchid, teamno, cont = self.points[j]
             x = float(xs[self.freeindex])
             y = float(ys[self.current_functional])
             if cont: c, m= MAIN, '.'
             else: c, m= DEF, 'o'
-            bfdiag.plot(x, y, marker=m, color=c, linestyle='None')
+            self.pointers[j] = bfdiag.plot(x, y, marker=m, color=c, linestyle='None')
             self.changed = True
 
     ## Functions for getting new points and updating the diagram ##
@@ -348,6 +354,7 @@ class PlotConstructor():
 
                 # Plot new points one at a time.
                 for eachLine in dataList[self.lines_read:]:
+                    print eachLine
                     if len(eachLine) > 1:
                         if eachLine[0] == '$':
                             params = eachLine[1:]
@@ -358,6 +365,7 @@ class PlotConstructor():
                             team, task = eachLine[1:].split(';')
                             self.teamstats[int(team)] = task
                             self.app.update_teamstats(self.teamstats)
+                            if task == 'q': self.changed = False
                         else:
                             teamno, oldparams, branchid, newparams, functionals, cont = eachLine.split(';')
                             xs = literal_eval(newparams)
@@ -368,12 +376,12 @@ class PlotConstructor():
                             # Use different colours/plot styles for points found by continuation/deflation.
                             if literal_eval(cont): c, m= MAIN, '.'
                             else: c, m= DEF, 'o'
-                            self.points.append((xs, ys, int(branchid), int(teamno), literal_eval(cont)))
-                            bfdiag.plot(x, y, marker=m, color=c, linestyle='None')
+                            self.points.append((xs, ys, int(branchid), int(teamno), literal_eval(cont)))                            
+                            self.pointers.append(bfdiag.plot(x, y, marker=m, color=c, linestyle='None'))
                             self.time += 1
-                    self.lines_read +=1
-
+                        self.lines_read +=1
                 # Update the current time.
+                self.changed = True
                 self.maxtime = self.time
                 self.app.set_time(self.time)
                 return True         
@@ -530,8 +538,11 @@ class DynamicCanvas(FigureCanvas):
         self.timer.start(update_interval)
 
     def update_figure(self):
+        self.timer.stop()
         redraw = pc.update()
         if redraw: self.draw()
+        pc.seen()
+        self.timer.start()
 
 class CustomToolbar(NavigationToolbar2QT):
     """ A custom matplotlib toolbar, so we can remove those pesky extra buttons. """  
@@ -759,8 +770,9 @@ class ApplicationWindow(QtGui.QMainWindow):
     ## Utility Functions. ##
     def set_time(self, t):
         """ Set the time, and also update the limits of time jump box if we need to. """
-        self.time = t
-        self.jumpInput.setText(str(self.time))
+        if not t == self.time:
+            self.time = t
+            self.jumpInput.setText(str(self.time))
         # If this is larger than the current maxtime, update both the variable and the validator
         if t > self.maxtime: 
             self.maxtime = t
