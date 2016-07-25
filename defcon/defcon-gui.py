@@ -155,6 +155,7 @@ class PlotConstructor():
 
         self.maxtime = 0 # Keep track of the furthest we have got in time. 
         self.time = 0 # Keep track of where we currently are in time.
+        self.lines_read = 0 # Number of lines of the journal fil we've read.
 
         self.paused = False # Are we updating we new points, or are we frozen in time?
         self.done = False # Are we done?
@@ -346,7 +347,7 @@ class PlotConstructor():
                 dataList = dataList[1:] # exclude the first line. 
 
                 # Plot new points one at a time.
-                for eachLine in dataList[self.time:]:
+                for eachLine in dataList[self.lines_read:]:
                     if len(eachLine) > 1:
                         if eachLine[0] == '$':
                             params = eachLine[1:]
@@ -370,6 +371,7 @@ class PlotConstructor():
                             self.points.append((xs, ys, int(branchid), int(teamno), literal_eval(cont)))
                             bfdiag.plot(x, y, marker=m, color=c, linestyle='None')
                             self.time += 1
+                    self.lines_read +=1
 
                 # Update the current time.
                 self.maxtime = self.time
@@ -471,6 +473,8 @@ class PlotConstructor():
     def save_movie(self, filename):
         """ Creates a matplotlib animation of the plotting up to the current maxtime. """
         print "Saving movie. This may take a little while..."
+        print self.maxtime
+        print len(self.points)
         # Fix the functional we're currently on, to avoid unplesantness if we try and change it while the movie is writing.
         self.func_index = self.current_functional
 
