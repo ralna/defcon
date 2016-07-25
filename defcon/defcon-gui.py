@@ -174,6 +174,8 @@ class PlotConstructor():
 
         self.sweep = 0
         self.sweepline = None
+
+        self.changed = False
     
     ## Private utility functions. ##
     def distance(self, x1, x2, y1, y2):
@@ -194,17 +196,14 @@ class PlotConstructor():
 
     def animate(self, i):
         """ Utility function for animating a plot. """
-        try:
-            xs, ys, branchid, teamno, cont = self.points_iter.next()
-            x = float(xs[self.freeindex])
-            y = float(ys[self.func_index])
-            if cont: c, m= MAIN, '.'
-            else: c, m= DEF, 'o'
-            self.ax.plot(x, y, marker=m, color=c, linestyle='None')
-
-            # Let's output a little log of how we're doing, so the user can see that something is in fact being done.
-            if i % 50 == 0: print "Completed %d/%d frames" % (i, self.maxtime)
-        except StopIteration: pass
+        xs, ys, branchid, teamno, cont = self.points[i]
+        x = float(xs[self.freeindex])
+        y = float(ys[self.func_index])
+        if cont: c, m= MAIN, '.'
+        else: c, m= DEF, 'o'
+        # Let's output a little log of how we're doing, so the user can see that something is in fact being done.
+        if i % 50 == 0: print "Completed %d/%d frames" % (i, self.maxtime)
+        return self.ax.plot(x, y, marker=m, color=c, linestyle='None')
 
     ## Controls for moving backwards and forwards in the diagram, or otherwise manipulating it. ##
     def pause(self):
@@ -221,6 +220,7 @@ class PlotConstructor():
         self.time = 0
         if self.annotated_point is not None: self.unannotate()
         self.redraw()
+        self.changed = True
         return self.time
 
     def end (self):
@@ -233,7 +233,8 @@ class PlotConstructor():
                 else: c, m = DEF, 'o'
                 bfdiag.plot(x, y, marker=m, color=c, linestyle='None')
             self.time = self.maxtime
-        if self.paused: self.unpause
+            self.changed = True
+            if self.paused: self.unpause
         return self.maxtime
 
     def back(self):
@@ -250,6 +251,7 @@ class PlotConstructor():
                 else: c, m = DEF, 'o'
                 bfdiag.plot(x, y, marker=m, color=c, linestyle='None')
             self.time -= 1
+            self.changed = True
         return self.time
 
     def forward(self):
@@ -261,6 +263,7 @@ class PlotConstructor():
             if cont: c, m= MAIN, '.'
             else: c, m= DEF, 'o'
             bfdiag.plot(float(xs[self.freeindex]), float(ys[self.current_functional]), marker=m, color=c, linestyle='None')
+            self.changed = True
         if self.time==self.maxtime: self.pause
         return self.time
 
@@ -278,6 +281,7 @@ class PlotConstructor():
                 else: c, m= DEF, 'o'
                 bfdiag.plot(x, y, marker=m, color=c, linestyle='None')
             self.time = t 
+            self.changed = True
         return self.time
 
     
@@ -292,6 +296,7 @@ class PlotConstructor():
             if cont: c, m= MAIN, '.'
             else: c, m= DEF, 'o'
             bfdiag.plot(x, y, marker=m, color=c, linestyle='None')
+            self.changed = True
 
     ## Functions for getting new points and updating the diagram ##
     def grab_data(self):
@@ -305,7 +310,7 @@ class PlotConstructor():
         """ Handles the redrawing of the graph. """
         # If we're in pause mode, or we're done, then do nothing.
         if self.paused or self.done:
-            pass
+           return self.changed
 
         # If we're not paused, we draw all the points that have come in since we last drew something.
         else:   
@@ -368,7 +373,8 @@ class PlotConstructor():
 
                 # Update the current time.
                 self.maxtime = self.time
-                self.app.set_time(self.time)         
+                self.app.set_time(self.time)
+                return True         
 
 
     ## Functions for handling annotation. ##
@@ -464,9 +470,7 @@ class PlotConstructor():
     ## Functions for saving to disk ##
     def save_movie(self, filename):
         """ Creates a matplotlib animation of the plotting up to the current maxtime. """
-        # Create the current list of points into an iterator.
-        self.points_iter = iter(self.points)
-
+        print "Saving movie. This may take a little while..."
         # Fix the functional we're currently on, to avoid unplesantness if we try and change it while the movie is writing.
         self.func_index = self.current_functional
 
@@ -476,7 +480,7 @@ class PlotConstructor():
         self.ax.clear()
         self.ax.set_xlabel(self.parameter_name)
         self.ax.set_ylabel(self.functional_names[self.func_index])
-        self.anim = animation.FuncAnimation(self.anim_fig, self.animate, frames=self.maxtime, interval=1, blit=False)
+        self.anim = animation.FuncAnimation(self.anim_fig, self.animate, frames=self.maxtime-1, repeat=False, interval=1, blit=True)
 
         # Save it.
         mywriter = animation.FFMpegWriter()
@@ -485,6 +489,7 @@ class PlotConstructor():
             print "\033[91m[Warning] Saving mvoie failed. Perhaps you don't have ffmpeg installed? Anyway, the error was: \033[00m"
             print str(e)
             pass
+        print "Movie saved."    
 
         self.ax.clear()
 
@@ -521,8 +526,8 @@ class DynamicCanvas(FigureCanvas):
         self.timer.start(update_interval)
 
     def update_figure(self):
-        pc.update()
-        self.draw()
+        redraw = pc.update()
+        if redraw: self.draw()
 
 class CustomToolbar(NavigationToolbar2QT):
     """ A custom matplotlib toolbar, so we can remove those pesky extra buttons. """  
@@ -557,9 +562,7 @@ class CustomToolbar(NavigationToolbar2QT):
         fname = QtGui.QFileDialog.getSaveFileName(self, "Choose a filename to save to", start, filters, selectedFilter)
         if fname:
             try:
-                print "Saving movie. This may take a little while..."
                 pc.save_movie(str(fname))
-                print "Movie saved."    
             except Exception, e:
                 QtGui.QMessageBox.critical(self, "Error saving file", str(e), QtGui.QMessageBox.Ok, QtGui.QMessageBox.NoButton)
         pc.end()

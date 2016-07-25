@@ -5,7 +5,6 @@ from newton import newton
 from tasks import QuitTask, ContinuationTask, DeflationTask, Response
 from journal import Journal, FileJournal
 
-
 import dolfin
 
 from mpi4py import MPI
@@ -640,7 +639,6 @@ class DeflatedContinuation(object):
         import matplotlib.pyplot as plt
 
         params = self.io.known_parameters(fixed)
-        print params
 
         # Argh. Find the functional index.
         funcindex = None
