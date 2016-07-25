@@ -94,20 +94,20 @@ class FileIO(IO):
             failcount = 0
             while True:
                 try:
-                    with HDF5File(self.function_space.mesh().mpi_comm(), self.dir(branchid), 'r') as f:
-                        soln = Function(self.function_space)
-                        f.read(soln, parameterstostring(self.parameters, params))
-                        f.flush()
-                        f.close()
+                    f = HDF5File(self.function_space.mesh().mpi_comm(), self.dir(branchid), 'r')
+                    soln = Function(self.function_space)
+                    f.read(soln, parameterstostring(self.parameters, params))
+                    f.flush()
+                    f.close()
                     solns.append(soln)
                     break
   
                 # We failed to open/read the file. Shouldn't happen, but just in case.
                 except Exception:
-                    print "WTF? Loading file %s failed. Sleeping for a second and trying again." % self.dir(params)
+                    print "WTF? Loading file %s failed. Sleeping for a second and trying again." % self.dir(branchid)
                     failcount += 1
                     if failcount == 5:
-                        print "Argh. Tried 5 times to load file %s. Raising exception." % self.dir(params)
+                        print "Argh. Tried 5 times to load file %s. Raising exception." % self.dir(branchid)
                         raise
                     time.sleep(1)
         return solns
