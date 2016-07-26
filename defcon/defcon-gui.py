@@ -243,7 +243,7 @@ class PlotConstructor():
                 self.pointers[i] = bfdiag.plot(x, y, marker=m, color=c, linestyle='None')
             self.time = self.maxtime
             self.changed = True
-            if self.paused: self.unpause
+            if self.paused: self.unpause()
         return self.maxtime
 
     def back(self):
@@ -268,7 +268,7 @@ class PlotConstructor():
             self.pointers[self.time] = bfdiag.plot(x, y, marker=m, color=c, linestyle='None')
             self.time += 1
             self.changed = True
-        if self.time==self.maxtime: self.pause
+        if self.time==self.maxtime: self.unpause()
         return self.time
 
     def jump(self, t):
@@ -288,6 +288,7 @@ class PlotConstructor():
                 self.pointers[i] = bfdiag.plot(x, y, marker=m, color=c, linestyle='None')
         self.time = t 
         self.changed = True
+        if self.time==self.maxtime: self.unpause()
         return self.time
 
     
@@ -317,7 +318,7 @@ class PlotConstructor():
         """ Handles the redrawing of the graph. """
         # If we're in pause mode, or we're done, then do nothing.
         if self.paused or self.done:
-           return self.changed
+            return self.changed
 
         # If we're not paused, we draw all the points that have come in since we last drew something.
         else:   
@@ -354,7 +355,6 @@ class PlotConstructor():
 
                 # Plot new points one at a time.
                 for eachLine in dataList[self.lines_read:]:
-                    print eachLine
                     if len(eachLine) > 1:
                         if eachLine[0] == '$':
                             params = eachLine[1:]
@@ -423,6 +423,7 @@ class PlotConstructor():
                  if cont: s = "continuation"
                  else: s = "deflation"
                  self.app.set_output_box("Solution on branch %d\nFound by team %d\nUsing %s\nAs event #%d\n\nx = %s\ny = %s" % (branchid, teamno, s, time, x, y))
+                 self.changed = True
 
                  return True
              else: return False
@@ -436,6 +437,7 @@ class PlotConstructor():
         self.annotation_highlight = None
         self.annotated_point = None
         self.app.set_output_box("")
+        self.changed = True
         return False
 
     ## Functions that handle the plotting of solutions. ##
