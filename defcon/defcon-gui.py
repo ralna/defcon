@@ -394,13 +394,11 @@ class PlotConstructor():
              xs = [float(point[0][self.freeindex]) for point in self.points[:self.time]]
              ys = [float(point[1][self.current_functional]) for point in self.points[:self.time]]
  
-             # FIXME: The *100 is because these were too small, might need some changing. Also doesn't work on, say allen-cahn, as xtol=0.
-             xtol = 100*((max(xs) - min(xs))/float(len(xs)))/2 
-             ytol = 100*((max(ys) - min(ys))/float(len(ys)))/2 
-
-             # xtol and ytol might end up being zero, if all points have same x/y values. Do something in this case.
-             if xtol==0: xtol = 1
-             if ytol==0: ytol = 1
+             # Sets the clickbox to be one 'square' of the diagram.
+             xtick = bfdiag.get_xticks()
+             ytick = bfdiag.get_yticks()
+             xtol = (xtick[1]-xtick[0])/2 #100*((max(xs) - min(xs))/float(len(xs)))/2 
+             ytol = (ytick[1]-ytick[0])/2 #100*((max(ys) - min(ys))/float(len(ys)))/2 
 
              annotes = []
 
@@ -494,7 +492,7 @@ class PlotConstructor():
         self.ax.clear()
         self.ax.set_xlabel(self.parameter_name)
         self.ax.set_ylabel(self.functional_names[self.func_index])
-        self.anim = animation.FuncAnimation(self.anim_fig, self.animate, frames=self.maxtime-1, repeat=False, interval=1, blit=True)
+        self.anim = animation.FuncAnimation(self.anim_fig, self.animate, frames=self.maxtime-1, repeat=False, interval=0.1, blit=False)
 
         # Save it.
         mywriter = animation.FFMpegWriter()
