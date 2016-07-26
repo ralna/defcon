@@ -638,9 +638,8 @@ class DeflatedContinuation(object):
 
         import matplotlib.pyplot as plt
 
-        params = self.io.known_parameters(fixed)
 
-        # Argh. Find the functional index.
+        # Find the functional index.
         funcindex = None
         for (i, functionaldata) in enumerate(self.functionals):
             if functionaldata[1] == functional:
@@ -659,14 +658,12 @@ class DeflatedContinuation(object):
         for branchid in range(self.io.max_branch() + 1):
             xs = []
             ys = []
-            for param in sorted(params):
-                if branchid in self.io.known_branches(param):
-                    func = self.io.fetch_functionals(param, [branchid])[0][funcindex]
-                    xs.append(param[freeindex])
-                    ys.append(func)
+            for param in sorted(self.io.known_parameters(fixed, branchid)):
+                func = self.io.fetch_functionals(param, [branchid])[0][funcindex]
+                xs.append(param[freeindex])
+                ys.append(func)
+            plt.plot(xs, ys, 'ok', label="Branch %d" % branchid, linewidth=2, linestyle='-', markersize=1)
 
-
-            plt.plot(xs, ys, 'ok', label="Branch %d" % branchid, linewidth=2, markersize=1)
         plt.grid()
         plt.xlabel(self.parameters[freeindex][2])
         plt.ylabel(self.functionals[funcindex][2])

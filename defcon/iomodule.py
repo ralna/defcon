@@ -40,7 +40,7 @@ class IO(object):
     def known_branches(self, params):
         raise NotImplementedError
 
-    def known_parameters(self, fixed):
+    def known_parameters(self, fixed, branchid):
         raise NotImplementedError
 
     def max_branch(self):
@@ -94,11 +94,11 @@ class FileIO(IO):
             failcount = 0
             while True:
                 try:
-                    f = HDF5File(self.function_space.mesh().mpi_comm(), self.dir(branchid), 'r')
-                    soln = Function(self.function_space)
-                    f.read(soln, parameterstostring(self.parameters, params))
-                    f.flush()
-                    f.close()
+                    with HDF5File(self.function_space.mesh().mpi_comm(), self.dir(branchid), 'r') as f:
+                        soln = Function(self.function_space)
+                        f.read(soln, parameterstostring(self.parameters, params))
+                        f.flush()
+                        f.close()
                     solns.append(soln)
                     break
   
@@ -143,8 +143,8 @@ class FileIO(IO):
             f.close()       
         return funcs
 
-    def known_parameters(self, fixed):
-        """ Returns a list of known parameters. """
+    def known_parameters(self, fixed, branchid):
+        """ Returns a list of known parameters for a given branch. """
         fixed_indices = []
         fixed_values = []
         for key in fixed:
@@ -157,18 +157,9 @@ class FileIO(IO):
 
         seen = set()
 
-        # FIXME: this doesn't quite work. 
-        saved_branch_files = glob.glob(self.directory + os.path.sep + "*.txt")
-        all_keys = []
-        saved_params = []
-        for branch_file in saved_branch_files:
-            pullData = open(branch_file, 'r').read().split(';')
-            all_params = []
-            for param in pullData: 
-                if len(param) > 0: all_params.append(param)
-            saved_params += [tuple([float(param) for param in literal_eval(params)]) for params in all_params]
+        pullData = open(self.directory + os.path.sep + "branch-%s.txt" % branchid, 'r').read().split(';')[0:-1]
+        saved_params = [tuple([float(param) for param in literal_eval(params)]) for params in pullData]
         
-
         for param in saved_params:
             should_add = True
             for (index, value) in zip(fixed_indices, fixed_values):
