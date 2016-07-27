@@ -556,7 +556,8 @@ class DeflatedContinuation(object):
                 self.state_id = (None, None) # not sure if it is a solution we care about yet
 
                 # Get the functionals now, so we can send them to the master.
-                functionals = self.compute_functionals(self.state, task.newparams)
+                if success: functionals = self.compute_functionals(self.state, task.newparams)
+                else: functionals = None
 
                 response = Response(task.taskid, success=success, functionals=functionals)
                 if self.teamrank == 0:
