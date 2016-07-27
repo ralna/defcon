@@ -159,7 +159,6 @@ class PlotConstructor():
         self.lines_read = 0 # Number of lines of the journal fil we've read.
 
         self.paused = False # Are we updating we new points, or are we frozen in time?
-        self.done = False # Are we done?
 
         self.annotation_highlight = None # The point we've annotated. 
         self.annotated_point = None # The (params, branchid) of the annotated point
@@ -170,14 +169,14 @@ class PlotConstructor():
 
         self.current_functional = 0 # The index of the functional we're currently on.
 
-        self.app = app # The BifurcationPage window, so that we can set the time.
+        self.app = app # The QT window, so that we can set the time.
 
         self.teamstats = [] # The status of each team. 
 
-        self.sweep = 0
-        self.sweepline = None
+        self.sweep = 0 # The parameter value we've got up to.
+        self.sweepline = None # A pointer to the line object that shows how far we've got up to.
 
-        self.changed = False
+        self.changed = False # Has the diagram changed since our last update?
     
     ## Private utility functions. ##
     def distance(self, x1, x2, y1, y2):
@@ -190,9 +189,9 @@ class PlotConstructor():
         bfdiag.set_xlabel(self.parameter_name)
         bfdiag.set_ylabel(self.functional_names[self.current_functional])
         bfdiag.grid(color=GRID)
-        ys = [point[1][self.current_functional] for point in self.points]
-        bfdiag.set_ylim([floor(min(ys)), ceil(max(ys))])
-        self.sweepline = bfdiag.axvline(x=self.sweep, linewidth=1, linestyle=SWEEPSTYLE, color=SWEEP)
+        ys = [point[1][self.current_functional] for point in self.points] 
+        bfdiag.set_ylim([floor(min(ys)), ceil(max(ys))]) # reset the y limits, to prevent stretching
+        self.sweepline = bfdiag.axvline(x=self.sweep, linewidth=1, linestyle=SWEEPSTYLE, color=SWEEP) # re-plot the sweepline
 
     def launch_paraview(self, filename):
         """ Utility function for launching paraview. Popen launches it in a separate process, so we may carry on with whatever we are doing."""
@@ -275,9 +274,13 @@ class PlotConstructor():
         """ Jump to time t. """
         if not self.paused: self.pause()
         if self.annotated_point is not None: self.unannotate()
+
+        # Case where we're going backwards in time, and need to remove points.
         if t < self.time:
             for i in range(t, self.time):
                 self.pointers[i][0].remove()
+        
+        # Case we're going forwards in time, and need to re-plot some points.
         elif t > self.time:
             for i in range(self.time, t):
                 xs, ys, branchid, teamno, cont = self.points[i]
@@ -292,11 +295,13 @@ class PlotConstructor():
         return self.time
 
     
-    def switch_functional(self, i):
+    def switch_functional(self, funcindex):
         """ Change the functional being plotted. """
-        self.current_functional = i
+        self.current_functional = funcindex
         if self.annotated_point is not None: self.unannotate()
-        self.redraw()
+        self.redraw() # wipe the diagram.
+
+        # Redraw all points up to the current time. 
         for j in range(0, self.time):
             xs, ys, branchid, teamno, cont = self.points[j]
             x = float(xs[self.freeindex])
@@ -316,8 +321,8 @@ class PlotConstructor():
 
     def update(self):
         """ Handles the redrawing of the graph. """
-        # If we're in pause mode, or we're done, then do nothing.
-        if self.paused or self.done:
+        # If we're in pause mode then do nothing.
+        if self.paused:
             return self.changed
 
         # If we're not paused, we draw all the points that have come in since we last drew something.
@@ -348,7 +353,7 @@ class PlotConstructor():
                     self.app.make_radio_buttons(self.unicode_functional_names)
                     bfdiag.set_xlabel(self.parameter_name)
                     bfdiag.set_ylabel(self.functional_names[self.current_functional])
-                    bfdiag.set_xlim([float(minparam), float(maxparam)])
+                    bfdiag.set_xlim([float(minparam), float(maxparam)]) # fix the limits of the x-axis
                     bfdiag.autoscale(axis='y')
 
                 dataList = dataList[1:] # exclude the first line. 
@@ -357,16 +362,20 @@ class PlotConstructor():
                 for eachLine in dataList[self.lines_read:]:
                     if len(eachLine) > 1:
                         if eachLine[0] == '$':
+                            # This line of the journal is telling us about the sweep line.
                             params = eachLine[1:]
                             self.sweep = float(params)
                             if self.sweepline is not None: self.sweepline.remove()
                             self.sweepline = bfdiag.axvline(x=self.sweep, linewidth=1, linestyle=SWEEPSTYLE, color=SWEEP)
                         elif eachLine[0] == '~':
+                            # This line of the journal is telling us about what the teams are doing. 
                             team, task = eachLine[1:].split(';')
                             self.teamstats[int(team)] = task
                             self.app.update_teamstats(self.teamstats)
                             if task == 'q': self.changed = False
+                                
                         else:
+                            # This is a newly discovered point. Get all the information we need.
                             teamno, oldparams, branchid, newparams, functionals, cont = eachLine.split(';')
                             xs = literal_eval(newparams)
                             ys = literal_eval(functionals)
@@ -376,15 +385,18 @@ class PlotConstructor():
                             # Use different colours/plot styles for points found by continuation/deflation.
                             if literal_eval(cont): c, m= MAIN, '.'
                             else: c, m= DEF, 'o'
+
+                            # Keep track of the points we've discovered, as well as the matplotlib objects. 
                             self.points.append((xs, ys, int(branchid), int(teamno), literal_eval(cont)))                            
                             self.pointers.append(bfdiag.plot(x, y, marker=m, color=c, linestyle='None'))
                             self.time += 1
                         self.lines_read +=1
+
                 # Update the current time.
                 self.changed = True
                 self.maxtime = self.time
                 self.app.set_time(self.time)
-                return True         
+                return self.changed         
 
 
     ## Functions for handling annotation. ##
@@ -423,8 +435,7 @@ class PlotConstructor():
                  self.app.set_output_box("Solution on branch %d\nFound by team %d\nUsing %s\nAs event #%d\n\nx = %s\ny = %s" % (branchid, teamno, s, time, x, y))
                  self.changed = True
 
-                 return True
-             else: return False
+             return self.changed
 
          else: self.unannotate()
 
@@ -453,10 +464,12 @@ class PlotConstructor():
             pvd_filename = solutions_dir +  "SOLUTION$%s$branchid=%d.pvd" % (parameterstostring(problem_parameters, params), branchid)
             pvd = File(pvd_filename)
     
+            # Use the IO module to fetch the solution and write it to the pvd file. 
             y = io.fetch_solutions(params, [branchid])[0]
             pvd << y
             pvd
-
+            
+            # Finally, launch paraview with the newly created file. 
             self.launch_paraview(pvd_filename)
 
     def mpl_plot(self):
@@ -470,8 +483,8 @@ class PlotConstructor():
                 # FIXME: For functions f other than CG1, we might need to sort both arrays so that x is increasing. Check this out!
                 plt.plot(x.vector().array(), y.vector().array(), '-', linewidth=3, color='b')
                 plt.title("%s: branch %s, params %s" % (problem_class, branchid, params))
-                plt.axhline(0, color='k')
-                plt.show(False) # false here means the window is non-blocking, so we may continue using defcon while the plot shows. 
+                plt.axhline(0, color='k') # Plot a black line through the origin
+                plt.show(False) # False here means the window is non-blocking, so we may continue using defcon while the plot shows. 
             except RuntimeError, e:
                 print "\033[91m [Warning] Error plotting expression. Are your solutions numbers rather than functions? If so, this is why I failed. Anyway, the error was: \033[00m"
                 print str(e)
@@ -480,9 +493,9 @@ class PlotConstructor():
     ## Functions for saving to disk ##
     def save_movie(self, filename):
         """ Creates a matplotlib animation of the plotting up to the current maxtime. """
+
         print "Saving movie. This may take a little while..."
-        print self.maxtime
-        print len(self.points)
+
         # Fix the functional we're currently on, to avoid unplesantness if we try and change it while the movie is writing.
         self.func_index = self.current_functional
 
@@ -492,13 +505,13 @@ class PlotConstructor():
         self.ax.clear()
         self.ax.set_xlabel(self.parameter_name)
         self.ax.set_ylabel(self.functional_names[self.func_index])
-        self.anim = animation.FuncAnimation(self.anim_fig, self.animate, frames=self.maxtime-1, repeat=False, interval=0.1, blit=False)
+        self.anim = animation.FuncAnimation(self.anim_fig, self.animate, frames=self.maxtime, repeat=False, interval=0.1, blit=False) # FIXME: blit=True would speed this up, but causes errors. Why?
 
         # Save it.
         mywriter = animation.FFMpegWriter()
         try: self.anim.save(filename, fps=30, writer=mywriter, extra_args=['-vcodec', 'libx264'])
         except Exception, e: 
-            print "\033[91m[Warning] Saving mvoie failed. Perhaps you don't have ffmpeg installed? Anyway, the error was: \033[00m"
+            print "\033[91m[Warning] Saving movie failed. Perhaps you don't have ffmpeg installed? Anyway, the error was: \033[00m"
             print str(e)
             pass
         print "Movie saved."    
@@ -556,35 +569,33 @@ class CustomToolbar(NavigationToolbar2QT):
         NavigationToolbar2QT.__init__(self, canvas, parent)
         self.layout().takeAt(4)
 
-        
+        # Add new buttons for saving movies and saving to tikz. 
         self.buttonSaveMovie = self.addAction(QtGui.QIcon(resources_dir + "save_movie.png"), "Save Movie", self.save_movie)
         self.buttonSaveMovie.setToolTip("Save the figure as an animation")
 
         self.buttonSaveTikz= self.addAction(QtGui.QIcon(resources_dir + "save_tikz.png"), "Save Tikz", self.save_tikz)
         self.buttonSaveTikz.setToolTip("Save the figure as tikz")
 
-    def save_figure(self):
-        pc.start()
-        NavigationToolbar2QT.save_figure(self)
-        pc.end()
-
     def save_movie(self):
+        """ A method that saves an animation of the bifurcation diagram. """
         pc.start()
-        start = "bfdiag.mp4"
-        filters = "FFMPEG Video (*.mp4)"
+        start = "bfdiag.mp4" # default name of the file. 
+        filters = "FFMPEG Video (*.mp4)" # what kinds of file extension we allow.
         selectedFilter = filters
  
         fname = QtGui.QFileDialog.getSaveFileName(self, "Choose a filename to save to", start, filters, selectedFilter)
         if fname:
             try:
                 pc.save_movie(str(fname))
+            # Handle any exceptions by printing a dialogue box. 
             except Exception, e:
                 QtGui.QMessageBox.critical(self, "Error saving file", str(e), QtGui.QMessageBox.Ok, QtGui.QMessageBox.NoButton)
         pc.end()
 
     def save_tikz(self):
+        """ A method that saves a .tikz of the bifurcation diagram. """
         pc.start()
-        start = "bfdiag.tikz"
+        start = "bfdiag.tex"
         filters = "Tikz Image (*.tex)"
         selectedFilter = filters
  
@@ -786,6 +797,7 @@ class ApplicationWindow(QtGui.QMainWindow):
         """ Update the text that tells us what each team is doing. """
         text = ""
         for i in range(len(teamstats)):
+            # For each time, change the colour of the label for that team depedning on what it's doing. 
             if teamstats[i] == "d": colour = 'blue'
             if teamstats[i] == "c": colour = 'green'
             if teamstats[i] == "i": colour = 'yellow'
@@ -794,20 +806,22 @@ class ApplicationWindow(QtGui.QMainWindow):
         self.teambox.setText(text)
 
     def make_radio_buttons(self, functionals):
-        """ Build the radio buttons for switching functionals. """
+        """ Build the radiobuttons for switching functionals. """
         for i in range(len(functionals)):
+            # For each functional, make a radio button and link it to the switch_functionals method. 
             radio_button = QtGui.QRadioButton(text=functionals[i])
             radio_button.clicked.connect(lambda: self.switch_functional())
             self.functionalBox.addWidget(radio_button)
             self.radio_buttons.append(radio_button)
-        self.radio_buttons[0].setChecked(True)
+        self.radio_buttons[0].setChecked(True) # Select the radiobutton corresponding to functional 0. 
 
     def switch_functional(self):
-        """ Switch functionals. Which one we switch to depends on the radio button clicked. """
-        i = 0
+        """ Switch functionals. Which one we switch to depends on the radiobutton clicked. """
+        i = 0 # keep track of the index of the radiobutton.
         for rb in self.radio_buttons:
             if rb.isChecked(): 
-                pc.switch_functional(i)
+                # If this is the radiobutton that has been clicked, switch to the appropriate function and jump out of the loop.
+                pc.switch_functional(i) 
                 break
             else: i+=1
 
