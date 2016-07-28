@@ -9,6 +9,8 @@ else:
 
 import sys, getopt, os
 from math import sqrt, floor, ceil
+from datetime import timedelta
+import time as TimeModule
 
 # Imports for the paraview and hdf5topvd methods
 from subprocess import Popen
@@ -177,6 +179,9 @@ class PlotConstructor():
         self.sweepline = None # A pointer to the line object that shows how far we've got up to.
 
         self.changed = False # Has the diagram changed since our last update?
+
+        self.start_time = 0 # The (system) time at which defcon started running.
+        self.running = False # Is defcon running?
     
     ## Private utility functions. ##
     def distance(self, x1, x2, y1, y2):
@@ -321,7 +326,11 @@ class PlotConstructor():
 
     def update(self):
         """ Handles the redrawing of the graph. """
-        # If we're in pause mode then do nothing.
+
+        # Update the run time.
+        if self.running: self.app.set_elapsed_time(TimeModule.time() - self.start_time) # if defcon is still going, update the timer
+
+        # If we're in pause mode then do nothing more.
         if self.paused:
             return self.changed
 
@@ -339,7 +348,10 @@ class PlotConstructor():
                 dataList = pullData.split('\n')
 
                 # Is this is first time, get the information from the first line of the data. 
-                if self.freeindex is None: 
+                if self.freeindex is None:
+                    self.running = True
+                    self.start_time = TimeModule.time() # Defcon has just started, so get the start time. 
+
                     freeindex, self.parameter_name, functional_names, unicode_functional_names, nteams, minparam, maxparam = dataList[0].split(';')
 
                     # Set up info about what the teams are doing.
@@ -372,8 +384,10 @@ class PlotConstructor():
                             team, task = eachLine[1:].split(';')
                             self.teamstats[int(team)] = task
                             self.app.update_teamstats(self.teamstats)
-                            if task == 'q': self.changed = False
-                                
+                            # If this tells us the teams have quit, we know we're not getting any more new points. 
+                            if task == 'q': 
+                               self.changed = False
+                               self.running = False                                
                         else:
                             # This is a newly discovered point. Get all the information we need.
                             teamno, oldparams, branchid, newparams, functionals, cont = eachLine.split(';')
@@ -650,7 +664,7 @@ class ApplicationWindow(QtGui.QMainWindow):
         timeBox.setAlignment(QtCore.Qt.AlignCenter)
         lVBox.addLayout(timeBox)
         lowerBox = QtGui.QHBoxLayout()
-        lowerBox.setAlignment(QtCore.Qt.AlignCenter)
+        lowerBox.setAlignment(QtCore.Qt.AlignLeft)
         lVBox.addLayout(lowerBox)
 
         self.functionalBox = QtGui.QVBoxLayout()
@@ -723,7 +737,7 @@ class ApplicationWindow(QtGui.QMainWindow):
 
         # Plot Buttons
         self.buttonPlot = QtGui.QPushButton("Plot")
-        self.buttonPlot.clicked.connect(lambda:self.launch_paraview())
+        self.buttonPlot.clicked.connect(lambda:self.plot())
         self.buttonPlot.setEnabled(False)
         self.buttonPlot.setToolTip("Plot currently selected solution")
         self.buttonPlot.setFixedWidth(80)
@@ -731,13 +745,13 @@ class ApplicationWindow(QtGui.QMainWindow):
 
         # Unused plot buttons
         self.buttonPlotBranch = QtGui.QPushButton("Plot Branch")
-        self.buttonPlotBranch.clicked.connect(lambda:self.launch_paraview())
+        self.buttonPlotBranch.clicked.connect(lambda:self.plot())
         self.buttonPlotBranch.setEnabled(False)
         self.buttonPlotBranch.setToolTip("Plot all solutions in currently selected branch")
         #plotBox.addWidget(self.buttonPlotBranch)
 
         self.buttonParams = QtGui.QPushButton("Plot Params")
-        self.buttonParams.clicked.connect(lambda:self.launch_paraview())
+        self.buttonParams.clicked.connect(lambda:self.plot())
         self.buttonParams.setEnabled(False)
         self.buttonParams.setToolTip("Plot all solutions for currently selected parameter value")
         #plotBox.addWidget(self.buttonParams)
@@ -776,6 +790,12 @@ class ApplicationWindow(QtGui.QMainWindow):
         self.teambox.setAlignment(QtCore.Qt.AlignTop | QtCore.Qt.AlignCenter)
         #self.teambox.setStyleSheet('border-color: %s; border-style: outset; border-width: 2px' % BORDER)
         teamBox.addWidget(self.teambox)
+
+
+        # Elapsed time counter.
+        self.elapsedTime = QtGui.QLabel("Runtime: 0:00:00")
+        self.elapsedTime.setAlignment(QtCore.Qt.AlignLeft)
+        lowerBox.addWidget(self.elapsedTime)
 
 
     ## Utility Functions. ##
@@ -864,10 +884,15 @@ class ApplicationWindow(QtGui.QMainWindow):
         new_time = pc.jump(t)
         self.set_time(new_time)
 
-    def launch_paraview(self):
+    def plot(self):
         """ Launch Paraview to graph the highlighted solution. """
         if not plot_with_mpl: pc.hdf52pvd()
         else: pc.mpl_plot()
+
+    def set_elapsed_time(self, elapsed):
+        """ Gets the amount of time that has elapsed since defcon started running. """
+        t = str(timedelta(seconds=elapsed)).split('.')[0]
+        self.elapsedTime.setText("Runtime: " + t)
 
 
 
