@@ -375,8 +375,7 @@ class PlotConstructor():
                     if len(eachLine) > 1:
                         if eachLine[0] == '$':
                             # This line of the journal is telling us about the sweep line.
-                            params = eachLine[1:]
-                            self.sweep = float(params)
+                            self.sweep = float(eachLine[1:])
                             if self.sweepline is not None: self.sweepline.remove()
                             self.sweepline = bfdiag.axvline(x=self.sweep, linewidth=1, linestyle=SWEEPSTYLE, color=SWEEP)
                         elif eachLine[0] == '~':

@@ -20,11 +20,13 @@ class Journal(object):
 
 
 class FileJournal(Journal):
-    def __init__(self, directory, parameters, functionals, freeindex):
+    def __init__(self, directory, parameters, functionals, freeindex, sign):
         self.directory = directory + os.path.sep + "journal"
         self.parameters = parameters
         self.functionals = functionals
         self.freeindex = freeindex
+        self.sign = sign
+        self.sweep_params = None
 
     def setup(self, nteams, minparam, maxparam):       
         # Create the journal file and directory
@@ -46,10 +48,11 @@ class FileJournal(Journal):
             f.close()
 
     def sweep(self, params):
-        with file(self.directory + os.path.sep + "journal.txt", 'a') as f:
-            f.write("$%.20f\n" % params) # Need to make sure we get the decimal palces correct here, else there will be bugs with checkpointing.
-            f.flush()
-            f.close()
+        if (self.sweep_params is None) or sign*self.sweep_params < sign*params:
+            with file(self.directory + os.path.sep + "journal.txt", 'a') as f:
+                f.write("$%.20f\n" % params) # Need to make sure we get the decimal places correct here, else there will be bugs with checkpointing.
+                f.flush()
+                f.close()
 
     def team_job(self, team, task):
         with file(self.directory + os.path.sep + "journal.txt", 'a') as f:
@@ -75,8 +78,13 @@ class FileJournal(Journal):
                 else:
                     teamno, oldparams, branchid, newparams, functionals, cont = eachLine.split(';')
                     params = literal_eval(newparams)
-                    branches[branchid] = tuple([float(param) for param in params])
+                    branches[branchid] = (tuple([float(param) for param in params]), cont)
 
-        return sweep, branches
+        
+        for branchid in branches.keys():
+            if not branches[branchid][1]: del branches[branchid]
 
+        branches = dict([(key, branches[key][0]) for key in branches.keys()])
+        minparams = self.sign*min([self.sign*val[self.freeindex] for val in branches.values()])
 
+        return sweep, minparams, branches

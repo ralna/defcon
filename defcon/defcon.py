@@ -304,10 +304,10 @@ class DeflatedContinuation(object):
             assert self.worldcomm.size > 1
 
         # If we're keeping a journal, lets see if it already exists
-        journal = FileJournal(self.io.directory, self.parameters, self.functionals, freeindex)
+        journal = FileJournal(self.io.directory, self.parameters, self.functionals, freeindex, sign)
         if journal.exists():
             # The journal file already exists. Lets find out what we already know so we can resume our computation where we left off.
-            previous_sweep, branches = journal.resume()
+            previous_sweep, minparams, branches = journal.resume()
             branchid_counter = len(branches)
 
             # Set all teams to idle.
@@ -320,23 +320,28 @@ class DeflatedContinuation(object):
                 newparams = nextparameters(values, freeindex, oldparams)
                 if newparams is not None:
                     task = ContinuationTask(taskid=taskid_counter,
-                                                oldparams=oldparams,
-                                                branchid=int(branchid),
-                                                newparams=newparams)
+                                            oldparams=oldparams,
+                                            branchid=int(branchid),
+                                            newparams=newparams)
                     heappush(newtasks, (-1, task))
                     taskid_counter += 1
 
             
-            # Schedule a deflation task at the point we'd completed our sweep up to previously. 
+            # We need to schedule deflation tasks at every point from where we'd completed our sweep up to previously to the furthest we've got in continuation.
+            # minparams is the shortest branch of the diagram so far. We should have queued up deflation tasks up to this point.
             oldparams = list(parameterstofloats(self.parameters, freeindex, values[0]))
             oldparams[freeindex] = previous_sweep
             newparams = nextparameters(values, freeindex, tuple(oldparams))
-            task = DeflationTask(taskid=taskid_counter,
-                                    oldparams=oldparams,
-                                    branchid=branchid_counter-1,
-                                    newparams=newparams)
-            taskid_counter += 1
-            heappush(newtasks, (sign*task.newparams[freeindex], task))
+            while newparams is not None and sign*newparams[freeindex] <= sign*minparams: 
+                task = DeflationTask(taskid=taskid_counter,
+                                     oldparams=oldparams,
+                                     branchid=branchid_counter-1, # FIXME: Is there any harm in doing this?
+                                     newparams=newparams)
+                taskid_counter += 1
+                heappush(newtasks, (sign*task.newparams[freeindex], task))
+
+                oldparams = newparams
+                newparams = nextparameters(values, freeindex, newparams)
 
         else:
             # The journal file does not exist. Set it up and proceed from the beginning. 
@@ -621,6 +626,7 @@ class DeflatedContinuation(object):
                         # Branch id is None, ignore the solution and move on
                         task = self.fetch_task()
                 else:
+
                     # Deflation failed, move on
                     task = self.fetch_task()
 
@@ -648,6 +654,7 @@ class DeflatedContinuation(object):
                     self.io.save_functionals(functionals, task.newparams, task.branchid)
 
                 else:
+                    functionals = None
                     self.state_id = (None, None)
 
                 response = Response(task.taskid, success=success, functionals=functionals)
