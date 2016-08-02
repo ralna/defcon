@@ -305,7 +305,8 @@ class DeflatedContinuation(object):
 
         # If we're keeping a journal, lets see if it already exists
         journal = FileJournal(self.io.directory, self.parameters, self.functionals, freeindex, sign)
-        if journal.exists():
+        try:
+            assert(journal.exists())
             # The journal file already exists. Lets find out what we already know so we can resume our computation where we left off.
             previous_sweep, minparams, branches = journal.resume()
             branchid_counter = len(branches)
@@ -343,8 +344,9 @@ class DeflatedContinuation(object):
                 oldparams = newparams
                 newparams = nextparameters(values, freeindex, newparams)
 
-        else:
-            # The journal file does not exist. Set it up and proceed from the beginning. 
+        except Exception:
+            # Either the journal file does not exist, or something else bad happened. 
+            # Oh well, start from scratch.
             journal.setup(self.nteams, min(values), max(values))
             initialparams = parameterstofloats(self.parameters, freeindex, values[0])
             previous_sweep = initialparams[freeindex]

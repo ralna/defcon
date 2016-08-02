@@ -195,6 +195,7 @@ class PlotConstructor():
         bfdiag.set_ylabel(self.functional_names[self.current_functional])
         bfdiag.grid(color=GRID)
         ys = [point[1][self.current_functional] for point in self.points] 
+        bfdiag.set_xlim([self.minparam, self.maxparam]) # fix the limits of the x-axis
         bfdiag.set_ylim([floor(min(ys)), ceil(max(ys))]) # reset the y limits, to prevent stretching
         self.sweepline = bfdiag.axvline(x=self.sweep, linewidth=1, linestyle=SWEEPSTYLE, color=SWEEP) # re-plot the sweepline
 
@@ -353,6 +354,8 @@ class PlotConstructor():
                     self.start_time = TimeModule.time() # Defcon has just started, so get the start time. 
 
                     freeindex, self.parameter_name, functional_names, unicode_functional_names, nteams, minparam, maxparam = dataList[0].split(';')
+                    self.minparam = float(minparam)
+                    self.maxparam = float(maxparam)
 
                     # Set up info about what the teams are doing.
                     self.nteams = int(nteams)
@@ -365,7 +368,7 @@ class PlotConstructor():
                     self.app.make_radio_buttons(self.unicode_functional_names)
                     bfdiag.set_xlabel(self.parameter_name)
                     bfdiag.set_ylabel(self.functional_names[self.current_functional])
-                    bfdiag.set_xlim([float(minparam), float(maxparam)]) # fix the limits of the x-axis
+                    bfdiag.set_xlim([self.minparam, self.maxparam]) # fix the limits of the x-axis
                     bfdiag.autoscale(axis='y')
 
                 dataList = dataList[1:] # exclude the first line. 
@@ -416,14 +419,18 @@ class PlotConstructor():
     def annotate(self, clickX, clickY):
          """ Annotate a point when clicking on it. """
          if self.annotated_point is None:
-             xs = [float(point[0][self.freeindex]) for point in self.points[:self.time]]
-             ys = [float(point[1][self.current_functional]) for point in self.points[:self.time]]
+
+             # Sets a clickbox that is generally too small in practice. 
+             #xs = [float(point[0][self.freeindex]) for point in self.points[:self.time]]
+             #ys = [float(point[1][self.current_functional]) for point in self.points[:self.time]]
+             #xtol = ((max(xs) - min(xs))/float(len(xs)))/2 
+             #ytol = ((max(ys) - min(ys))/float(len(ys)))/2 
  
              # Sets the clickbox to be one 'square' of the diagram.
              xtick = bfdiag.get_xticks()
              ytick = bfdiag.get_yticks()
-             xtol = (xtick[1]-xtick[0])/2 #100*((max(xs) - min(xs))/float(len(xs)))/2 
-             ytol = (ytick[1]-ytick[0])/2 #100*((max(ys) - min(ys))/float(len(ys)))/2 
+             xtol = (xtick[1]-xtick[0])/2 
+             ytol = (ytick[1]-ytick[0])/2 
 
              annotes = []
 
