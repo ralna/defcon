@@ -27,7 +27,7 @@ class DeflatedContinuation(object):
     This class is the main driver that implements deflated continuation.
     """
 
-    def __init__(self, problem, io, deflation=None, teamsize=1, verbose=False, logfiles=False):
+    def __init__(self, problem, io, deflation=None, teamsize=1, verbose=False, logfiles=False, strict=False):
         """
         Constructor.
 
@@ -44,8 +44,13 @@ class DeflatedContinuation(object):
             Activate verbose output.
           logfiles (:py:class:`bool`)
             Whether defcon should remap stdout/stderr to logfiles (useful for many processes).
+          strict (:py:class:`bool`)
+            Whether defcon should only run deflation processes when there's no change of finding 
+            the same solution as a continuation task. 
         """
         self.problem = problem
+
+        self.strict = strict
 
         if deflation is None:
             deflation = ShiftedDeflation(problem, power=2, shift=1)
@@ -396,13 +401,14 @@ class DeflatedContinuation(object):
                         self.log("Master not dispatching %s because we have enough solutions" % task, master=True)
                         continue
 
-                    # If either there's still a continuation task looking for solutions on earlier parameters, 
-                    # or there's a deflation task still looking for a new branch on earlier parameter values, 
-                    # we want to not send this task out now and look at it again later.
-                    for (t, r) in waittasks.values():
-                        if (sign*t.newparams[freeindex]<=sign*task.newparams[freeindex]):
-                            send = False
-                            break
+                    # Strict mode: If either there's still a continuation task looking for solutions on earlier 
+                    # parameters,  or there's a deflation task still looking for a new branch on earlier 
+                    # parameter values, we want to not send this task out now and look at it again later.
+                    if self.strict:
+                        for (t, r) in waittasks.values():
+                            if (sign*t.newparams[freeindex]<=sign*task.newparams[freeindex]):
+                                send = False
+                                break
                                          
                 if send:
                     # OK, we're happy to send it out. Let's tell it any new information
@@ -458,22 +464,12 @@ class DeflatedContinuation(object):
                             idleteams.append(team)
                             journal.team_job(team, "i")
 
-                        # If there's still a continuation task looking for solutions on prior parameters, we don't want to send a new deflation task
-                        # This task will still be scheduled, but that will happen at a later date. 
-                        # We can't forget about this if there are deflation tasks running at prior paramters, as these may fail. 
-                        send = True
-                        for (t, r) in waittasks.values():
-                            if (isinstance(t, ContinuationTask) and sign*t.oldparams[freeindex]<=sign*task.oldparams[freeindex]): 
-                                send = False
-
-                        # If we're sure we want to schedule this task, let's do so.
-                        if send:
-                            newtask = DeflationTask(taskid=taskid_counter,
-                                                    oldparams=task.oldparams,
-                                                    branchid=task.branchid,
-                                                    newparams=task.newparams)
-                            taskid_counter += 1
-                            heappush(newtasks, (sign*newtask.newparams[freeindex], newtask))
+                        newtask = DeflationTask(taskid=taskid_counter,
+                                                oldparams=task.oldparams,
+                                                branchid=task.branchid,
+                                                newparams=task.newparams)
+                        taskid_counter += 1
+                        heappush(newtasks, (sign*newtask.newparams[freeindex], newtask))
 
                     else:
                         # We tried to continue a branch, but the continuation died. Oh well.
