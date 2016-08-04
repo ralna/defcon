@@ -25,8 +25,7 @@ class RootsOfUnityProblem(BifurcationProblem):
         return UnitIntervalMesh(comm, 2)
 
     def function_space(self, mesh):
-        R = FunctionSpace(mesh, "R", 0)
-        return MixedFunctionSpace([R, R])
+        return VectorFunctionSpace(mesh, "R", 0, dim=2)
 
     def parameters(self):
         p = Constant(0)

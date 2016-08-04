@@ -51,7 +51,7 @@ class DeflationTask(Task):
       oldparams (dict)
         Parameter values to continue from. If None, this means use the initial guesses
       branchid (int)
-        Which branch to continue (int). If oldparams is None, this is the number of the
+        Which branch to search from (int). If oldparams is None, this is the number of the initial guess
         to use
       newparams (dict)
         Parameter values to continue to
