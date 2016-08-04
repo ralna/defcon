@@ -205,14 +205,18 @@ class PlotConstructor():
 
     def animate(self, i):
         """ Utility function for animating a plot. """
-        xs, ys, branchid, teamno, cont = self.points[i]
-        x = float(xs[self.freeindex])
-        y = float(ys[self.func_index])
-        if cont: c, m= MAIN, '.'
-        else: c, m= DEF, 'o'
+        for j in range(0, self.dots_per_frame):
+            try:
+                xs, ys, branchid, teamno, cont = self.points_iter.next()
+                x = float(xs[self.freeindex])
+                y = float(ys[self.func_index])
+                if cont: c, m= MAIN, '.'
+                else: c, m= DEF, 'o'
+                self.ax.plot(x, y, marker=m, color=c, linestyle='None')
+            except StopIteration: pass
         # Let's output a little log of how we're doing, so the user can see that something is in fact being done.
-        if i % 50 == 0: print "Completed %d/%d frames" % (i, self.maxtime)
-        return self.ax.plot(x, y, marker=m, color=c, linestyle='None')
+        if i % 50 == 0: print "Completed %d/%d frames" % (i, self.frames)
+        return 
 
     ## Controls for moving backwards and forwards in the diagram, or otherwise manipulating it. ##
     def pause(self):
@@ -511,25 +515,38 @@ class PlotConstructor():
                 pass
 
     ## Functions for saving to disk ##
-    def save_movie(self, filename):
+    def save_movie(self, filename, length):
         """ Creates a matplotlib animation of the plotting up to the current maxtime. """
-
-        print "Saving movie. This may take a little while..."
 
         # Fix the functional we're currently on, to avoid unplesantness if we try and change it while the movie is writing.
         self.func_index = self.current_functional
+
+        # Make an iterator of the points list.
+        self.points_iter = iter(self.points)
 
         # Set up the animated figure.
         self.anim_fig = plt.figure()
         self.ax = plt.axes()
         self.ax.clear()
+
         self.ax.set_xlabel(self.parameter_name)
+        self.ax.set_xlim([self.minparam, self.maxparam]) # fix the x-limits
+
         self.ax.set_ylabel(self.functional_names[self.func_index])
-        self.anim = animation.FuncAnimation(self.anim_fig, self.animate, frames=self.maxtime, repeat=False, interval=0.1, blit=False) # FIXME: blit=True would speed this up, but causes errors. Why?
+        ys = [point[1][self.current_functional] for point in self.points] 
+        self.ax.set_ylim([floor(min(ys)), ceil(max(ys))]) # fix the y-limits
+
+        # Work out how many frames we want.
+        self.frames = int(length) * 6 # FIXME: why the hell should this be *6 and not *24? And why the extra seconds on the end?
+        self.frames = min(self.frames, self.maxtime) # sanity check: if the number of desired frames is greater than the number of points, better fix this. 
+        self.dots_per_frame = int(ceil(float(self.maxtime) / self.frames))
+
+        self.anim = animation.FuncAnimation(self.anim_fig, self.animate, frames=self.frames, repeat=False, interval=1, blit=False, save_count=self.frames)
 
         # Save it.
+        print "Saving movie. This may take a little while..."
         mywriter = animation.FFMpegWriter()
-        try: self.anim.save(filename, fps=30, writer=mywriter, extra_args=['-vcodec', 'libx264'])
+        try: self.anim.save(filename, fps=24, writer=mywriter, extra_args=['-vcodec', 'libx264'])
         except Exception, e: 
             print "\033[91m[Warning] Saving movie failed. Perhaps you don't have ffmpeg installed? Anyway, the error was: \033[00m"
             print str(e)
@@ -537,6 +554,7 @@ class PlotConstructor():
         print "Movie saved."    
 
         self.ax.clear()
+        return
 
     def save_tikz(self, filename):
         """ Save the bfdiag window as a tikz plot. """
@@ -598,24 +616,25 @@ class CustomToolbar(NavigationToolbar2QT):
 
     def save_movie(self):
         """ A method that saves an animation of the bifurcation diagram. """
-        pc.start()
-        start = "bfdiag.mp4" # default name of the file. 
+        start = working_dir + os.path.sep + "bfdiag.mp4" # default name of the file. 
         filters = "FFMPEG Video (*.mp4)" # what kinds of file extension we allow.
         selectedFilter = filters
- 
+
+        inputter = InputDialog(aw, title="Movie details", label="Desired length of movie in seconds")
+        inputter.exec_()
+        length = inputter.text.text()
+
         fname = QtGui.QFileDialog.getSaveFileName(self, "Choose a filename to save to", start, filters, selectedFilter)
         if fname:
             try:
-                pc.save_movie(str(fname))
+                pc.save_movie(str(fname), length)
             # Handle any exceptions by printing a dialogue box. 
             except Exception, e:
                 QtGui.QMessageBox.critical(self, "Error saving file", str(e), QtGui.QMessageBox.Ok, QtGui.QMessageBox.NoButton)
-        pc.end()
 
     def save_tikz(self):
         """ A method that saves a .tikz of the bifurcation diagram. """
-        pc.start()
-        start = "bfdiag.tex"
+        start = working_dir + os.path.sep + "bfdiag.tex"
         filters = "Tikz Image (*.tex)"
         selectedFilter = filters
  
@@ -625,7 +644,39 @@ class CustomToolbar(NavigationToolbar2QT):
                 pc.save_tikz(str(fname))
             except Exception, e:
                 QtGui.QMessageBox.critical(self, "Error saving file", str(e), QtGui.QMessageBox.Ok, QtGui.QMessageBox.NoButton)
-        pc.end()
+
+############################
+### MOVIE INPUT DIALOGUE ###
+############################
+class InputDialog(QtGui.QDialog):
+    def __init__(self, parent=None, title='', label='', text=''):
+
+        QtGui.QWidget.__init__(self, parent)
+
+        # Layout
+        mainLayout = QtGui.QVBoxLayout()
+
+        layout = QtGui.QHBoxLayout()
+        self.label = QtGui.QLabel()
+        self.label.setText(label)
+        layout.addWidget(self.label)
+
+        self.text = QtGui.QLineEdit(text)
+        layout.addWidget(self.text)
+
+        mainLayout.addLayout(layout)
+
+        # The Button
+        layout = QtGui.QHBoxLayout()
+        button = QtGui.QPushButton("Enter")
+        self.connect(button, QtCore.SIGNAL("clicked()"), self.close)
+        layout.addWidget(button)
+
+        mainLayout.addLayout(layout)
+        self.setLayout(mainLayout)
+
+        self.resize(400, 60)
+        self.setWindowTitle(title)
 
 ######################
 ### Main QT Window ###
@@ -824,11 +875,11 @@ class ApplicationWindow(QtGui.QMainWindow):
         text = ""
         for i in range(len(teamstats)):
             # For each time, change the colour of the label for that team depedning on what it's doing. 
-            if teamstats[i] == "d": colour = 'blue'
-            if teamstats[i] == "c": colour = 'green'
-            if teamstats[i] == "i": colour = 'yellow'
-            if teamstats[i] == "q": colour = 'red'    
-            text += "<p style='margin:0;' ><font color=%s size='+2'> Team %d</FONT></p>\n" % (colour, i)
+            if teamstats[i] == "d": colour, label = 'blue', 'Deflating'
+            if teamstats[i] == "c": colour, label = 'green', 'Continuing'
+            if teamstats[i] == "i": colour, label = 'yellow', 'Idle'
+            if teamstats[i] == "q": colour, label = 'red', 'Quit'    
+            text += "<p style='margin:0;' ><font color=%s size='+2'> Team %d: %s</FONT></p>\n" % (colour, i, label)
         self.teambox.setText(text)
 
     def make_radio_buttons(self, functionals):
