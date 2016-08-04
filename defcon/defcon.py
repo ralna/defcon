@@ -316,6 +316,9 @@ class DeflatedContinuation(object):
             previous_sweep, minparams, branches = journal.resume()
             branchid_counter = len(branches)
 
+
+            print branches
+
             # Set all teams to idle.
             for teamno in range(self.nteams):
                 journal.team_job(teamno, "i")         
@@ -333,21 +336,22 @@ class DeflatedContinuation(object):
                     taskid_counter += 1
 
             
-            # We need to schedule deflation tasks at every point from where we'd completed our sweep up to previously to the furthest we've got in continuation.
-            # minparams is the shortest branch of the diagram so far. We should have queued up deflation tasks up to this point.
-            oldparams = list(parameterstofloats(self.parameters, freeindex, values[0]))
-            oldparams[freeindex] = previous_sweep
-            newparams = nextparameters(values, freeindex, tuple(oldparams))
-            while newparams is not None and sign*newparams[freeindex] <= sign*minparams: 
-                task = DeflationTask(taskid=taskid_counter,
-                                     oldparams=oldparams,
-                                     branchid=branchid_counter-1, # FIXME: Is there any harm in doing this?
-                                     newparams=newparams)
-                taskid_counter += 1
-                heappush(newtasks, (sign*task.newparams[freeindex], task))
+            # We need to schedule deflation tasks at every point from where we'd completed our sweep up to previously 
+            # to the furthest we've got in continuation, on every branch.
+            for branchid in branches.keys():
+                oldparams = list(parameterstofloats(self.parameters, freeindex, values[0]))
+                oldparams[freeindex] = previous_sweep
+                newparams = nextparameters(values, freeindex, tuple(oldparams))
+                while newparams is not None and sign*newparams[freeindex] <= sign*minparams: 
+                    task = DeflationTask(taskid=taskid_counter,
+                                         oldparams=oldparams,
+                                         branchid=branchid, 
+                                         newparams=newparams)
+                    taskid_counter += 1
+                    heappush(newtasks, (sign*task.newparams[freeindex], task))
 
-                oldparams = newparams
-                newparams = nextparameters(values, freeindex, newparams)
+                    oldparams = newparams
+                    newparams = nextparameters(values, freeindex, newparams)
 
         except Exception:
             # Either the journal file does not exist, or something else bad happened. 
