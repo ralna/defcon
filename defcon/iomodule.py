@@ -61,7 +61,7 @@ class FileIO(IO):
         except OSError: pass
 
     def dir(self, branchid):
-        return self.directory + os.path.sep + "branch-%d.hdf5" % branchid
+        return self.directory + os.path.sep + "branch-%s.hdf5" % branchid
 
     def known_params_file(self, branchid, params, mode):
         g = file(self.directory + os.path.sep + "branch-%s.txt" % branchid, mode)
