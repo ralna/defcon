@@ -130,12 +130,13 @@ if problem_type:
     globals().update(vars(problem_name))
 
     # Run through each class and figure out which one inherits from BifurcationProblem
+    # FIXME: might want to supress output here?
     classes = [key for key in globals().keys()]
     for c in classes:
         try:
             globals()["bfprob"] = getattr(problem_name, c)
-            problem = bfprob()
-            problem.parameters() # run a method that belongs to the BifurcationProblem. If this fails, we know this isn't the right class. 
+            assert(issubclass(bfprob, BifurcationProblem)) # check whether the class is a subclass of BifurcationProblem, which would mean it's the class we want. 
+            problem = bfprob() # initialise the class.
             break
         except Exception: pass
 
