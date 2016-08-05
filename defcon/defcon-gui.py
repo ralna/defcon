@@ -77,18 +77,17 @@ resources_dir = os.path.dirname(os.path.realpath(sys.argv[0])) + os.path.sep + '
 
 # Get commandline args.
 # Example usage: python defcon-gui.py -p unity -c RootsOfUnityProblem -w /home/joseph/defcon/examples/unity
-myopts, args = getopt.getopt(sys.argv[1:],"dp:o:w:c:m:i:s:")
+myopts, args = getopt.getopt(sys.argv[1:],"dp:o:w:m:i:s:")
 
 for o, a in myopts:
     if o == '-p':   problem_type = a
     elif o == '-o': output_dir = os.path.expanduser(a)
     elif o == '-w': working_dir = os.path.expanduser(a)
     elif o == '-s': solutions_dir = os.path.expanduser(a)
-    elif o == '-c': problem_class = a
     elif o == '-m': problem_mesh = a
     elif o == '-d': darkmode = True
     elif o == '-i': update_interval = int(a)
-    else:           print("Usage: %s -d -p <problem_type> -c <problem_class> -w <working_dir> -o <defcon_output_directory> -m <mesh> -i <update interval in ms>" % sys.argv[0])
+    else:           print("Usage: %s -d -p <problem_type> -w <working_dir> -o <defcon_output_directory> -m <mesh> -i <update interval in ms>" % sys.argv[0])
 
 # If we didn't specify an output directory, default to the folder "output" in the working directory
 if output_dir is None: output_dir = working_dir + os.path.sep + "output"
@@ -116,7 +115,6 @@ if darkmode:
     GRID = '0.75'
     BORDER = 'white'
 
-
 # Set up the figure.
 figure = Figure(figsize=(7,6), dpi=100)
 bfdiag = figure.add_subplot(111)
@@ -127,11 +125,19 @@ sys.path.insert(0, working_dir)
 sys.path.insert(0, "%s/.." % os.path.dirname(os.path.realpath(sys.argv[0]))) #FIXME: This is ugly, but does always work. It seems to need this, else the problem_type fails to import 'BifurcationProblem'. even though the defcon directory is in PYTHONPATH. Why, and how to get rid of it?
 
 # If we've been told about the problem, then get the name and type of the problem we're dealing with, as well as everything else we're going to need for plotting solutions.
-if problem_type and problem_class:
+if problem_type:
     problem_name = __import__(problem_type)
     globals().update(vars(problem_name))
-    globals()["bfprob"] = getattr(problem_name, problem_class)
-    problem = bfprob()
+
+    # Run through each class and figure out which one inherits from BifurcationProblem
+    classes = [key for key in globals().keys()]
+    for c in classes:
+        try:
+            globals()["bfprob"] = getattr(problem_name, c)
+            problem = bfprob()
+            problem.parameters() # run a method that belongs to the BifurcationProblem. If this fails, we know this isn't the right class. 
+            break
+        except Exception: pass
 
     # Get the mesh. If the user has specified a file, then great, otherwise try to get it from the problem. 
     if problem_mesh is not None: mesh = Mesh(mpi_comm_world(), problem_mesh)
@@ -614,6 +620,9 @@ class CustomToolbar(NavigationToolbar2QT):
         self.buttonSaveTikz= self.addAction(QtGui.QIcon(resources_dir + "save_tikz.png"), "Save Tikz", self.save_tikz)
         self.buttonSaveTikz.setToolTip("Save the figure as tikz")
 
+        self.buttonArclength= self.addAction(QtGui.QIcon(resources_dir + "save_tikz.png"), "Arclength", self.arclength)
+        self.buttonArclength.setToolTip("Use arclength continuation to generate a plot")
+
     def save_movie(self):
         """ A method that saves an animation of the bifurcation diagram. """
         start = working_dir + os.path.sep + "bfdiag.mp4" # default name of the file. 
@@ -645,6 +654,11 @@ class CustomToolbar(NavigationToolbar2QT):
             except Exception, e:
                 QtGui.QMessageBox.critical(self, "Error saving file", str(e), QtGui.QMessageBox.Ok, QtGui.QMessageBox.NoButton)
 
+    def arclength(self):
+        inputter = ArclengthDialog(aw)
+        inputter.exec_()
+
+
 ############################
 ### MOVIE INPUT DIALOGUE ###
 ############################
@@ -662,6 +676,7 @@ class InputDialog(QtGui.QDialog):
         layout.addWidget(self.label)
 
         self.text = QtGui.QLineEdit(text)
+        self.text.setFixedWidth(80)
         layout.addWidget(self.text)
 
         mainLayout.addLayout(layout)
@@ -669,6 +684,42 @@ class InputDialog(QtGui.QDialog):
         # The Button
         layout = QtGui.QHBoxLayout()
         button = QtGui.QPushButton("Enter")
+        button.setFixedWidth(80)
+        self.connect(button, QtCore.SIGNAL("clicked()"), self.close)
+        layout.addWidget(button)
+
+        mainLayout.addLayout(layout)
+        self.setLayout(mainLayout)
+
+        self.resize(400, 60)
+        self.setWindowTitle(title)
+
+##########################
+### ARCLENGTH DIALOGUE ###
+##########################
+class ArclengthDialog(QtGui.QDialog):
+    def __init__(self, parent=None):
+
+        QtGui.QWidget.__init__(self, parent)
+
+        # Layout
+        mainLayout = QtGui.QVBoxLayout()
+
+        layout = QtGui.QHBoxLayout()
+        self.label = QtGui.QLabel()
+        self.label.setText(label)
+        layout.addWidget(self.label)
+
+        self.text = QtGui.QLineEdit(text)
+        self.text.setFixedWidth(80)
+        layout.addWidget(self.text)
+
+        mainLayout.addLayout(layout)
+
+        # The Button
+        layout = QtGui.QHBoxLayout()
+        button = QtGui.QPushButton("Enter")
+        button.setFixedWidth(80)
         self.connect(button, QtCore.SIGNAL("clicked()"), self.close)
         layout.addWidget(button)
 
