@@ -308,12 +308,12 @@ class DeflatedContinuation(object):
             self.log("WARNING: DEFCON started with only 1 process. At least 2 processes are required. \nLaunch with mpiexec: mpiexec -n <number of processes> python <path to file>", master=True)
             assert self.worldcomm.size > 1
 
-        # If we're keeping a journal, lets see if it already exists
+        # Create a journal object. 
         journal = FileJournal(self.io.directory, self.parameters, self.functionals, freeindex, sign)
         try:
             assert(journal.exists())
             # The journal file already exists. Lets find out what we already know so we can resume our computation where we left off.
-            previous_sweep, minparams, branches = journal.resume()
+            previous_sweep, branches = journal.resume()
             branchid_counter = len(branches)
 
 
@@ -342,7 +342,9 @@ class DeflatedContinuation(object):
                 oldparams = list(parameterstofloats(self.parameters, freeindex, values[0]))
                 oldparams[freeindex] = previous_sweep
                 newparams = nextparameters(values, freeindex, tuple(oldparams))
-                while newparams is not None and sign*newparams[freeindex] <= sign*minparams: 
+                while newparams is not None and sign*newparams[freeindex] <= sign*branches[branchid][freeindex]: 
+                    # As long as we're not at the end of the parameter range and we haven't exceeded the extent
+                    # of this branch, schedule a deflation. 
                     task = DeflationTask(taskid=taskid_counter,
                                          oldparams=oldparams,
                                          branchid=branchid, 

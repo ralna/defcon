@@ -107,7 +107,4 @@ class FileJournal(Journal):
         # Strip the 'cont' vaues out of the branches dictionary. 
         branches = dict([(key, branches[key][0]) for key in branches.keys()])
  
-        # Get the extent of the shortest known branch.
-        minparams = self.sign*min([self.sign*val[self.freeindex] for val in branches.values()])
-
-        return sweep, minparams, branches
+        return sweep, branches
