@@ -316,9 +316,6 @@ class DeflatedContinuation(object):
             previous_sweep, branches = journal.resume()
             branchid_counter = len(branches)
 
-
-            print branches
-
             # Set all teams to idle.
             for teamno in range(self.nteams):
                 journal.team_job(teamno, "i")         
