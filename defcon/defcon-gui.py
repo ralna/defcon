@@ -30,6 +30,9 @@ from matplotlib.figure import Figure
 # For saving movies.
 from matplotlib import animation
 
+# For doing arclength continuation
+#from arclength import ArclengthContinuation
+
 # For plotting solutions, if we don't use paraview
 import matplotlib.pyplot as plt
 
@@ -515,14 +518,14 @@ class PlotConstructor():
                 plt.plot(x.vector().array(), y.vector().array(), '-', linewidth=3, color='b')
                 plt.title("%s: branch %s, params %s" % (problem_class, branchid, params))
                 plt.axhline(0, color='k') # Plot a black line through the origin
-                plt.show(False) # False here means the window is non-blocking, so we may continue using defcon while the plot shows. 
+                plt.show(False) # False here means the window is non-blocking, so we may continue using the GUI while the plot shows. 
             except RuntimeError, e:
                 print "\033[91m [Warning] Error plotting expression. Are your solutions numbers rather than functions? If so, this is why I failed. Anyway, the error was: \033[00m"
                 print str(e)
                 pass
 
     ## Functions for saving to disk ##
-    def save_movie(self, filename, length):
+    def save_movie(self, filename, length, fps):
         """ Creates a matplotlib animation of the plotting up to the current maxtime. """
 
         # Fix the functional we're currently on, to avoid unplesantness if we try and change it while the movie is writing.
@@ -544,16 +547,21 @@ class PlotConstructor():
         self.ax.set_ylim([floor(min(ys)), ceil(max(ys))]) # fix the y-limits
 
         # Work out how many frames we want.
-        self.frames = int(length) * 6 # FIXME: why the hell should this be *6 and not *24? And why the extra seconds on the end?
-        self.frames = min(self.frames, self.maxtime) # sanity check: if the number of desired frames is greater than the number of points, better fix this. 
+        self.frames = length * fps
+
+        # Sanity check: if the number of desired frames is greater than the number of points, better fix this by adjusting fps.
+        if self.frames > self.maxtime:
+            self.frames = self.maxtime
+            fps = int(self.frames / float(length))
+
         self.dots_per_frame = int(ceil(float(self.maxtime) / self.frames))
 
         self.anim = animation.FuncAnimation(self.anim_fig, self.animate, frames=self.frames, repeat=False, interval=1, blit=False, save_count=self.frames)
 
         # Save it.
         print "Saving movie. This may take a little while..."
-        mywriter = animation.FFMpegWriter()
-        try: self.anim.save(filename, fps=24, writer=mywriter, extra_args=['-vcodec', 'libx264'])
+        mywriter = animation.FFMpegWriter(fps=fps)
+        try: self.anim.save(filename, fps=fps, writer=mywriter, extra_args=['-vcodec', 'libx264'])
         except Exception, e: 
             print "\033[91m[Warning] Saving movie failed. Perhaps you don't have ffmpeg installed? Anyway, the error was: \033[00m"
             print str(e)
@@ -580,6 +588,21 @@ class PlotConstructor():
             tikz_save(filename)
             ax.clear()
         else: print "\033[91m[Warning] matplotlib2tikz not installed. I can't save to tikz! \033[00m \n"
+
+    def arclength(self):
+        branches = set([point[2] for point in self.points])
+        for branchid in branches:
+            plt_xs = []
+            plt_ys = []
+            for xs, ys, bid, teamno, cont in self.points:
+                if bid == branchid:
+                    plt_xs.append(xs[self.freeindex])
+                    plt_ys.append(ys[self.current_functional])
+            plt.plot(plt_xs, plt_ys, '-', linewidth=3, color='k')
+        plt.show(False)
+ 
+        
+
 
 ################################
 ### Custom matplotlib Figure ###
@@ -630,14 +653,15 @@ class CustomToolbar(NavigationToolbar2QT):
         filters = "FFMPEG Video (*.mp4)" # what kinds of file extension we allow.
         selectedFilter = filters
 
-        inputter = InputDialog(aw, title="Movie details", label="Desired length of movie in seconds")
+        inputter = InputDialog(aw)
         inputter.exec_()
-        length = inputter.text.text()
+        length = inputter.length.text()
+        fps = inputter.fps.text()
 
         fname = QtGui.QFileDialog.getSaveFileName(self, "Choose a filename to save to", start, filters, selectedFilter)
         if fname:
             try:
-                pc.save_movie(str(fname), length)
+                pc.save_movie(str(fname), int(length), int(fps))
             # Handle any exceptions by printing a dialogue box. 
             except Exception, e:
                 QtGui.QMessageBox.critical(self, "Error saving file", str(e), QtGui.QMessageBox.Ok, QtGui.QMessageBox.NoButton)
@@ -656,31 +680,59 @@ class CustomToolbar(NavigationToolbar2QT):
                 QtGui.QMessageBox.critical(self, "Error saving file", str(e), QtGui.QMessageBox.Ok, QtGui.QMessageBox.NoButton)
 
     def arclength(self):
-        inputter = ArclengthDialog(aw)
-        inputter.exec_()
+        start = working_dir + os.path.sep + "bfdiag.jpg"
+        filters = "JPEG Image (*.jpg, *.jpeg)"
+        selectedFilter = filters
+ 
+        # Ask for some input parameters.
+        """inputter = ArclengthDialog(aw)
+        inputter.exec_()"""
+        # TODO: get args
+
+        fname = True #QtGui.QFileDialog.getSaveFileName(self, "Choose a filename to save to", start, filters, selectedFilter)
+        if fname:
+            try:
+                # Set up the ArclengthContinuation object and run it.
+                pc.arclength()
+                # Make and save the resulting plot. 
+            except Exception, e:
+                QtGui.QMessageBox.critical(self, "Error saving file", str(e), QtGui.QMessageBox.Ok, QtGui.QMessageBox.NoButton)
+        
 
 
 ############################
 ### MOVIE INPUT DIALOGUE ###
 ############################
 class InputDialog(QtGui.QDialog):
-    def __init__(self, parent=None, title='', label='', text=''):
+    def __init__(self, parent=None):
 
         QtGui.QWidget.__init__(self, parent)
 
         # Layout
         mainLayout = QtGui.QVBoxLayout()
 
-        layout = QtGui.QHBoxLayout()
+        lengthLayout = QtGui.QHBoxLayout()
         self.label = QtGui.QLabel()
-        self.label.setText(label)
-        layout.addWidget(self.label)
+        self.label.setText("Desired length of movie in seconds")
+        lengthLayout.addWidget(self.label)
 
-        self.text = QtGui.QLineEdit(text)
-        self.text.setFixedWidth(80)
-        layout.addWidget(self.text)
+        self.length = QtGui.QLineEdit("60")
+        self.length.setFixedWidth(80)
+        lengthLayout.addWidget(self.length)
 
-        mainLayout.addLayout(layout)
+        mainLayout.addLayout(lengthLayout)
+
+        fpsLayout = QtGui.QHBoxLayout()
+        self.label2 = QtGui.QLabel()
+        self.label2.setText("Frames per second")
+        fpsLayout.addWidget(self.label2)
+
+        self.fps = QtGui.QLineEdit("24")
+        self.fps.setFixedWidth(80)
+        fpsLayout.addWidget(self.fps)
+
+        mainLayout.addLayout(fpsLayout)
+
 
         # The Button
         layout = QtGui.QHBoxLayout()
@@ -693,7 +745,7 @@ class InputDialog(QtGui.QDialog):
         self.setLayout(mainLayout)
 
         self.resize(400, 60)
-        self.setWindowTitle(title)
+        self.setWindowTitle("Movie details")
 
 ##########################
 ### ARCLENGTH DIALOGUE ###
