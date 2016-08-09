@@ -70,9 +70,10 @@ SWEEPSTYLE = 'dashed' # line style for the sweep line
 problem_type = None
 problem_class = None
 problem_mesh = None
-working_dir= "."
+working_dir= None
 output_dir = None
 solutions_dir = None
+xscale = None
 darkmode = False
 plot_with_mpl = False # where we will try to plot solutions with paraview or matplotlib
 update_interval = 100 # update interval for the diagram
@@ -80,7 +81,17 @@ resources_dir = os.path.dirname(os.path.realpath(sys.argv[0])) + os.path.sep + '
 
 # Get commandline args.
 # Example usage: python defcon-gui.py -p unity -c RootsOfUnityProblem -w /home/joseph/defcon/examples/unity
-myopts, args = getopt.getopt(sys.argv[1:],"dp:o:w:m:i:s:")
+myopts, args = getopt.getopt(sys.argv[1:],"dp:o:w:m:i:s:x:")
+
+def usage():
+    sys.exit("""Usage: %s -p <problem_type> -w <working_dir> -o <defcon_output_directory> -m <mesh> -i <update interval in ms> -x <x scale> 
+Options:
+      -w: The working directory. This is the location where your problem script is. Providing this is mandatory.
+      -o: The directory that defcon uses for its output. The defaults to the "output" subdir of the working dir.
+      -s: The directory to save solutions in. When you use paraview to visualise a solution, this is where it is saved. Deafults to the "solutions" subsir of the output dir
+      -m: If you are using a user-defined mesh, you should provide the path to it with this flag. Otherwise the mesh fromt he problem script is used.
+      -i: The update interval of the bifurcation diagram, in milliseconds. Defaults to 100.
+      -x: The scale of the x-axis of the bifurcation diagram. This should be a valid matplotlib scale setting, eg 'log'.""" % sys.argv[0])
 
 for o, a in myopts:
     if o == '-p':   problem_type = a
@@ -90,7 +101,12 @@ for o, a in myopts:
     elif o == '-m': problem_mesh = a
     elif o == '-d': darkmode = True
     elif o == '-i': update_interval = int(a)
-    else:           print("Usage: %s -d -p <problem_type> -w <working_dir> -o <defcon_output_directory> -m <mesh> -i <update interval in ms>" % sys.argv[0])
+    elif o == '-x': xscale = a
+    else:           
+        usage()
+
+if working_dir is None:
+    usage()
 
 # If we didn't specify an output directory, default to the folder "output" in the working directory
 if output_dir is None: output_dir = working_dir + os.path.sep + "output"
@@ -122,6 +138,7 @@ if darkmode:
 figure = Figure(figsize=(7,6), dpi=100)
 bfdiag = figure.add_subplot(111)
 bfdiag.grid(color=GRID)
+
 
 # Put the working directory on our path.
 sys.path.insert(0, working_dir) 
@@ -198,6 +215,15 @@ class PlotConstructor():
         """ Return the L2 distance between two points. """
         return(sqrt((x1 - x2)**2 + (y1 - y2)**2))
 
+    def setx(self):
+        """ Sets the xscale to the user defined variable. """
+        try:
+            if xscale is not None:
+                bfdiag.set_xscale(xscale)
+        except Exception:
+            print "\033[91m[Warning] User-provided xscale variable is not a valid option for matplotlib.\033[00m\n"
+            pass
+
     def redraw(self):
         "Clears the window, redraws the labels and the grid. """
         bfdiag.clear()
@@ -208,6 +234,7 @@ class PlotConstructor():
         bfdiag.set_xlim([self.minparam, self.maxparam]) # fix the limits of the x-axis
         bfdiag.set_ylim([floor(min(ys)), ceil(max(ys))]) # reset the y limits, to prevent stretching
         self.sweepline = bfdiag.axvline(x=self.sweep, linewidth=1, linestyle=SWEEPSTYLE, color=SWEEP) # re-plot the sweepline
+        self.setx()
 
     def launch_paraview(self, filename):
         """ Utility function for launching paraview. Popen launches it in a separate process, so we may carry on with whatever we are doing."""
@@ -384,6 +411,7 @@ class PlotConstructor():
                     bfdiag.set_ylabel(self.functional_names[self.current_functional])
                     bfdiag.set_xlim([self.minparam, self.maxparam]) # fix the limits of the x-axis
                     bfdiag.autoscale(axis='y')
+                    self.setx()
 
                 dataList = dataList[1:] # exclude the first line. 
 
