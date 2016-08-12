@@ -25,6 +25,11 @@ Defcon depends on
 
 * mpi4py (http://pythonhosted.org/mpi4py/)
 * FEniCS, compiled with PETSc and petsc4py support (http://fenicsproject.org)
+* h5py (http://www.h5py.org)
+
+Defcon recommends (and some of the examples depend on)
+
+* matplotlib (http://matplotlib.org)
 
 ## Current status
 
@@ -45,12 +50,12 @@ The contribution of a setup.py would be welcome.
 
 ## Troubleshooting
 
-* Make sure you run with an MPI that supports MPI_THREAD_MULTIPLE.
 * Make sure all Expressions take in the mpi_comm argument (see e.g. examples/navier-stokes).
 
 ## Contributors
 
 P. E. Farrell <patrick.farrell@maths.ox.ac.uk>
+J. Pollard <j.pollard@protonmail.com>
 
 ## License
 
