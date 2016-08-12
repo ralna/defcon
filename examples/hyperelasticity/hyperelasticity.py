@@ -14,8 +14,8 @@ args = [sys.argv[0]] + """
                        --petsc.snes_rtol 1.0e-10
                        --petsc.snes_monitor
 
-                       --petsc.ksp_type gmres
-                       --petsc.pc_type gamg
+                       --petsc.ksp_type preonly
+                       --petsc.pc_type lu
                        """.split()
 parameters.parse(args)
 
@@ -82,7 +82,7 @@ class HyperelasticityProblem(BifurcationProblem):
         return 1
 
     def initial_guess(self, V, params, n):
-        return interpolate(Constant((-1, 0)), V)
+        return interpolate(Constant((-0.01, 0)), V)
 
     def number_solutions(self, params):
         # Here I know the number of solutions for each value of eps.
@@ -106,4 +106,4 @@ class HyperelasticityProblem(BifurcationProblem):
 if __name__ == "__main__":
     io = FileIO("output")
     dc = DeflatedContinuation(problem=HyperelasticityProblem(), io=io, teamsize=1, verbose=True)
-    dc.run(free={"eps": linspace(0.01, 0.2, 400)})
+    dc.run(free={"eps": linspace(0.01, 0.2, 381)})
