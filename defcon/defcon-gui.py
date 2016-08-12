@@ -3,7 +3,7 @@ import warnings
 warnings.filterwarnings("ignore", module="matplotlib")
 
 import matplotlib
-matplotlib.use("QT4Agg")
+matplotlib.use("Qt4Agg")
 
 from matplotlib.backends import qt_compat
 use_pyside = qt_compat.QT_API == qt_compat.QT_API_PYSIDE
@@ -932,20 +932,6 @@ class ApplicationWindow(QtGui.QMainWindow):
         self.buttonPlot.setToolTip("Plot currently selected solution")
         self.buttonPlot.setFixedWidth(80)
         plotBox.addWidget(self.buttonPlot)
-
-        # Unused plot buttons
-        self.buttonPlotBranch = QtGui.QPushButton("Plot Branch")
-        self.buttonPlotBranch.clicked.connect(lambda:self.plot())
-        self.buttonPlotBranch.setEnabled(False)
-        self.buttonPlotBranch.setToolTip("Plot all solutions in currently selected branch")
-        #plotBox.addWidget(self.buttonPlotBranch)
-
-        self.buttonParams = QtGui.QPushButton("Plot Params")
-        self.buttonParams.clicked.connect(lambda:self.plot())
-        self.buttonParams.setEnabled(False)
-        self.buttonParams.setToolTip("Plot all solutions for currently selected parameter value")
-        #plotBox.addWidget(self.buttonParams)
-
 
         # Radio buttons
         label = QtGui.QLabel("Functionals:")
