@@ -50,7 +50,7 @@ The contribution of a setup.py would be welcome.
 
 ## Troubleshooting
 
-* Make sure all Expressions take in the mpi_comm argument (see e.g. examples/navier-stokes).
+* Make sure all Expressions and CompiledSubDomains take in the mpi_comm argument (see e.g. examples/navier-stokes).
 
 ## Contributors
 
