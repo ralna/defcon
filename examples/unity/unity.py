@@ -2,8 +2,9 @@
 import sys
 from   math import degrees, atan2, pi, floor
 
-from defcon import *
+from petsc4py import PETSc
 from dolfin import *
+from defcon import *
 
 import matplotlib.pyplot as plt
 

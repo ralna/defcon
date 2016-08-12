@@ -89,8 +89,8 @@ def usage():
 Options:
       -w: The working directory. This is the location where your problem script is. Providing this is mandatory.
       -o: The directory that defcon uses for its output. The defaults to the "output" subdir of the working dir.
-      -s: The directory to save solutions in. When you use paraview to visualise a solution, this is where it is saved. Deafults to the "solutions" subsir of the output dir
-      -m: If you are using a user-defined mesh, you should provide the path to it with this flag. Otherwise the mesh fromt he problem script is used.
+      -s: The directory to save solutions in. When you use paraview to visualise a solution, this is where it is saved. Defaults to the "solutions" subdir of the output dir
+      -m: If you are using a user-defined mesh, you should provide the path to it with this flag. Otherwise the mesh from the problem script is used.
       -i: The update interval of the bifurcation diagram, in milliseconds. Defaults to 100.
       -x: The scale of the x-axis of the bifurcation diagram. This should be a valid matplotlib scale setting, eg 'log'.""" % sys.argv[0])
 
