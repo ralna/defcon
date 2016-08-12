@@ -2,6 +2,9 @@
 import warnings
 warnings.filterwarnings("ignore", module="matplotlib")
 
+import matplotlib
+matplotlib.use("QT4Agg")
+
 from matplotlib.backends import qt_compat
 use_pyside = qt_compat.QT_API == qt_compat.QT_API_PYSIDE
 if use_pyside:
