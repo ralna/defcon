@@ -2,6 +2,9 @@
 import warnings
 warnings.filterwarnings("ignore", module="matplotlib")
 
+import matplotlib
+matplotlib.use("QT4Agg")
+
 from matplotlib.backends import qt_compat
 use_pyside = qt_compat.QT_API == qt_compat.QT_API_PYSIDE
 if use_pyside:
@@ -535,7 +538,7 @@ class PlotConstructor():
                 pass
 
     ## Functions for saving to disk ##
-    def save_movie(self, filename, length, fps, dpi, bitrate):
+    def save_movie(self, filename, length, fps):
         """ Creates a matplotlib animation of the plotting up to the current maxtime. """
 
         # Fix the functional we're currently on, to avoid unplesantness if we try and change it while the movie is writing.
@@ -554,8 +557,8 @@ class PlotConstructor():
         self.setx(self.ax)
 
         self.ax.set_ylabel(self.functional_names[self.func_index])
-        ys = [point[1][self.current_functional] for point in self.points] 
-        self.ax.set_ylim([floor(min(ys)), ceil(max(ys))]) # fix the y-limits
+        #ys = [point[1][self.current_functional] for point in self.points] 
+        #self.ax.set_ylim([floor(min(ys)), ceil(max(ys))]) # fix the y-limits
 
         # Work out how many frames we want.
         self.frames = length * fps
@@ -573,8 +576,8 @@ class PlotConstructor():
         print "Saving movie. This may take a while..."
         try:
             self.anim = animation.FuncAnimation(self.anim_fig, self.animate, frames=self.frames, repeat=False, interval=1, blit=False, save_count=self.frames)
-            mywriter = animation.FFMpegWriter(fps=fps, bitrate=bitrate)
-            self.anim.save(filename, fps=fps, dpi=dpi, bitrate=bitrate, writer=mywriter, extra_args=['-vcodec', 'libx264'])
+            mywriter = animation.FFMpegWriter(fps=fps, bitrate=5000)
+            self.anim.save(filename, fps=fps, dpi=200, bitrate=5000, writer=mywriter, extra_args=['-vcodec', 'libx264'])
             print "Movie saved."    
             return
         except Exception, e: 
@@ -682,13 +685,11 @@ class CustomToolbar(NavigationToolbar2QT):
         inputter.exec_()
         length = inputter.length.text()
         fps = inputter.fps.text()
-        dpi = inputter.dpi.text()
-        bitrate = inputter.bitrate.text()
 
         fname = QtGui.QFileDialog.getSaveFileName(self, "Choose a filename to save to", start, filters, selectedFilter)
         if fname:
             try:
-                pc.save_movie(str(fname), int(length), int(fps), int(dpi), int(bitrate))
+                pc.save_movie(str(fname), int(length), int(fps))
             # Handle any exceptions by printing a dialogue box. 
             except Exception, e:
                 QtGui.QMessageBox.critical(self, "Error saving file", str(e), QtGui.QMessageBox.Ok, QtGui.QMessageBox.NoButton)
@@ -763,31 +764,6 @@ class MovieDialog(QtGui.QDialog):
         fpsLayout.addWidget(self.fps)
 
         mainLayout.addLayout(fpsLayout)
-
-        dpiLayout = QtGui.QHBoxLayout()
-        self.label3 = QtGui.QLabel()
-        self.label3.setText("Dots per inch")
-        dpiLayout.addWidget(self.label3)
-
-        self.dpi = QtGui.QLineEdit("200")
-        self.dpi.setFixedWidth(80)
-        #self.dpi.setValidator(inputValidator)
-        dpiLayout.addWidget(self.dpi)
-
-        mainLayout.addLayout(dpiLayout)
-
-        bitrateLayout = QtGui.QHBoxLayout()
-        self.label4 = QtGui.QLabel()
-        self.label4.setText("Bitrate")
-        bitrateLayout.addWidget(self.label4)
-
-        self.bitrate = QtGui.QLineEdit("5000")
-        self.bitrate.setFixedWidth(80)
-        #self.bitrate.setValidator(inputValidator)
-        bitrateLayout.addWidget(self.bitrate)
-
-        mainLayout.addLayout(bitrateLayout)
-
 
         # The Button
         layout = QtGui.QHBoxLayout()
