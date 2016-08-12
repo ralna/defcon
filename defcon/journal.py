@@ -62,7 +62,8 @@ class FileJournal(Journal):
             f.close()
 
     def sweep(self, params):
-        if (self.sweep_params is None) or sign*self.sweep_params < sign*params:
+        if (self.sweep_params is None) or self.sign*self.sweep_params < self.sign*params:
+            self.sweep_params = params
             with file(self.directory + os.path.sep + "journal.txt", 'a') as f:
                 f.write("$%.20f\n" % params) # Need to make sure we get the decimal places correct here, else there will be bugs with checkpointing.
                 f.flush()
@@ -107,4 +108,5 @@ class FileJournal(Journal):
         # Strip the 'cont' vaues out of the branches dictionary. 
         branches = dict([(key, branches[key][0]) for key in branches.keys()])
  
+        self.sweep_params = sweep
         return sweep, branches

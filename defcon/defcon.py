@@ -377,8 +377,7 @@ class DeflatedContinuation(object):
             else:
                 self.log("Using user-supplied initial guesses at %s" % (initialparams,), master=True)
                 oldparams = None
-                nguesses = self.problem.number_solutions(initialparams)
-    
+                nguesses = self.problem.number_initial_guesses(initialparams)#solutions(initialparams)
                 for guess in range(nguesses):
                     task = DeflationTask(taskid=taskid_counter,
                                          oldparams=oldparams,

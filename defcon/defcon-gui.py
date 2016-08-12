@@ -1,5 +1,7 @@
-import matplotlib
-matplotlib.use("Qt4Agg")
+# Urgh. We need this to ignore matplotlibs warnings.
+import warnings
+warnings.filterwarnings("ignore", module="matplotlib")
+
 from matplotlib.backends import qt_compat
 use_pyside = qt_compat.QT_API == qt_compat.QT_API_PYSIDE
 if use_pyside:
@@ -74,14 +76,13 @@ working_dir= None
 output_dir = None
 solutions_dir = None
 xscale = None
-darkmode = False
 plot_with_mpl = False # where we will try to plot solutions with paraview or matplotlib
 update_interval = 100 # update interval for the diagram
 resources_dir = os.path.dirname(os.path.realpath(sys.argv[0])) + os.path.sep + 'resources' + os.path.sep # icons, etc. 
 
 # Get commandline args.
 # Example usage: python defcon-gui.py -p unity -c RootsOfUnityProblem -w /home/joseph/defcon/examples/unity
-myopts, args = getopt.getopt(sys.argv[1:],"dp:o:w:m:i:s:x:")
+myopts, args = getopt.getopt(sys.argv[1:],"p:o:w:m:i:s:x:")
 
 def usage():
     sys.exit("""Usage: %s -p <problem_type> -w <working_dir> -o <defcon_output_directory> -m <mesh> -i <update interval in ms> -x <x scale> 
@@ -99,7 +100,6 @@ for o, a in myopts:
     elif o == '-w': working_dir = os.path.expanduser(a)
     elif o == '-s': solutions_dir = os.path.expanduser(a)
     elif o == '-m': problem_mesh = a
-    elif o == '-d': darkmode = True
     elif o == '-i': update_interval = int(a)
     elif o == '-x': xscale = a
     else:           
@@ -120,57 +120,42 @@ if problem_type is None:
 # If we didn't specify a directory for solutions we plot, store them in the "solutions" subdir of the output directory.
 if solutions_dir is None: solutions_dir = output_dir + os.path.sep + "solutions" + os.path.sep
 
-# Darkmode colour scheme.
-if darkmode: 
-    figure.patch.set_facecolor('black')
-    bfdiag.set_axis_bgcolor('black')
-    bfdiag.xaxis.label.set_color('#76EE00')
-    bfdiag.yaxis.label.set_color('#76EE00')
-    bfdiag.tick_params(axis='y', colors='#76EE00')
-    bfdiag.tick_params(axis='x', colors='#76EE00')
-    MAIN = 'w' 
-    DEF = 'yellow'
-    HIGHLIGHT = '#76EE00'
-    GRID = '0.75'
-    BORDER = 'white'
-
 # Set up the figure.
 figure = Figure(figsize=(7,6), dpi=100)
 bfdiag = figure.add_subplot(111)
 bfdiag.grid(color=GRID)
 
-
 # Put the working directory on our path.
 sys.path.insert(0, working_dir) 
 sys.path.insert(0, "%s/.." % os.path.dirname(os.path.realpath(sys.argv[0]))) #FIXME: This is ugly, but does always work. It seems to need this, else the problem_type fails to import 'BifurcationProblem'. even though the defcon directory is in PYTHONPATH. Why, and how to get rid of it?
 
-# If we've been told about the problem, then get the name and type of the problem we're dealing with, as well as everything else we're going to need for plotting solutions.
-if problem_type:
-    problem_name = __import__(problem_type)
-    globals().update(vars(problem_name))
+# Get the name and type of the problem we're dealing with, as well as everything else we're going to need for plotting solutions.
+problem_name = __import__(problem_type)
+globals().update(vars(problem_name))
 
-    # Run through each class and figure out which one inherits from BifurcationProblem
-    # FIXME: might want to supress output here?
-    classes = [key for key in globals().keys()]
-    for c in classes:
-        try:
-            globals()["bfprob"] = getattr(problem_name, c)
-            assert(issubclass(bfprob, BifurcationProblem)) # check whether the class is a subclass of BifurcationProblem, which would mean it's the class we want. 
-            problem = bfprob() # initialise the class.
-            break
-        except Exception: pass
+# Run through each class and figure out which one inherits from BifurcationProblem
+classes = [key for key in globals().keys()]
+for c in classes:
+    try:
+        globals()["bfprob"] = getattr(problem_name, c)
+        assert(issubclass(bfprob, BifurcationProblem)) # check whether the class is a subclass of BifurcationProblem, which would mean it's the class we want. 
+        problem = bfprob() # initialise the class.
+        break
+    except Exception: pass
 
-    # Get the mesh. If the user has specified a file, then great, otherwise try to get it from the problem. 
-    if problem_mesh is not None: mesh = Mesh(mpi_comm_world(), problem_mesh)
-    else: mesh = problem.mesh(mpi_comm_world())
-    if mesh.geometry().dim() < 2: plot_with_mpl = True # if the mesh is 1D, we don't want to use paraview. 
+# Get the mesh. If the user has specified a file, then great, otherwise try to get it from the problem. 
+if problem_mesh is not None: mesh = Mesh(mpi_comm_world(), problem_mesh)
+else: mesh = problem.mesh(mpi_comm_world())
 
-    V = problem.function_space(mesh)
-    problem_parameters = problem.parameters()
-    io = FileIO(output_dir)
-    io.setup(problem_parameters, None, V)
+# If the mesh is 1D, we don't want to use paraview. 
+if mesh.geometry().dim() < 2: plot_with_mpl = True 
+
+# Get the function space and set up the io module for fetching solutions. 
+V = problem.function_space(mesh)
+problem_parameters = problem.parameters()
+io = FileIO(output_dir)
+io.setup(problem_parameters, None, V)
     
-else: print "\033[91m[Warning] In order to graph solutions, you must specify the class of the problem, eg 'NavierStokesProblem'.\nUsage: %s -p <problem type> -c <problem_class> -w <working dir> \033[00m \n" % sys.argv[0]
 
 #####################
 ### Utility Class ###
@@ -429,9 +414,7 @@ class PlotConstructor():
                             self.teamstats[int(team)] = task
                             self.app.update_teamstats(self.teamstats)
                             # If this tells us the teams have quit, we know we're not getting any more new points. 
-                            if task == 'q': 
-                               self.changed = False
-                               self.running = False                                
+                            if task == 'q': self.running = False                                
                         else:
                             # This is a newly discovered point. Get all the information we need.
                             teamno, oldparams, branchid, newparams, functionals, cont = eachLine.split(';')
@@ -648,9 +631,9 @@ class DynamicCanvas(FigureCanvas):
 
     def update_figure(self):
         self.timer.stop()
-        redraw = pc.update()
-        if redraw: self.draw()
-        pc.seen()
+        redraw = pc.update() # grab new points.
+        if redraw: self.draw() # if we've found something new, redraw the diagram.
+        pc.seen() # tell the PlotConstructor that we've seen all the new points.
         self.timer.start()
 
 class CustomToolbar(NavigationToolbar2QT):
@@ -746,6 +729,9 @@ class InputDialog(QtGui.QDialog):
 
         self.length = QtGui.QLineEdit("60")
         self.length.setFixedWidth(80)
+        inputValidator = QtGui.QIntValidator(self)
+        inputValidator.setRange(1, sys.maxint)
+        self.length.setValidator(inputValidator)
         lengthLayout.addWidget(self.length)
 
         mainLayout.addLayout(lengthLayout)
@@ -757,6 +743,9 @@ class InputDialog(QtGui.QDialog):
 
         self.fps = QtGui.QLineEdit("24")
         self.fps.setFixedWidth(80)
+        inputValidator2 = QtGui.QIntValidator(self)
+        inputValidator2.setRange(1, sys.maxint)
+        self.length.setValidator(inputValidator2)
         fpsLayout.addWidget(self.fps)
 
         mainLayout.addLayout(fpsLayout)
@@ -831,8 +820,6 @@ class ApplicationWindow(QtGui.QMainWindow):
         self.main_widget = QtGui.QWidget(self)
         self.main_widget.setFocus()
         self.setCentralWidget(self.main_widget)
-        if darkmode: self.main_widget.setStyleSheet('color: #76EE00; background-color: black')
-
 
         # Keep track of the current time and maxtime.
         self.time = 0
