@@ -1,6 +1,7 @@
 from dolfin import *
 from petsc4py import PETSc
 import sys
+from numpy import isnan
 
 def printnorm(i, n):
     print "%3d SNES Function norm %1.15e" % (i, n)
@@ -47,6 +48,7 @@ def newton(F, y, bcs, deflation=None, prefix="", printnorm=printnorm, ksp_setup=
 
     while True:
         if i >= maxits:  break
+        if isnan(n):     break
         if n <= atol:    success = True; break
         if n/n0 <= rtol: success = True; break
 
