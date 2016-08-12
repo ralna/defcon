@@ -557,8 +557,8 @@ class PlotConstructor():
         self.setx(self.ax)
 
         self.ax.set_ylabel(self.functional_names[self.func_index])
-        ys = [point[1][self.current_functional] for point in self.points] 
-        self.ax.set_ylim([floor(min(ys)), ceil(max(ys))]) # fix the y-limits
+        #ys = [point[1][self.current_functional] for point in self.points] 
+        #self.ax.set_ylim([floor(min(ys)), ceil(max(ys))]) # fix the y-limits
 
         # Work out how many frames we want.
         self.frames = length * fps
