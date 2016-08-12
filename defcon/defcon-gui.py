@@ -14,7 +14,7 @@ from math import sqrt, floor, ceil
 from datetime import timedelta
 import time as TimeModule
 
-# Imports for the paraview and hdf5topvd methods
+# Imports for the paraview and hdf5topvd methods.
 from subprocess import Popen
 from dolfin import *
 from parametertools import parameterstostring
@@ -32,10 +32,10 @@ from matplotlib.figure import Figure
 # For saving movies.
 from matplotlib import animation
 
-# For doing arclength continuation
+# For doing arclength continuation.
 #from arclength import ArclengthContinuation
 
-# For plotting solutions, if we don't use paraview
+# For plotting solutions if we don't use paraview.
 import matplotlib.pyplot as plt
 
 # Styles for matplotlib.
@@ -56,7 +56,7 @@ except Exception:
     use_tikz = False
 
 # Colours.
-MAIN = 'black' # colour for points
+MAIN = 'black' # colour for regular points
 DEF = 'blue' # colour for points found via deflation
 HIGHLIGHT = 'red' # colour for selected points
 GRID = 'white' # colour the for grid.
@@ -70,13 +70,12 @@ SWEEPSTYLE = 'dashed' # line style for the sweep line
 
 # Set some defaults.
 problem_type = None
-problem_class = None
 problem_mesh = None
 working_dir= None
 output_dir = None
 solutions_dir = None
 xscale = None
-plot_with_mpl = False # where we will try to plot solutions with paraview or matplotlib
+plot_with_mpl = False # whether we will try to plot solutions with paraview or matplotlib
 update_interval = 100 # update interval for the diagram
 resources_dir = os.path.dirname(os.path.realpath(sys.argv[0])) + os.path.sep + 'resources' + os.path.sep # icons, etc. 
 
@@ -133,7 +132,7 @@ sys.path.insert(0, "%s/.." % os.path.dirname(os.path.realpath(sys.argv[0]))) #FI
 problem_name = __import__(problem_type)
 globals().update(vars(problem_name))
 
-# Run through each class and figure out which one inherits from BifurcationProblem
+# Run through each class we've imported and figure out which one inherits from BifurcationProblem.
 classes = [key for key in globals().keys()]
 for c in classes:
     try:
@@ -143,14 +142,14 @@ for c in classes:
         break
     except Exception: pass
 
-# Get the mesh. If the user has specified a file, then great, otherwise try to get it from the problem. 
+# Get the mesh. If the user has specified a file then great, otherwise try to get it from the problem. 
 if problem_mesh is not None: mesh = Mesh(mpi_comm_world(), problem_mesh)
 else: mesh = problem.mesh(mpi_comm_world())
 
 # If the mesh is 1D, we don't want to use paraview. 
 if mesh.geometry().dim() < 2: plot_with_mpl = True 
 
-# Get the function space and set up the io module for fetching solutions. 
+# Get the function space and set up the I/O module for fetching solutions. 
 V = problem.function_space(mesh)
 problem_parameters = problem.parameters()
 io = FileIO(output_dir)
@@ -200,11 +199,11 @@ class PlotConstructor():
         """ Return the L2 distance between two points. """
         return(sqrt((x1 - x2)**2 + (y1 - y2)**2))
 
-    def setx(self):
+    def setx(self, ax):
         """ Sets the xscale to the user defined variable. """
         try:
             if xscale is not None:
-                bfdiag.set_xscale(xscale)
+                ax.set_xscale(xscale)
         except Exception:
             print "\033[91m[Warning] User-provided xscale variable is not a valid option for matplotlib.\033[00m\n"
             pass
@@ -219,7 +218,7 @@ class PlotConstructor():
         bfdiag.set_xlim([self.minparam, self.maxparam]) # fix the limits of the x-axis
         bfdiag.set_ylim([floor(min(ys)), ceil(max(ys))]) # reset the y limits, to prevent stretching
         self.sweepline = bfdiag.axvline(x=self.sweep, linewidth=1, linestyle=SWEEPSTYLE, color=SWEEP) # re-plot the sweepline
-        self.setx()
+        self.setx(bfdiag)
 
     def launch_paraview(self, filename):
         """ Utility function for launching paraview. Popen launches it in a separate process, so we may carry on with whatever we are doing."""
@@ -396,7 +395,7 @@ class PlotConstructor():
                     bfdiag.set_ylabel(self.functional_names[self.current_functional])
                     bfdiag.set_xlim([self.minparam, self.maxparam]) # fix the limits of the x-axis
                     bfdiag.autoscale(axis='y')
-                    self.setx()
+                    self.setx(bfdiag)
 
                 dataList = dataList[1:] # exclude the first line. 
 
@@ -509,7 +508,7 @@ class PlotConstructor():
             pvd_filename = solutions_dir +  "SOLUTION$%s$branchid=%d.pvd" % (parameterstostring(problem_parameters, params), branchid)
             pvd = File(pvd_filename)
     
-            # Use the IO module to fetch the solution and write it to the pvd file. 
+            # Use the I/O module to fetch the solution and write it to the pvd file. 
             y = io.fetch_solutions(params, [branchid])[0]
             pvd << y
             pvd
@@ -536,7 +535,7 @@ class PlotConstructor():
                 pass
 
     ## Functions for saving to disk ##
-    def save_movie(self, filename, length, fps):
+    def save_movie(self, filename, length, fps, dpi, bitrate):
         """ Creates a matplotlib animation of the plotting up to the current maxtime. """
 
         # Fix the functional we're currently on, to avoid unplesantness if we try and change it while the movie is writing.
@@ -552,6 +551,7 @@ class PlotConstructor():
 
         self.ax.set_xlabel(self.parameter_name)
         self.ax.set_xlim([self.minparam, self.maxparam]) # fix the x-limits
+        self.setx(self.ax)
 
         self.ax.set_ylabel(self.functional_names[self.func_index])
         ys = [point[1][self.current_functional] for point in self.points] 
@@ -567,29 +567,42 @@ class PlotConstructor():
 
         self.dots_per_frame = int(ceil(float(self.maxtime) / self.frames))
 
-        self.anim = animation.FuncAnimation(self.anim_fig, self.animate, frames=self.frames, repeat=False, interval=1, blit=False, save_count=self.frames)
 
-        # Save it.
-        print "Saving movie. This may take a little while..."
-        mywriter = animation.FFMpegWriter(fps=fps)
-        try: self.anim.save(filename, fps=fps, writer=mywriter, extra_args=['-vcodec', 'libx264'])
+
+        # Create and save the animation. 
+        print "Saving movie. This may take a while..."
+        try:
+            self.anim = animation.FuncAnimation(self.anim_fig, self.animate, frames=self.frames, repeat=False, interval=1, blit=False, save_count=self.frames)
+            mywriter = animation.FFMpegWriter(fps=fps, bitrate=bitrate)
+            self.anim.save(filename, fps=fps, dpi=dpi, bitrate=bitrate, writer=mywriter, extra_args=['-vcodec', 'libx264'])
+            print "Movie saved."    
+            return
         except Exception, e: 
             print "\033[91m[Warning] Saving movie failed. Perhaps you don't have ffmpeg installed? Anyway, the error was: \033[00m"
             print str(e)
-            pass
-        print "Movie saved."    
+            return
 
-        self.ax.clear()
-        return
+
+
 
     def save_tikz(self, filename):
         """ Save the bfdiag window as a tikz plot. """
         if use_tikz:
             fig = plt.figure()
+
             ax = plt.axes()
             ax.clear()
+
+            # Set up the x-axis.
             ax.set_xlabel(self.parameter_name)
+            ax.set_xlim([self.minparam, self.maxparam])
+            self.setx(ax)
+
+            # Set up the y-axis.
             ax.set_ylabel(self.functional_names[self.current_functional])
+            ys = [point[1][self.current_functional] for point in self.points] 
+            ax.set_ylim([floor(min(ys)), ceil(max(ys))])
+
             for xs, ys, branchid, teamno, cont in self.points:
                 x = float(xs[self.freeindex])
                 y = float(ys[self.current_functional])
@@ -664,15 +677,18 @@ class CustomToolbar(NavigationToolbar2QT):
         filters = "FFMPEG Video (*.mp4)" # what kinds of file extension we allow.
         selectedFilter = filters
 
-        inputter = InputDialog(aw)
+        # Ask for some input parameters.
+        inputter = MovieDialog(aw)
         inputter.exec_()
         length = inputter.length.text()
         fps = inputter.fps.text()
+        dpi = inputter.dpi.text()
+        bitrate = inputter.bitrate.text()
 
         fname = QtGui.QFileDialog.getSaveFileName(self, "Choose a filename to save to", start, filters, selectedFilter)
         if fname:
             try:
-                pc.save_movie(str(fname), int(length), int(fps))
+                pc.save_movie(str(fname), int(length), int(fps), int(dpi), int(bitrate))
             # Handle any exceptions by printing a dialogue box. 
             except Exception, e:
                 QtGui.QMessageBox.critical(self, "Error saving file", str(e), QtGui.QMessageBox.Ok, QtGui.QMessageBox.NoButton)
@@ -714,7 +730,7 @@ class CustomToolbar(NavigationToolbar2QT):
 ############################
 ### MOVIE INPUT DIALOGUE ###
 ############################
-class InputDialog(QtGui.QDialog):
+class MovieDialog(QtGui.QDialog):
     def __init__(self, parent=None):
 
         QtGui.QWidget.__init__(self, parent)
@@ -729,9 +745,9 @@ class InputDialog(QtGui.QDialog):
 
         self.length = QtGui.QLineEdit("60")
         self.length.setFixedWidth(80)
-        inputValidator = QtGui.QIntValidator(self)
-        inputValidator.setRange(1, sys.maxint)
-        self.length.setValidator(inputValidator)
+        #inputValidator = QtGui.QIntValidator(self)
+        #inputValidator.setRange(1, sys.maxint)
+        #self.length.setValidator(inputValidator)
         lengthLayout.addWidget(self.length)
 
         mainLayout.addLayout(lengthLayout)
@@ -743,12 +759,34 @@ class InputDialog(QtGui.QDialog):
 
         self.fps = QtGui.QLineEdit("24")
         self.fps.setFixedWidth(80)
-        inputValidator2 = QtGui.QIntValidator(self)
-        inputValidator2.setRange(1, sys.maxint)
-        self.length.setValidator(inputValidator2)
+        #self.fps.setValidator(inputValidator)
         fpsLayout.addWidget(self.fps)
 
         mainLayout.addLayout(fpsLayout)
+
+        dpiLayout = QtGui.QHBoxLayout()
+        self.label3 = QtGui.QLabel()
+        self.label3.setText("Dots per inch")
+        dpiLayout.addWidget(self.label3)
+
+        self.dpi = QtGui.QLineEdit("200")
+        self.dpi.setFixedWidth(80)
+        #self.dpi.setValidator(inputValidator)
+        dpiLayout.addWidget(self.dpi)
+
+        mainLayout.addLayout(dpiLayout)
+
+        bitrateLayout = QtGui.QHBoxLayout()
+        self.label4 = QtGui.QLabel()
+        self.label4.setText("Bitrate")
+        bitrateLayout.addWidget(self.label4)
+
+        self.bitrate = QtGui.QLineEdit("5000")
+        self.bitrate.setFixedWidth(80)
+        #self.bitrate.setValidator(inputValidator)
+        bitrateLayout.addWidget(self.bitrate)
+
+        mainLayout.addLayout(bitrateLayout)
 
 
         # The Button
@@ -762,7 +800,7 @@ class InputDialog(QtGui.QDialog):
         self.setLayout(mainLayout)
 
         self.resize(400, 60)
-        self.setWindowTitle("Movie details")
+        self.setWindowTitle("Movie parameters")
 
 ##########################
 ### ARCLENGTH DIALOGUE ###
@@ -797,7 +835,7 @@ class ArclengthDialog(QtGui.QDialog):
         self.setLayout(mainLayout)
 
         self.resize(400, 60)
-        self.setWindowTitle(title)
+        self.setWindowTitle("Arclength continuation parameters")
 
 ######################
 ### Main QT Window ###
