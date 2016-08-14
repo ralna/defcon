@@ -129,7 +129,7 @@ bfdiag.grid(color=GRID)
 
 # Put the working directory on our path.
 sys.path.insert(0, working_dir) 
-sys.path.insert(0, "%s/.." % os.path.dirname(os.path.realpath(sys.argv[0]))) #FIXME: This is ugly, but does always work. It seems to need this, else the problem_type fails to import 'BifurcationProblem'. even though the defcon directory is in PYTHONPATH. Why, and how to get rid of it?
+sys.path.insert(0, os.path.dirname(os.path.realpath(sys.argv[0])) + os.path.sep + "..")
 
 # Get the name and type of the problem we're dealing with, as well as everything else we're going to need for plotting solutions.
 problem_name = __import__(problem_type)
@@ -234,9 +234,7 @@ class PlotConstructor():
                 xs, ys, branchid, teamno, cont = self.points_iter.next()
                 x = float(xs[self.freeindex])
                 y = float(ys[self.func_index])
-                if cont: c, m= MAIN, '.'
-                else: c, m= DEF, 'o'
-                self.ax.plot(x, y, marker=m, color=c, linestyle='None')
+                self.ax.plot(x, y, marker=CONTPLOT, color=MAIN, linestyle='None')
             except StopIteration: pass
         # Let's output a little log of how we're doing, so the user can see that something is in fact being done.
         if i % 50 == 0: print "Completed %d/%d frames" % (i, self.frames)
@@ -271,8 +269,8 @@ class PlotConstructor():
                 xs, ys, branchid, teamno, cont = self.points[i]
                 x = float(xs[self.freeindex])
                 y = float(ys[self.current_functional])
-                if cont: c, m= MAIN, '.'
-                else: c, m = DEF, 'o'
+                if cont: c, m= MAIN, CONTPLOT
+                else: c, m = DEF, DEFPLOT
                 self.pointers[i] = bfdiag.plot(x, y, marker=m, color=c, linestyle='None')
             self.time = self.maxtime
             self.changed = True
@@ -296,8 +294,8 @@ class PlotConstructor():
             xs, ys, branchid, teamno, cont = self.points[self.time]
             x = float(xs[self.freeindex])
             y = float(ys[self.current_functional])
-            if cont: c, m= MAIN, '.'
-            else: c, m= DEF, 'o'
+            if cont: c, m= MAIN, CONTPLOT
+            else: c, m= DEF, DEFPLOT
             self.pointers[self.time] = bfdiag.plot(x, y, marker=m, color=c, linestyle='None')
             self.time += 1
             self.changed = True
@@ -320,8 +318,8 @@ class PlotConstructor():
                 xs, ys, branchid, teamno, cont = self.points[i]
                 x = float(xs[self.freeindex])
                 y = float(ys[self.current_functional])
-                if cont: c, m= MAIN, '.'
-                else: c, m= DEF, 'o'
+                if cont: c, m= MAIN, CONTPLOT
+                else: c, m= DEF, DEFPLOT
                 self.pointers[i] = bfdiag.plot(x, y, marker=m, color=c, linestyle='None')
         self.time = t 
         self.changed = True
@@ -340,8 +338,8 @@ class PlotConstructor():
             xs, ys, branchid, teamno, cont = self.points[j]
             x = float(xs[self.freeindex])
             y = float(ys[self.current_functional])
-            if cont: c, m= MAIN, '.'
-            else: c, m= DEF, 'o'
+            if cont: c, m= MAIN, CONTPLOT
+            else: c, m= DEF, DEFPLOT
             self.pointers[j] = bfdiag.plot(x, y, marker=m, color=c, linestyle='None')
             self.changed = True
 
@@ -426,8 +424,8 @@ class PlotConstructor():
                             y = float(ys[self.current_functional])
                             
                             # Use different colours/plot styles for points found by continuation/deflation.
-                            if literal_eval(cont): c, m= MAIN, '.'
-                            else: c, m= DEF, 'o'
+                            if literal_eval(cont): c, m= MAIN, CONTPLOT
+                            else: c, m= DEF, DEFPLOT
 
                             # Keep track of the points we've discovered, as well as the matplotlib objects. 
                             self.points.append((xs, ys, int(branchid), int(teamno), literal_eval(cont)))                            
@@ -557,8 +555,8 @@ class PlotConstructor():
         self.setx(self.ax)
 
         self.ax.set_ylabel(self.functional_names[self.func_index])
-        #ys = [point[1][self.current_functional] for point in self.points] 
-        #self.ax.set_ylim([floor(min(ys)), ceil(max(ys))]) # fix the y-limits
+        ys = [point[1][self.current_functional] for point in self.points] 
+        self.ax.set_ylim([min(ys), max(ys)]) # fix the y-limits
 
         # Work out how many frames we want.
         self.frames = length * fps
@@ -569,8 +567,6 @@ class PlotConstructor():
             fps = int(self.frames / float(length))
 
         self.dots_per_frame = int(ceil(float(self.maxtime) / self.frames))
-
-
 
         # Create and save the animation. 
         print "Saving movie. This may take a while..."
@@ -584,9 +580,6 @@ class PlotConstructor():
             print "\033[91m[Warning] Saving movie failed. Perhaps you don't have ffmpeg installed? Anyway, the error was: \033[00m"
             print str(e)
             return
-
-
-
 
     def save_tikz(self, filename):
         """ Save the bfdiag window as a tikz plot. """
@@ -778,6 +771,8 @@ class MovieDialog(QtGui.QDialog):
         self.resize(400, 60)
         self.setWindowTitle("Movie parameters")
 
+
+
 ##########################
 ### ARCLENGTH DIALOGUE ###
 ##########################
@@ -812,6 +807,8 @@ class ArclengthDialog(QtGui.QDialog):
 
         self.resize(400, 60)
         self.setWindowTitle("Arclength continuation parameters")
+
+
 
 ######################
 ### Main QT Window ###
