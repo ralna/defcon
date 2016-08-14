@@ -234,11 +234,12 @@ class PlotConstructor():
                 xs, ys, branchid, teamno, cont = self.points_iter.next()
                 x = float(xs[self.freeindex])
                 y = float(ys[self.func_index])
-                self.ax.plot(x, y, marker=CONTPLOT, color=MAIN, linestyle='None')
-            except StopIteration: pass
+                self.ax.plot(x, y, marker=CONTPLOT, color=MAIN, linestyle='None')                
+            except StopIteration: return
         # Let's output a little log of how we're doing, so the user can see that something is in fact being done.
         if i % 50 == 0: print "Completed %d/%d frames" % (i, self.frames)
-        return 
+        return       
+         
 
     ## Controls for moving backwards and forwards in the diagram, or otherwise manipulating it. ##
     def pause(self):
@@ -571,7 +572,7 @@ class PlotConstructor():
         # Create and save the animation. 
         print "Saving movie. This may take a while..."
         try:
-            self.anim = animation.FuncAnimation(self.anim_fig, self.animate, frames=self.frames, repeat=False, interval=1, blit=False, save_count=self.frames)
+            self.anim = animation.FuncAnimation(self.anim_fig, self.animate, frames=self.frames, interval=1)
             mywriter = animation.FFMpegWriter(fps=fps, bitrate=5000)
             self.anim.save(filename, fps=fps, dpi=200, bitrate=5000, writer=mywriter, extra_args=['-vcodec', 'libx264'])
             print "Movie saved."    
