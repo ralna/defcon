@@ -98,6 +98,8 @@ class HyperelasticityProblem(BifurcationProblem):
             return 5
         if eps < 0.18:
             return 7
+        if eps < 0.20:
+            return 9
         return float("inf")
 
     def squared_norm(self, a, b):
@@ -106,5 +108,5 @@ class HyperelasticityProblem(BifurcationProblem):
 if __name__ == "__main__":
     io = FileIO("output")
     dc = DeflatedContinuation(problem=HyperelasticityProblem(), io=io, teamsize=1, verbose=True)
-    params = list(arange(0.0, 0.1, 0.001)) + [0.1]
+    params = list(arange(0.0, 0.2, 0.001)) + [0.2]
     dc.run(free={"eps": params})
