@@ -21,7 +21,7 @@ parameters.parse(args)
 
 class HyperelasticityProblem(BifurcationProblem):
     def mesh(self, comm):
-        return RectangleMesh(comm, Point(0, 0), Point(1, 0.1), 40, 40)
+        return RectangleMesh(comm, Point(0, 0), Point(1, 0.1), 50, 50)
 
     def function_space(self, mesh):
         return VectorFunctionSpace(mesh, "CG", 1)
@@ -82,7 +82,7 @@ class HyperelasticityProblem(BifurcationProblem):
         return 1
 
     def initial_guess(self, V, params, n):
-        return interpolate(Constant((-0.01, 0)), V)
+        return interpolate(Constant((0, 0)), V)
 
     def number_solutions(self, params):
         # Here I know the number of solutions for each value of eps.
@@ -106,4 +106,5 @@ class HyperelasticityProblem(BifurcationProblem):
 if __name__ == "__main__":
     io = FileIO("output")
     dc = DeflatedContinuation(problem=HyperelasticityProblem(), io=io, teamsize=1, verbose=True)
-    dc.run(free={"eps": linspace(0.01, 0.2, 381)})
+    params = list(arange(0.0, 0.1, 0.001)) + [0.1]
+    dc.run(free={"eps": params})
