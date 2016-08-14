@@ -184,11 +184,10 @@ class BifurcationProblem(object):
         """
         pass
 
-    def configure_krylov_solver(self, ksp):
+    def configure_snes(self, snes):
         """
-        This method is called on the petsc4py KSP object that will execute
-        the Newton step. It is called before each Newton step, after the
-        matrix has been set on the ksp and before the solve.
+        This method is called on the petsc4py SNES object that will solve
+        the nonlinear problem.
         """
         pass
 

@@ -3,84 +3,65 @@ from petsc4py import PETSc
 import sys
 from numpy import isnan
 
-def printnorm(i, n):
-    print "%3d SNES Function norm %1.15e" % (i, n)
-    sys.stdout.flush()
+# I can't believe this isn't in DOLFIN.
+class GeneralProblem(NonlinearProblem):
+    def __init__(self, F, y, bcs):
+        NonlinearProblem.__init__(self)
+        J = derivative(F, y)
+        self.ass = SystemAssembler(J, F, bcs)
 
-def ksp_setup(ksp):
-    pass
+    def F(self, b, x):
+        self.ass.assemble(b, x)
 
-def newton(F, y, bcs, deflation=None, prefix="", printnorm=printnorm, ksp_setup=ksp_setup):
+    def J(self, A, x):
+        self.ass.assemble(A)
 
-    # Fetch some SNES options from the PETSc dictionary
-    if len(prefix) > 0:
-        if prefix[-1] != "_":
-            prefix = prefix + "_"
+class DeflatedKSP(object):
+    def __init__(self, deflation, y, ksp):
+        self.deflation = deflation
+        self.y = y
+        self.ksp = ksp
 
-    opts = PETSc.Options()
-    atol = opts.getReal(prefix + "snes_atol", default=1.0e-8)
-    rtol = opts.getReal(prefix + "snes_rtol", default=1.0e-8)
-    maxits = opts.getInt(prefix + "snes_max_it", default=100)
-    monitor = opts.getBool(prefix + "snes_monitor", default=True)
-
-    def norm(F, y, bcs):
-        b = assemble(F)
-        [bc.apply(b, y.vector()) for bc in bcs]
-        return b.norm("l2")
-
-    [bc.apply(y.vector()) for bc in bcs]
-
-    dy = Function(y.function_space())
-    dyvec = as_backend_type(dy.vector())
-    J = derivative(F, y, TrialFunction(y.function_space()))
-    hbcs = [DirichletBC(bc) for bc in bcs]; [hbc.homogenize() for hbc in hbcs]
-    i = 0
-
-    n0 = norm(F, y, bcs)
-    n  = n0
-    if monitor: printnorm(i, n)
-
-    success = False
-
-    mpi_comm = y.function_space().mesh().mpi_comm()
-    A = PETScMatrix(mpi_comm)
-    b = PETScVector(mpi_comm)
-
-    while True:
-        if i >= maxits:  break
-        if isnan(n):     break
-        if n <= atol:    success = True; break
-        if n/n0 <= rtol: success = True; break
-
-        dyvec.zero()
-        (A, b) = assemble_system(J, -F, hbcs, A_tensor=A, b_tensor=b)
-
-        ksp = PETSc.KSP().create(comm=b.vec().comm)
-        ksp.setOperators(A=A.mat())
-
-        # Set some sensible defaults
-        ksp.setType('preonly')
-        ksp.pc.setType('lu')
-        ksp.pc.setFactorSolverPackage('mumps')
-
-        # Call the user setup routine
-        ksp_setup(ksp)
-
-        ksp.setFromOptions()
-        ksp.solve(b.vec(), dyvec.vec())
-        dyvec.update_ghost_values()
+    def solve(self, ksp, b, dy_pet):
+        # Use the inner ksp to solve the original problem
+        self.ksp.solve(b, dy_pet)
+        deflation = self.deflation
 
         if deflation is not None:
-            Edy = deflation.derivative(y).inner(dyvec)
-            minv = 1.0 / deflation.evaluate(y)
+            dy_vec = PETScVector(dy_pet)
+
+            Edy = -deflation.derivative(self.y).inner(dy_vec)
+            minv = 1.0 / deflation.evaluate(self.y)
             tau = (1 + minv*Edy/(1 - minv*Edy))
-            dy.assign(tau * dy)
+            dy_pet.scale(tau)
 
-        y.assign(y + dy)
+        ksp.setConvergedReason(self.ksp.getConvergedReason())
 
-        i = i + 1
-        n = norm(F, y, bcs)
-        if monitor: printnorm(i, n)
+def newton(F, y, bcs, deflation=None, prefix="", snes_setup=None):
 
+    comm = y.function_space().mesh().mpi_comm()
+    solver = PETScSNESSolver(comm)
+    snes = solver.snes()
+    problem = GeneralProblem(F, y, bcs)
+
+    snes.setOptionsPrefix(prefix)
+    PETScOptions.set(prefix + "snes_monitor_cancel")
+    solver.init(problem, y.vector())
+
+    if snes_setup is not None:
+        snes_setup(snes)
+
+    oldksp = snes.ksp
+    defksp = DeflatedKSP(deflation, y, oldksp)
+    snes.ksp = PETSc.KSP().createPython(defksp, comm)
+    snes.ksp.pc.setType('none')
+    snes.ksp.setOperators(*oldksp.getOperators())
+    snes.ksp.setUp()
+
+    # Need a copy for line searches etc. to work correctly.
+    x = y.copy(deepcopy=True)
+    snes.solve(None, as_backend_type(x.vector()).vec())
+
+    success = snes.getConvergedReason() > 0
     return success
 
