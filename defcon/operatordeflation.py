@@ -1,12 +1,18 @@
-from backend import Vector, assemble, derivative, product
+import backend
+from backend import Function, Vector, assemble, derivative, product
 
-def empty_vector(model):
-  """
-  Make a zero vector from a model, including parallel layout.
-  """
-  b = Vector(model)
-  b.zero()
-  return b
+# Make a zero vector from a model, including parallel layout
+if backend.__name__ == "dolfin":
+    def empty_vector(model):
+      b = Vector(model)
+      b.zero()
+      return b
+
+elif backend.__name__ == "firedrake":
+    def empty_vector(model):
+      b = model.copy()
+      b.dat.zero()
+      return b
 
 class DeflationOperator(object):
     """
@@ -45,7 +51,6 @@ class ShiftedDeflation(DeflationOperator):
     def derivative(self, y):
         if len(self.roots) == 0:
             deta = empty_vector(y.vector())
-            deta.zero()
             return deta
 
         p = self.power

@@ -8,14 +8,17 @@ implement more efficient/scalable backends at a later time.
 import backend
 from parametertools import parameterstostring
 
-# Firedrake doesn't have any support for HDF5.
-# Make a dummy object that does nothing in the meantime.
 if backend.__name__ == "dolfin":
     from backend import HDF5File, Function
 
+# Firedrake doesn't have any support for HDF5.
+# Make a dummy object that does nothing in the meantime.
 elif backend.__name__ == "firedrake":
     from backend import Function
     class HDF5File(object):
+        def __init__(self, *args, **kwargs): pass
+        def __enter__(self): return self
+        def __exit__(self, *args, **kwargs): pass
         def nop(self, *args, **kwargs): pass
         def __getattr__(self, _): return self.nop
 

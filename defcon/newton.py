@@ -99,6 +99,8 @@ elif backend.__name__ == "firedrake":
 
         problem = NonlinearVariationalProblem(F, y, bcs)
         solver  = NonlinearVariationalSolver(problem, options_prefix=prefix)
+        snes = solver.snes
+        comm = snes.comm
 
         if snes_setup is not None:
             snes_setup(snes)
@@ -110,9 +112,7 @@ elif backend.__name__ == "firedrake":
         snes.ksp.setOperators(*oldksp.getOperators())
         snes.ksp.setUp()
 
-        # Need a copy for line searches etc. to work correctly.
-        x = y.copy(deepcopy=True)
-        snes.solve(None, as_backend_type(x.vector()).vec())
+        solver.solve()
 
         success = snes.getConvergedReason() > 0
         return success
