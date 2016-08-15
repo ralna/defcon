@@ -115,7 +115,7 @@ if output_dir is None: output_dir = working_dir + os.path.sep + "output"
 
 # If we didn't specify the name of the python file for the problem (eg, elastica), assume it's the same as the directory we're working in. 
 if problem_type is None: 
-    dirs = working_dir.split(os.path.sep)
+    dirs = os.path.realpath(working_dir).split(os.path.sep)
     if dirs[-1]: problem_type = dirs[-1] # no trailing slash
     else: problem_type = dirs[-2] # trailing slash
 
@@ -1025,12 +1025,8 @@ class ApplicationWindow(QtGui.QMainWindow):
         annotated = pc.annotate(event.xdata, event.ydata)
         if annotated:
             self.buttonPlot.setEnabled(True)
-            self.buttonPlotBranch.setEnabled(True)
-            self.buttonParams.setEnabled(True)
         else:     
             self.buttonPlot.setEnabled(False)
-            self.buttonPlotBranch.setEnabled(False)
-            self.buttonParams.setEnabled(False)    
 
     def start(self):
         """ Set Time=0. """
