@@ -7,6 +7,7 @@ from dolfin import *
 
 from Probe import Probe # borrowed from Mikael Mortensen's fenicstools
 from numpy import array
+from petsc4py import PETSc
 
 args = [sys.argv[0]] + """
                        --petsc.snes_max_it 100
@@ -14,8 +15,11 @@ args = [sys.argv[0]] + """
                        --petsc.snes_rtol 1.0e-10
                        --petsc.snes_monitor
 
-                       --petsc.ksp_type preonly
-                       --petsc.pc_type lu
+                       --petsc.ksp_type gmres
+                       --petsc.ksp_monitor_cancel
+                       --petsc.ksp_converged_reason
+                       --petsc.ksp_max_it 2000
+                       --petsc.pc_type gamg
                        """.split()
 parameters.parse(args)
 
@@ -24,7 +28,15 @@ class HyperelasticityProblem(BifurcationProblem):
         return RectangleMesh(comm, Point(0, 0), Point(1, 0.1), 50, 50)
 
     def function_space(self, mesh):
-        return VectorFunctionSpace(mesh, "CG", 1)
+        V = VectorFunctionSpace(mesh, "CG", 1)
+
+        # Construct rigid body modes used in algebraic multigrid preconditioner later on
+        rbms = [Constant((0, 1)),
+                Constant((1, 0)),
+                Expression(("-x[1]", "x[0]"), mpi_comm=mesh.mpi_comm())]
+        self.rbms = [interpolate(rbm, V) for rbm in rbms]
+
+        return V
 
     def parameters(self):
         eps = Constant(0)
@@ -104,6 +116,21 @@ class HyperelasticityProblem(BifurcationProblem):
 
     def squared_norm(self, a, b):
         return inner(a - b, a - b)*dx + inner(grad(a - b), grad(a - b))*dx
+
+    def configure_snes(self, snes):
+        # Set the rigid body modes for use in AMG
+
+        if snes.ksp.pc.type != "preonly":
+            # Convert rigid body modes (computed in self.function_space above) to PETSc Vec
+            vec = lambda x: as_backend_type(x.vector()).vec()
+            rbms = map(vec, self.rbms)
+
+            # Create the PETSc nullspace
+            nullsp = PETSc.NullSpace().create(vectors=rbms, constant=False, comm=snes.comm)
+
+            (A, P) = snes.ksp.getOperators()
+            A.setNearNullSpace(nullsp)
+            P.setNearNullSpace(nullsp)
 
 if __name__ == "__main__":
     io = FileIO("output")
