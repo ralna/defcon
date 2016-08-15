@@ -5,8 +5,19 @@ FIXME: I've tried to write this in a modular way so that it is possible to
 implement more efficient/scalable backends at a later time.
 """
 
-from backend import HDF5File, Function
+import backend
 from parametertools import parameterstostring
+
+# Firedrake doesn't have any support for HDF5.
+# Make a dummy object that does nothing in the meantime.
+if backend.__name__ == "dolfin":
+    from backend import HDF5File, Function
+
+elif backend.__name__ == "firedrake":
+    from backend import Function
+    class HDF5File(object):
+        def nop(self, *args, **kwargs): pass
+        def __getattr__(self, _): return self.nop
 
 import os
 import glob
