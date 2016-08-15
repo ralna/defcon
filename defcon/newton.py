@@ -1,4 +1,4 @@
-from dolfin import *
+from backend import *
 from petsc4py import PETSc
 import sys
 from numpy import isnan

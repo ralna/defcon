@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-import dolfin
+import backend
 
 class BifurcationProblem(object):
     """
@@ -167,7 +167,7 @@ class BifurcationProblem(object):
 
         *Arguments*
         """
-        return dolfin.inner(state1 - state2, state1 - state2)*dolfin.dx
+        return backend.inner(state1 - state2, state1 - state2)*backend.dx
 
     def trivial_solutions(self, function_space):
         """

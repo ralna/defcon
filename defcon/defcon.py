@@ -5,7 +5,7 @@ from newton import newton
 from tasks import QuitTask, ContinuationTask, DeflationTask, Response
 from journal import Journal, FileJournal
 
-import dolfin
+import backend
 
 from mpi4py import MPI
 from petsc4py import PETSc
@@ -100,8 +100,8 @@ class DeflatedContinuation(object):
         self.function_space = problem.function_space(self.mesh)
         self.parameters = problem.parameters()
         self.functionals = problem.functionals()
-        self.state = dolfin.Function(self.function_space)
-        self.residual = problem.residual(self.state, parameterstoconstants(self.parameters), dolfin.TestFunction(self.function_space))
+        self.state = backend.Function(self.function_space)
+        self.residual = problem.residual(self.state, parameterstoconstants(self.parameters), backend.TestFunction(self.function_space))
         self.trivial_solutions = problem.trivial_solutions(self.function_space)
 
         io.setup(self.parameters, self.functionals, self.function_space)
@@ -167,7 +167,7 @@ class DeflatedContinuation(object):
                 freeindex = index
 
         if freeparam is None:
-            dolfin.info_red("Cannot find %s in parameters %s." % (free.keys()[0], [param[1] for param in self.parameters]))
+            backend.info_red("Cannot find %s in parameters %s." % (free.keys()[0], [param[1] for param in self.parameters]))
             assert freeparam is not None
 
         values = list(free[freeparam[1]])
@@ -305,7 +305,7 @@ class DeflatedContinuation(object):
 
         # If there's only one process, show a warning. FIXME: do something more advanced so we can run anyway. 
         if self.worldcomm.size < 2:
-            self.log("WARNING: DEFCON started with only 1 process. At least 2 processes are required. \nLaunch with mpiexec: mpiexec -n <number of processes> python <path to file>", master=True)
+            backend.info_red("Defcon started with only 1 process. At least 2 processes are required (one master, one worker).\n\nLaunch with mpiexec: mpiexec -n <number of processes> python <path to file>")
             assert self.worldcomm.size > 1
 
         # Create a journal object. 

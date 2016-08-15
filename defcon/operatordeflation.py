@@ -1,4 +1,4 @@
-from dolfin import *
+from backend import Vector, assemble, derivative, product
 
 def empty_vector(model):
   """

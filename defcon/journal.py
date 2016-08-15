@@ -1,5 +1,3 @@
-from dolfin import *
-
 import time
 import os
 from ast import literal_eval

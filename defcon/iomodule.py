@@ -5,7 +5,7 @@ FIXME: I've tried to write this in a modular way so that it is possible to
 implement more efficient/scalable backends at a later time.
 """
 
-from dolfin import *
+from backend import HDF5File, Function
 from parametertools import parameterstostring
 
 import os
