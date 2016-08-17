@@ -112,7 +112,10 @@ elif backend.__name__ == "firedrake":
         snes.ksp.setOperators(*oldksp.getOperators())
         snes.ksp.setUp()
 
-        solver.solve()
+        try:
+            solver.solve()
+        except:
+            pass
 
         success = snes.getConvergedReason() > 0
         return success

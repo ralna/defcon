@@ -13,6 +13,7 @@ params = {
           "snes_atol": 1.0e-9,
           "snes_rtol": 0.0,
           "snes_monitor": None,
+          "snes_linesearch_type": "basic",
           "ksp_type": "preonly",
           "pc_type": "lu"
          }

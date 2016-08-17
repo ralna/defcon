@@ -74,10 +74,11 @@ class ShiftedDeflation(DeflationOperator):
         eta = product(factors)
 
         deta = empty_vector(y.vector())
-        deta.zero()
 
         for (solution, factor, dfactor, dnormsq) in zip(self.roots, factors, dfactors, dnormsqs):
-            deta.axpy((eta/factor)*dfactor, dnormsq)
+            if backend.__name__ == "firedrake":
+                dnormsq = dnormsq.vector()
+            deta.axpy(float((eta/factor)*dfactor), dnormsq)
 
         return deta
 
