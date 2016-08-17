@@ -30,9 +30,6 @@ class IO(object):
     def fetch_solutions(self, params, branchids):
         raise NotImplementedError
 
-    def save_functionals(self, functionals, params, branchid):
-        raise NotImplementedError
-
     def fetch_functionals(self, params, branchids):
         raise NotImplementedError
 
@@ -68,19 +65,25 @@ class FileIO(IO):
         g.flush()
         g.close()
         
-    def save_solution(self, solution, params, branchid):
+    def save_solution(self, solution, funcs, params, branchid):
         """ Save a solution to the file branch-branchid.hdf5. """
         # Urgh... we need to check if the file already exists to decide if we use write mode or append mode. HDF5File's 'a' mode fails if the file doesn't exist.
         # This behaviour is different from h5py's 'a' mode, which can create a file if it doesn't exist and modify otherwise.
         if os.path.exists(self.dir(branchid)): mode='a'
         else: mode = 'w'
 
-        # Open file and write the solution. Flush afterwards to ensure it is written to disk. 
         with HDF5File(self.function_space.mesh().mpi_comm(), self.dir(branchid), mode) as f:
+            # First save the solution.
             f.write(solution, "/%s" % parameterstostring(self.parameters, params))
-            f.flush()
-            f.close()
 
+            # Now save the functionals.
+            s = parameterstostring(self.functionals, funcs)
+            f.attributes(parameterstostring(self.parameters, params))["functional"] = s
+
+            # Flush and save the file.
+            f.flush()
+
+        # Make a note that we've discovered a solution on this branch and for these parameters. 
         if os.path.exists(self.directory + os.path.sep + "branch-%s.txt" % branchid): mode='a'
         else: mode = 'w'
 
@@ -121,25 +124,13 @@ class FileIO(IO):
                 branches.append(int(branch_file.split('-')[-1].split('.')[0]))
         return set(branches)
      
-    def save_functionals(self, funcs, params, branchid):
-        """ Stores the functionals as attribute 'functional-branchid' of the /solution-branchid group of the appropriate file. """
-        s = parameterstostring(self.functionals, funcs)
-        with HDF5File(self.function_space.mesh().mpi_comm(), self.dir(branchid), 'a') as f:
-            f.attributes(parameterstostring(self.parameters, params))["functional"] = s
-            f.flush()
-            f.close()
-
-    def fetch_functionals(self, params, branchids):
+    def fetch_functionals(self, params, branchid):
         """ Gets the functionals back. Output [[all functionals...]]. """
         funcs = []
-        for branchid in branchids:
-            with HDF5File(self.function_space.mesh().mpi_comm(), self.dir(branchid), 'r') as f:
-                try: 
-                    newfuncs = [float(line.split('=')[-1]) for line in f.attributes(parameterstostring(self.parameters, params))["functional"].split('@')]
-                    funcs.append(newfuncs)
-                    f.flush()
-                except Exception: pass
-            f.close()       
+        with HDF5File(self.function_space.mesh().mpi_comm(), self.dir(branchid), 'r') as f:
+            for param in params: 
+                newfuncs = [float(line.split('=')[-1]) for line in f.attributes(parameterstostring(self.parameters, param))["functional"].split('@')]
+                funcs.append(newfuncs)
         return funcs
 
     def known_parameters(self, fixed, branchid):
@@ -154,7 +145,7 @@ class FileIO(IO):
                     fixed_indices.append(i)
                     break
 
-        seen = set()
+        seen = list()
 
         pullData = open(self.directory + os.path.sep + "branch-%s.txt" % branchid, 'r').read().split(';')[0:-1]
         saved_params = [tuple([float(param) for param in literal_eval(params)]) for params in pullData]
@@ -167,7 +158,7 @@ class FileIO(IO):
                     break
 
             if should_add:
-                seen.add(param)
+                seen.append(param)
 
         return seen
 
