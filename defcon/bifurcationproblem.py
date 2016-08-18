@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-import dolfin
+import backend
 
 class BifurcationProblem(object):
     """
@@ -153,7 +153,7 @@ class BifurcationProblem(object):
         """
         return float("inf")
 
-    def squared_norm(self, state1, state2):
+    def squared_norm(self, state1, state2, params):
         """
         This method computes the squared-norm between two vectors in the Hilbert
         space defined in the function_space method.
@@ -162,12 +162,12 @@ class BifurcationProblem(object):
         functions for equality, among other things.
 
         The default is
-            def squared_norm(self, state1, state2)
+            def squared_norm(self, state1, state2, params)
                 return inner(state1 - state2, state1 - state2)*dx
 
         *Arguments*
         """
-        return dolfin.inner(state1 - state2, state1 - state2)*dolfin.dx
+        return backend.inner(state1 - state2, state1 - state2)*backend.dx
 
     def trivial_solutions(self, function_space):
         """
@@ -184,11 +184,10 @@ class BifurcationProblem(object):
         """
         pass
 
-    def configure_krylov_solver(self, ksp):
+    def configure_snes(self, snes):
         """
-        This method is called on the petsc4py KSP object that will execute
-        the Newton step. It is called before each Newton step, after the
-        matrix has been set on the ksp and before the solve.
+        This method is called on the petsc4py SNES object that will solve
+        the nonlinear problem.
         """
         pass
 

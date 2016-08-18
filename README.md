@@ -26,9 +26,12 @@ The easiest way to run defcon is inside the docker images supplied by the FEniCS
 
 If you're compiling things yourself, defcon depends on
 
-* an MPI library that supports MPI_THREAD_MULTIPLE. In practice this means MPICH and not OpenMPI.
 * mpi4py (http://pythonhosted.org/mpi4py/)
 * FEniCS, compiled with PETSc and petsc4py support (http://fenicsproject.org)
+
+Defcon recommends (and some of the examples depend on)
+
+* matplotlib (http://matplotlib.org)
 
 ## Current status
 
@@ -49,12 +52,12 @@ The contribution of a setup.py would be welcome.
 
 ## Troubleshooting
 
-* Make sure you run with an MPI that supports MPI_THREAD_MULTIPLE.
-* Make sure all Expressions take in the mpi_comm argument (see e.g. examples/navier-stokes).
+* Make sure all Expressions and CompiledSubDomains take in the mpi_comm argument (see e.g. examples/navier-stokes).
 
 ## Contributors
 
 P. E. Farrell <patrick.farrell@maths.ox.ac.uk>
+J. Pollard <j.pollard@protonmail.com>
 
 ## License
 

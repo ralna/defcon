@@ -1,12 +1,18 @@
-from dolfin import *
+import backend
+from backend import Function, Vector, assemble, derivative, product
 
-def empty_vector(model):
-  """
-  Make a zero vector from a model, including parallel layout.
-  """
-  b = Vector(model)
-  b.zero()
-  return b
+# Make a zero vector from a model, including parallel layout
+if backend.__name__ == "dolfin":
+    def empty_vector(model):
+      b = Vector(model)
+      b.zero()
+      return b
+
+elif backend.__name__ == "firedrake":
+    def empty_vector(model):
+      b = model.copy()
+      b.dat.zero()
+      return b
 
 class DeflationOperator(object):
     """
@@ -25,14 +31,15 @@ class ShiftedDeflation(DeflationOperator):
     """
     The shifted deflation operator presented in doi:10.1137/140984798.
     """
-    def __init__(self, problem, power, shift):
+    def __init__(self, problem, parameters, power, shift):
         self.problem = problem
+        self.parameters = parameters
         self.power = power
         self.shift = shift
         self.roots = []
 
     def normsq(self, y, root):
-        return self.problem.squared_norm(y, root)
+        return self.problem.squared_norm(y, root, self.parameters)
 
     def evaluate(self, y):
         m = 1.0
@@ -45,7 +52,6 @@ class ShiftedDeflation(DeflationOperator):
     def derivative(self, y):
         if len(self.roots) == 0:
             deta = empty_vector(y.vector())
-            deta.zero()
             return deta
 
         p = self.power
@@ -69,10 +75,11 @@ class ShiftedDeflation(DeflationOperator):
         eta = product(factors)
 
         deta = empty_vector(y.vector())
-        deta.zero()
 
         for (solution, factor, dfactor, dnormsq) in zip(self.roots, factors, dfactors, dnormsqs):
-            deta.axpy((eta/factor)*dfactor, dnormsq)
+            if backend.__name__ == "firedrake":
+                dnormsq = dnormsq.vector()
+            deta.axpy(float((eta/factor)*dfactor), dnormsq)
 
         return deta
 

@@ -4,11 +4,11 @@ Some utility functions that map teams to ranks and ranks to teams.
 The default strategy is to group ranks sequentially, i.e. if teamsize = 4
 and the ranks are
 
-[0, 1, 2, 3, 4, 5, 6, 7, 8, ...]
+[0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
 
 then the teams will be
 
-[0, 0, 0, 0, 1, 1, 1, 1, 2, ...]
+[10, 0, 0, 0, 0, 1, 1, 1, 1]
 
 but this may not be optimal on your machine. If you want to implement a different
 layout, just change these two functions.
@@ -18,7 +18,9 @@ import math
 from mpi4py import MPI
 
 def ranktoteamno(rank, teamsize):
-    return int(math.floor((rank)/float(teamsize)))
+    if rank == 0:
+        return MPI.COMM_WORLD.size
+    return int(math.floor((rank-1)/float(teamsize)))
 
 def teamnotoranks(teamno, teamsize):
     return range(teamno*teamsize, (teamno+1)*teamsize)

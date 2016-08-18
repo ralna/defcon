@@ -2,28 +2,31 @@
 import sys
 from   math import floor
 
+from petsc4py import PETSc
+from firedrake import *
 from defcon import *
-from dolfin import *
 
 import matplotlib.pyplot as plt
 
-args = [sys.argv[0]] + """
-                       --petsc.snes_max_it 100
-                       --petsc.snes_atol 1.0e-9
-                       --petsc.snes_rtol 0.0
-                       --petsc.snes_monitor
-
-                       --petsc.ksp_type preonly
-                       --petsc.pc_type lu
-                       """.split()
-parameters.parse(args)
+params = {
+          "snes_max_it": 100,
+          "snes_atol": 1.0e-9,
+          "snes_rtol": 0.0,
+          "snes_monitor": None,
+          "snes_linesearch_type": "basic",
+          "ksp_type": "preonly",
+          "pc_type": "lu"
+         }
+options = PETSc.Options()
+for k in params:
+    options[k] = params[k]
 
 class ElasticaProblem(BifurcationProblem):
     def __init__(self):
         self.bcs = None
 
     def mesh(self, comm):
-        return IntervalMesh(comm, 1000, 0, 1)
+        return IntervalMesh(1000, 0, 1, comm=comm)
 
     def function_space(self, mesh):
         return FunctionSpace(mesh, "CG", 1)
@@ -58,18 +61,9 @@ class ElasticaProblem(BifurcationProblem):
             # Argh.
             j = sqrt(assemble(inner(theta, theta)*dx))
             g = project(grad(theta)[0], theta.function_space())
-            #return j*g((0.0,))
-            return j
+            return j*g((0.0,))
 
-        def max(theta, params):
-            return theta.vector().max()
-
-        def min(theta, params):
-            return theta.vector().min()
-
-        return [(signedL2, "signedL2", r"$\theta'(0) \|\theta\|$"),
-                (max, "max", r"$\max{\theta}$"),
-                (min, "min", r"$\min{\theta}$")]
+        return [(signedL2, "signedL2", r"$\theta'(0) \|\theta\|$")]
 
     def number_initial_guesses(self, params):
         return 1

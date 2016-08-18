@@ -2,8 +2,8 @@
 import sys
 from   math import degrees, atan2, pi, floor
 
-from defcon import *
 from dolfin import *
+from defcon import *
 
 import matplotlib.pyplot as plt
 
@@ -23,8 +23,7 @@ class RootsOfUnityProblem(BifurcationProblem):
         return UnitIntervalMesh(comm, 2)
 
     def function_space(self, mesh):
-        R = FunctionSpace(mesh, "R", 0)
-        return MixedFunctionSpace([R, R])
+        return VectorFunctionSpace(mesh, "R", 0, dim=2)
 
     def parameters(self):
         p = Constant(0)
@@ -69,15 +68,18 @@ class RootsOfUnityProblem(BifurcationProblem):
         # much more quickly. This can be disabled without changing the
         # correctness of the calculations.
         p = params[0]
-        return int(floor(p/2.0))*2
+        if p == 2:
+            return 1
+        else:
+            return int(floor(p/2.0))*2
 
     def trivial_solutions(self, V):
         return [interpolate(Constant((1, 0)), V)]
 
 if __name__ == "__main__":
     io = FileIO("output")
-    dc = DeflatedContinuation(problem=RootsOfUnityProblem(), io=io, teamsize=1, verbose=True)
-    dc.run(free={"p": linspace(2.0, 9.0, 21)})
+    dc = DeflatedContinuation(problem=RootsOfUnityProblem(), io=io, teamsize=1, verbose=True, logfiles=False)
+    dc.run(free={"p": linspace(2.0, 9.0, 501)})
 
     dc.bifurcation_diagram("arg")
     plt.title(r"Bifurcation diagram for the roots of unity")

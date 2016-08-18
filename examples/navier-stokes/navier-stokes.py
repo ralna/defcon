@@ -100,9 +100,6 @@ class NavierStokesProblem(BifurcationProblem):
         elif Re < 100: return 8
         else:          return float("inf")
 
-    def configure_krylov_solver(self, ksp):
-        pass
-
 if __name__ == "__main__":
     io = FileIO("output")
     dc = DeflatedContinuation(problem=NavierStokesProblem(), io=io, teamsize=1, verbose=True)

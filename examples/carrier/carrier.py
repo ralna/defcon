@@ -81,8 +81,10 @@ class CarrierProblem(BifurcationProblem):
         nbifurcations = len([x for x in self.pitchbfs + self.foldbfs if x >= eps])
         return (nbifurcations+1)*2
 
-    def squared_norm(self, a, b):
-        return inner(a - b, a - b)*dx + inner(grad(a - b), grad(a - b))*dx
+    def squared_norm(self, a, b, params):
+        eps = params[0]
+
+        return inner(a - b, a - b)*dx + sqrt(eps)*inner(grad(a - b), grad(a - b))*dx
 
 if __name__ == "__main__":
     io = FileIO("output")

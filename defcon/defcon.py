@@ -1,16 +1,19 @@
+# -*- coding: utf-8 -*-
+
 from operatordeflation import ShiftedDeflation
 from parallellayout import ranktoteamno, teamnotoranks
-from parametertools import parameterstofloats, parameterstoconstants, nextparameters
+from parametertools import parameterstofloats, parameterstoconstants, nextparameters, prevparameters
 from newton import newton
 from tasks import QuitTask, ContinuationTask, DeflationTask, Response
+from journal import Journal, FileJournal
 
-import dolfin
+import backend
 
 from mpi4py import MPI
 from petsc4py import PETSc
+from numpy import isinf
 
 import math
-import threading
 import time
 import sys
 import signal
@@ -27,7 +30,7 @@ class DeflatedContinuation(object):
     This class is the main driver that implements deflated continuation.
     """
 
-    def __init__(self, problem, io, deflation=None, teamsize=1, verbose=False, logfiles=False):
+    def __init__(self, problem, io, deflation=None, teamsize=1, verbose=False, logfiles=False, strict=False):
         """
         Constructor.
 
@@ -44,12 +47,13 @@ class DeflatedContinuation(object):
             Activate verbose output.
           logfiles (:py:class:`bool`)
             Whether defcon should remap stdout/stderr to logfiles (useful for many processes).
+          strict (:py:class:`bool`)
+            Whether defcon should only run deflation processes when there's no change of finding 
+            the same solution as a continuation task. 
         """
         self.problem = problem
 
-        if deflation is None:
-            deflation = ShiftedDeflation(problem, power=2, shift=1)
-        self.deflation = deflation
+        self.strict = strict
 
         self.teamsize = teamsize
         self.verbose = verbose
@@ -60,8 +64,8 @@ class DeflatedContinuation(object):
         self.rank = self.worldcomm.rank
 
         # Assert even divisibility of team sizes
-        assert self.worldcomm.size % teamsize == 0
-        self.nteams = self.worldcomm.size / self.teamsize
+        assert (self.worldcomm.size-1) % teamsize == 0
+        self.nteams = (self.worldcomm.size-1) / self.teamsize
 
         # Create local communicator for the team I will join
         self.teamno = ranktoteamno(self.rank, self.teamsize)
@@ -74,15 +78,17 @@ class DeflatedContinuation(object):
         # We also need to create a communicator for rank 0 to talk to each
         # team (except for team 0, which it already has, as it is a member)
         if self.rank == 0:
-            self.teamcomms = [self.teamcomm]
-            for teamno in range(1, self.nteams):
+            self.mastercomm = self.teamcomm
+            self.teamcomms = []
+            for teamno in range(0, self.nteams):
+
                 teamcommpluszero = self.worldcomm.Split(teamno, key=0)
                 self.teamcomms.append(teamcommpluszero)
         else:
             if self.teamno == 0:
                 self.mastercomm = self.teamcomm
 
-            for teamno in range(1, self.nteams):
+            for teamno in range(0, self.nteams):
                 if teamno == self.teamno:
                     self.mastercomm = self.worldcomm.Split(self.teamno, key=0)
                 else:
@@ -93,8 +99,8 @@ class DeflatedContinuation(object):
         self.function_space = problem.function_space(self.mesh)
         self.parameters = problem.parameters()
         self.functionals = problem.functionals()
-        self.state = dolfin.Function(self.function_space)
-        self.residual = problem.residual(self.state, parameterstoconstants(self.parameters), dolfin.TestFunction(self.function_space))
+        self.state = backend.Function(self.function_space)
+        self.residual = problem.residual(self.state, parameterstoconstants(self.parameters), backend.TestFunction(self.function_space))
         self.trivial_solutions = problem.trivial_solutions(self.function_space)
 
         io.setup(self.parameters, self.functionals, self.function_space)
@@ -110,9 +116,14 @@ class DeflatedContinuation(object):
                 sys.stdout = open("defcon.log.%d" % self.teamno, "w")
                 sys.stderr = open("defcon.err.%d" % self.teamno, "w")
             else:
-                # FIXME: is there a portable way to deal with this?
-                sys.stdout = open("/dev/null", "w")
-                sys.stderr = open("/dev/null", "w")
+                sys.stdout = open(os.devnull, "w")
+                sys.stderr = open(os.devnull, "w")
+
+        if deflation is None:
+            params = [x[0] for x in self.parameters]
+            deflation = ShiftedDeflation(problem, params, power=2, shift=1)
+        self.deflation = deflation
+
 
     def log(self, msg, master=False):
         if not self.verbose: return
@@ -161,27 +172,15 @@ class DeflatedContinuation(object):
                 freeindex = index
 
         if freeparam is None:
-            dolfin.info_red("Cannot find %s in parameters %s." % (free.keys()[0], [param[1] for param in self.parameters]))
+            backend.info_red("Cannot find %s in parameters %s." % (free.keys()[0], [param[1] for param in self.parameters]))
             assert freeparam is not None
 
         values = list(free[freeparam[1]])
 
         if self.rank == 0:
-            # Argh. MPI is so ugly. I can't have one thread on rank 0 bcasting
-            # to rank 0's team (in the master), and have another thread on rank 0 bcasting
-            # to receive it (in the worker). So I have to have a completely different
-            # message passing mechanism for master to rank 0, compared to everyone else.
             self.zerotask = []
             self.zerobranchid = []
-
-            # fork the worker team
-            args = (freeindex, values)
-            thread = threading.Thread(target=self.worker, args=args)
-            thread.start()
-
-            # and start the master coordinating process
             self.master(freeindex, values)
-            thread.join()
         else:
             # join a worker team
             self.worker(freeindex, values)
@@ -225,10 +224,12 @@ class DeflatedContinuation(object):
             while len(self.zerobranchid) == 0:
                 time.sleep(0.01)
             branchid = self.zerobranchid.pop(0)
+            self.log("Got branchid %d" % branchid)
             return branchid
 
         else:
             branchid = self.mastercomm.bcast(None)
+            self.log("Got branchid %d" % branchid)
             return branchid
 
     def compute_functionals(self, solution, params):
@@ -290,6 +291,7 @@ class DeflatedContinuation(object):
 
         # Next, seed the list of tasks to perform with the initial search
         newtasks = []  # tasks yet to be sent out
+        deferredtasks = [] # tasks that we've been forced to defer as we don't have enough information to ensure they're necessary; only used in strict mode
         waittasks = {} # tasks sent out, waiting to hear back about
 
         # A dictionary of parameters -> branches to ensure they exist,
@@ -305,66 +307,157 @@ class DeflatedContinuation(object):
             sign = -1
             minvals = max
 
-        initialparams = parameterstofloats(self.parameters, freeindex, values[0])
-        knownbranches = self.io.known_branches(initialparams)
-        if len(knownbranches) > 0:
-            self.log("Using known solutions at %s" % (initialparams,), master=True)
-            nguesses = len(knownbranches)
-            oldparams = initialparams
-            initialparams = nextparameters(values, freeindex, initialparams)
+        # If there's only one process, show a warning. FIXME: do something more advanced so we can run anyway. 
+        if self.worldcomm.size < 2:
+            backend.info_red("Defcon started with only 1 process. At least 2 processes are required (one master, one worker).\n\nLaunch with mpiexec: mpiexec -n <number of processes> python <path to file>")
+            import sys; sys.exit(1)
 
-            for guess in range(nguesses):
-                task = ContinuationTask(taskid=taskid_counter,
-                                        oldparams=oldparams,
-                                        branchid=taskid_counter,
-                                        newparams=initialparams)
-                heappush(newtasks, (-1, task))
-                taskid_counter += 1
-        else:
-            self.log("Using user-supplied initial guesses at %s" % (initialparams,), master=True)
-            oldparams = None
-            nguesses = self.problem.number_solutions(initialparams)
+        # Create a journal object. 
+        journal = FileJournal(self.io.directory, self.parameters, self.functionals, freeindex, sign)
+        try:
+            assert(journal.exists())
+            # The journal file already exists. Let's find out what we already know so we can resume our computation where we left off.
+            previous_sweep, branches = journal.resume()
+            branchid_counter = len(branches)
 
-            for guess in range(nguesses):
-                task = DeflationTask(taskid=taskid_counter,
-                                     oldparams=oldparams,
-                                     branchid=taskid_counter,
-                                     newparams=initialparams)
-                heappush(newtasks, (-1, task))
-                taskid_counter += 1
+            # Set all teams to idle.
+            for teamno in range(self.nteams):
+                journal.team_job(teamno, "i")         
+
+            # Schedule continuation tasks for any branches that aren't done yet.
+            for branchid in branches.keys():
+                oldparams = branches[branchid]
+                newparams = nextparameters(values, freeindex, oldparams)
+                if newparams is not None:
+                    task = ContinuationTask(taskid=taskid_counter,
+                                            oldparams=oldparams,
+                                            branchid=int(branchid),
+                                            newparams=newparams)
+                    heappush(newtasks, (-1, task))
+                    taskid_counter += 1
+
+
+            # We need to schedule deflation tasks at every point from where we'd completed our sweep up to previously 
+            # to the furthest we've got in continuation, on every branch.
+            for branchid in branches.keys():
+		# Get the fixed parameters
+                oldparams = list(parameterstofloats(self.parameters, freeindex, values[0]))
+                oldparams[freeindex] = previous_sweep
+                newparams = nextparameters(values, freeindex, tuple(oldparams))
+                while newparams is not None and sign*newparams[freeindex] <= sign*branches[branchid][freeindex]: 
+                    # As long as we're not at the end of the parameter range and we haven't exceeded the extent
+                    # of this branch, schedule a deflation. 
+                    task = DeflationTask(taskid=taskid_counter,
+                                         oldparams=oldparams,
+                                         branchid=branchid, 
+                                         newparams=newparams)
+                    taskid_counter += 1
+                    heappush(newtasks, (sign*task.newparams[freeindex], task))
+
+                    oldparams = newparams
+                    newparams = nextparameters(values, freeindex, newparams)
+
+        except Exception:
+            # Either the journal file does not exist, or something else bad happened. 
+            # Oh well, start from scratch.
+            journal.setup(self.nteams, min(values), max(values))
+            initialparams = parameterstofloats(self.parameters, freeindex, values[0])
+            previous_sweep = initialparams[freeindex]
+
+            # Send off initial tasks
+            knownbranches = self.io.known_branches(initialparams)
+            if len(knownbranches) > 0:
+                self.log("Using known solutions at %s" % (initialparams,), master=True)
+                nguesses = len(knownbranches)
+                oldparams = initialparams
+                initialparams = nextparameters(values, freeindex, initialparams)
+
+                for guess in range(nguesses):
+                    task = ContinuationTask(taskid=taskid_counter,
+                                            oldparams=oldparams,
+                                            branchid=taskid_counter,
+                                            newparams=initialparams)
+                    heappush(newtasks, (-1, task))
+                    taskid_counter += 1
+            else:
+                self.log("Using user-supplied initial guesses at %s" % (initialparams,), master=True)
+                oldparams = None
+                nguesses = self.problem.number_initial_guesses(initialparams)
+                for guess in range(nguesses):
+                    task = DeflationTask(taskid=taskid_counter,
+                                         oldparams=oldparams,
+                                         branchid=taskid_counter,
+                                         newparams=initialparams)
+                    heappush(newtasks, (-1, task))
+                    taskid_counter += 1
 
         # Here comes the main master loop.
-        while len(newtasks) + len(waittasks) > 0:
+        while len(newtasks) + len(waittasks) + len(deferredtasks) > 0:
             # If there are any tasks to send out, send them.
             while len(newtasks) > 0 and len(idleteams) > 0:
                 (priority, task) = heappop(newtasks)
 
-                # Let's check if we have found enough solutions already
+                # Let's check if we have found enough solutions already.
+                send = True
                 if isinstance(task, DeflationTask):
                     knownbranches = self.io.known_branches(task.newparams)
                     if task.newparams in ensure_branches:
                         knownbranches = knownbranches.union(ensure_branches[task.newparams])
                     if len(knownbranches) >= self.problem.number_solutions(task.newparams):
-                    # We've found all the branches the user's asked us for, let's roll
+                    # We've found all the branches the user's asked us for, let's roll.
                         self.log("Master not dispatching %s because we have enough solutions" % task, master=True)
                         continue
 
-                # OK, we're happy to send it out. Let's tell it any new information
-                # we've found out since we scheduled it.
-                if task.newparams in ensure_branches:
-                    task.ensure(ensure_branches[task.newparams])
+                    # Strict mode: If either there's still a task looking for solutions on earlier
+                    # parameters, we want to not send this task out now and look at it again later.
+                    # This is because the currently running task might find a branch that we will
+                    # to deflate here.
+                    if self.strict:
+                        for (t, r) in waittasks.values():
+                            if (sign*t.newparams[freeindex]<=sign*task.newparams[freeindex]):
+                                send = False
+                                break
 
-                idleteam = idleteams.pop(0)
-                self.send_task(task, idleteam)
-                waittasks[task.taskid] = (task, idleteam)
+                if send:
+                    # OK, we're happy to send it out. Let's tell it any new information
+                    # we've found out since we scheduled it.
+                    if task.newparams in ensure_branches:
+                        task.ensure(ensure_branches[task.newparams])
+                    idleteam = idleteams.pop(0)
+                    self.send_task(task, idleteam)
+                    waittasks[task.taskid] = (task, idleteam)
+
+                    # Write to the journal, saying that this team is now performing deflation. 
+                    journal.team_job(idleteam, "d")
+                else: 
+                    # Best reschedule for later, as there is still pertinent information yet to come in. 
+                    self.log("Deferring task %s." % task, master=True)
+                    heappush(deferredtasks, (priority, task))
+
 
             # We can't send out any more tasks, either because we have no
             # tasks to send out or we have no free processors.
             # If we aren't waiting for anything to finish, we'll exit the loop
             # here. otherwise, we wait for responses and deal with consequences.
             if len(waittasks) > 0:
-                minwait = minvals([wtask[0].newparams[freeindex] for wtask in waittasks.values()] + [ntask[1].newparams[freeindex] for ntask in newtasks])
-                self.log("Cannot dispatch any tasks, waiting for response. Sweep completed up to: %14.12e" % (minwait), master=True)
+                self.log("Cannot dispatch any tasks, waiting for response.", master=True)
+
+                waiting_values = [wtask[0].oldparams for wtask in waittasks.values() if wtask[0].oldparams is not None]
+                newtask_values = [ntask[1].oldparams for ntask in newtasks if ntask[1].oldparams is not None]
+                if len(waiting_values + newtask_values) > 0:
+                    minparams = minvals(waiting_values + newtask_values, key = lambda x: x[freeindex])
+                    prevparams = prevparameters(values, freeindex, minparams)
+                    if prevparams is not None:
+                        minwait = prevparams[freeindex]
+
+                        tot_solutions = self.problem.number_solutions(minparams)
+                        if isinf(tot_solutions): tot_solutions = '∞'
+                        num_solutions = len(self.io.known_branches(minparams))
+                        self.log("Sweep completed <= %14.12e (%s/%s solutions)." % (minwait, num_solutions, tot_solutions), master=True)
+
+                        # Write to the journal saying where we've completed our sweep up to.
+                        journal.sweep(minwait)
+
                 response = self.worldcomm.recv(status=stat, source=MPI.ANY_SOURCE, tag=self.responsetag)
 
                 (task, team) = waittasks[response.taskid]
@@ -376,6 +469,9 @@ class DeflatedContinuation(object):
                 if isinstance(task, ContinuationTask):
                     if response.success:
 
+                        # Record this entry in the journal. 
+                        journal.entry(team, task.oldparams, task.branchid, task.newparams, response.functionals, True)
+
                         # The worker will keep continuing, record that fact
                         newparams = nextparameters(values, freeindex, task.newparams)
                         if newparams is not None:
@@ -385,24 +481,23 @@ class DeflatedContinuation(object):
                                                         newparams=newparams)
                             waittasks[task.taskid] = ((conttask, team))
                             self.log("Waiting on response for %s" % conttask, master=True)
+                            journal.team_job(team, "c")
                         else:
                             idleteams.append(team)
+                            journal.team_job(team, "i")
 
-                        # Either way, we want to add a deflation task to the
-                        # queue. FIXME: we should really wait until *all*
-                        # continuation tasks have reached this point or died,
-                        # and then insert *all* deflation tasks at once. But
-                        # that's a refinement.
                         newtask = DeflationTask(taskid=taskid_counter,
                                                 oldparams=task.oldparams,
                                                 branchid=task.branchid,
                                                 newparams=task.newparams)
                         taskid_counter += 1
                         heappush(newtasks, (sign*newtask.newparams[freeindex], newtask))
+
                     else:
                         # We tried to continue a branch, but the continuation died. Oh well.
                         # The team is now idle.
                         idleteams.append(team)
+                        journal.team_job(team, "i")
 
                 elif isinstance(task, DeflationTask):
                     if response.success:
@@ -412,6 +507,9 @@ class DeflatedContinuation(object):
                         # to catch duplicates --- in that event, send None. But
                         # for now we'll just accept it.
                         self.send_branchid(branchid_counter, team)
+
+                        # Record this new solution in the journal
+                        journal.entry(team, task.oldparams, branchid_counter, task.newparams, response.functionals, False)
 
                         # 2. Insert a new deflation task, to seek again with the same settings.
                         newtask = DeflationTask(taskid=taskid_counter,
@@ -436,10 +534,14 @@ class DeflatedContinuation(object):
                                                         newparams=newparams)
                             waittasks[task.taskid] = ((conttask, team))
                             self.log("Waiting on response for %s" % conttask, master=True)
+
+                            # Write to the journal, saying that this team is now doing continuation.
+                            journal.team_job(team, "c")
                         else:
                             # It's at the end of the continuation, there's no more continuation
                             # to do. Mark the team as idle.
                             idleteams.append(team)
+                            journal.team_job(team, "i")
 
                         # We'll also make sure that any other DeflationTasks in the queue
                         # that have these parameters know about the existence of this branch.
@@ -448,14 +550,28 @@ class DeflatedContinuation(object):
                         ensure_branches[task.newparams].add(branchid_counter)
 
                         branchid_counter += 1
+
                     else:
                         # As expected, deflation found nothing interesting. The team is now idle.
                         idleteams.append(team)
+                        journal.team_job(team, "i")
+
+            # Maybe we deferred some deflation tasks because we didn't have enough information to judge if they were worthwhile. Now we must reschedule.
+            if len(deferredtasks) > 0:
+                # Take as many as there are idle teams. This makes things run much smoother than taking them all. 
+                for i in range(len(idleteams)):
+                    try:
+                        (priority, task) = heappop(deferredtasks)
+                        heappush(newtasks, (priority, task))
+                        self.log("Rescheduling the previously deferred task %s" % task, master=True)
+                    except IndexError: break
 
         # All continuation tasks have been finished. Tell the workers to quit.
         quit = QuitTask()
         for teamno in range(self.nteams):
             self.send_task(quit, teamno)
+            journal.team_job(teamno, "q")
+
 
     def worker(self, freeindex, values):
         """
@@ -494,11 +610,15 @@ class DeflatedContinuation(object):
                 bcs = self.problem.boundary_conditions(self.function_space, task.newparams)
 
                 self.deflation.deflate(other_solutions + self.trivial_solutions)
-                success = newton(self.residual, self.state, bcs, self.deflation, ksp_setup=self.problem.configure_krylov_solver)
+                success = newton(self.residual, self.state, bcs, self.deflation, snes_setup=self.problem.configure_snes)
 
                 self.state_id = (None, None) # not sure if it is a solution we care about yet
 
-                response = Response(task.taskid, success=success)
+                # Get the functionals now, so we can send them to the master.
+                if success: functionals = self.compute_functionals(self.state, task.newparams)
+                else: functionals = None
+
+                response = Response(task.taskid, success=success, functionals=functionals)
                 if self.teamrank == 0:
                     self.log("Sending response %s to master" % response)
                     self.worldcomm.send(response, dest=0, tag=self.responsetag)
@@ -508,13 +628,10 @@ class DeflatedContinuation(object):
                     if branchid is not None:
                         # We do care about this solution, so record the fact we have it in memory
                         self.state_id = (task.newparams, branchid)
-
                         # Save it to disk with the I/O module
-                        functionals = self.compute_functionals(self.state, task.newparams)
                         self.log("Found new solution at parameters %s (branchid=%s) with functionals %s" % (task.newparams, branchid, functionals))
                         self.problem.monitor(task.newparams, branchid, self.state, functionals)
-                        self.io.save_solution(self.state, task.newparams, branchid)
-                        self.io.save_functionals(functionals, task.newparams, branchid)
+                        self.io.save_solution(self.state, functionals, task.newparams, branchid)
                         self.log("Saved solution to %s to disk" % task)
 
                         # Automatically start onto the continuation
@@ -531,6 +648,7 @@ class DeflatedContinuation(object):
                         # Branch id is None, ignore the solution and move on
                         task = self.fetch_task()
                 else:
+
                     # Deflation failed, move on
                     task = self.fetch_task()
 
@@ -546,7 +664,7 @@ class DeflatedContinuation(object):
 
                 # Try to solve it
                 self.deflation.deflate(other_solutions + self.trivial_solutions)
-                success = newton(self.residual, self.state, bcs, self.deflation, ksp_setup=self.problem.configure_krylov_solver)
+                success = newton(self.residual, self.state, bcs, self.deflation, snes_setup=self.problem.configure_snes)
 
                 if success:
                     self.state_id = (task.newparams, task.branchid)
@@ -554,12 +672,13 @@ class DeflatedContinuation(object):
                     # Save it to disk with the I/O module
                     functionals = self.compute_functionals(self.state, task.newparams)
                     self.problem.monitor(task.newparams, task.branchid, self.state, functionals)
-                    self.io.save_solution(self.state, task.newparams, task.branchid)
-                    self.io.save_functionals(functionals, task.newparams, task.branchid)
+                    self.io.save_solution(self.state, functionals, task.newparams, task.branchid)
+
                 else:
+                    functionals = None
                     self.state_id = (None, None)
 
-                response = Response(task.taskid, success=success)
+                response = Response(task.taskid, success=success, functionals=functionals)
                 if self.teamrank == 0:
                     self.log("Sending response %s to master" % response)
                     self.worldcomm.send(response, dest=0, tag=self.responsetag)
@@ -579,9 +698,8 @@ class DeflatedContinuation(object):
 
         import matplotlib.pyplot as plt
 
-        params = self.io.known_parameters(fixed)
 
-        # Argh. Find the functional index.
+        # Find the functional index.
         funcindex = None
         for (i, functionaldata) in enumerate(self.functionals):
             if functionaldata[1] == functional:
@@ -597,18 +715,17 @@ class DeflatedContinuation(object):
         assert len(freeindices) == 1
         freeindex = freeindices[0]
 
-
         for branchid in range(self.io.max_branch() + 1):
             xs = []
             ys = []
-
-            for param in sorted(params):
-                if branchid in self.io.known_branches(param):
-                    func = self.io.fetch_functionals(param, [branchid])[0][funcindex]
-                    xs.append(param[freeindex])
-                    ys.append(func)
-
-            plt.plot(xs, ys, 'ok', label="Branch %d" % branchid, linewidth=2, markersize=1)
+            params = self.io.known_parameters(fixed, branchid)
+            funcs = self.io.fetch_functionals(params, branchid)
+            for i in xrange(0, len(params)):
+                param = params[i]
+                func = funcs[i]
+                xs.append(param[freeindex])
+                ys.append(func[funcindex])
+            plt.plot(xs, ys, 'ok', label="Branch %d" % branchid, linewidth=2, linestyle='-', markersize=1)
 
         plt.grid()
         plt.xlabel(self.parameters[freeindex][2])
