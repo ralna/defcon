@@ -19,7 +19,6 @@ import time as TimeModule
 
 # Imports for the paraview and hdf5topvd methods.
 from subprocess import Popen
-from dolfin import *
 from parametertools import parameterstostring
 
 # We'll use literal_eval to get lists and tuples back from the journal. 
