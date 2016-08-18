@@ -377,7 +377,7 @@ class DeflatedContinuation(object):
             else:
                 self.log("Using user-supplied initial guesses at %s" % (initialparams,), master=True)
                 oldparams = None
-                nguesses = self.problem.number_initial_guesses(initialparams)#solutions(initialparams)
+                nguesses = self.problem.number_initial_guesses(initialparams)
                 for guess in range(nguesses):
                     task = DeflationTask(taskid=taskid_counter,
                                          oldparams=oldparams,
@@ -533,7 +533,7 @@ class DeflatedContinuation(object):
                         idleteams.append(team)
                         journal.team_job(team, "i")
 
-            # We deferred some deflation tasks because we didn't have enough information to judge if they were worthwhile. Now we must reschedule.
+            # Maybe we deferred some deflation tasks because we didn't have enough information to judge if they were worthwhile. Now we must reschedule.
             if len(deferredtasks) > 0:
                 # Take as many as there are idle teams. This makes things run much smoother than taking them all. 
                 for i in range(len(idleteams)):
@@ -608,8 +608,7 @@ class DeflatedContinuation(object):
                         # Save it to disk with the I/O module
                         self.log("Found new solution at parameters %s (branchid=%s) with functionals %s" % (task.newparams, branchid, functionals))
                         self.problem.monitor(task.newparams, branchid, self.state, functionals)
-                        self.io.save_solution(self.state, task.newparams, branchid)
-                        self.io.save_functionals(functionals, task.newparams, branchid)
+                        self.io.save_solution(self.state, functionals, task.newparams, branchid)
                         self.log("Saved solution to %s to disk" % task)
 
                         # Automatically start onto the continuation
@@ -650,8 +649,7 @@ class DeflatedContinuation(object):
                     # Save it to disk with the I/O module
                     functionals = self.compute_functionals(self.state, task.newparams)
                     self.problem.monitor(task.newparams, task.branchid, self.state, functionals)
-                    self.io.save_solution(self.state, task.newparams, task.branchid)
-                    self.io.save_functionals(functionals, task.newparams, task.branchid)
+                    self.io.save_solution(self.state, functionals, task.newparams, task.branchid)
 
                 else:
                     functionals = None
@@ -697,10 +695,13 @@ class DeflatedContinuation(object):
         for branchid in range(self.io.max_branch() + 1):
             xs = []
             ys = []
-            for param in sorted(self.io.known_parameters(fixed, branchid)):
-                func = self.io.fetch_functionals(param, [branchid])[0][funcindex]
+            params = self.io.known_parameters(fixed, branchid)
+            funcs = self.io.fetch_functionals(params, branchid)
+            for i in xrange(0, len(params)):
+                param = params[i]
+                func = funcs[i]
                 xs.append(param[freeindex])
-                ys.append(func)
+                ys.append(func[funcindex])
             plt.plot(xs, ys, 'ok', label="Branch %d" % branchid, linewidth=2, linestyle='-', markersize=1)
 
         plt.grid()

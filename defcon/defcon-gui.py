@@ -409,13 +409,21 @@ class PlotConstructor():
                             self.sweep = float(eachLine[1:])
                             if self.sweepline is not None: self.sweepline.remove()
                             self.sweepline = bfdiag.axvline(x=self.sweep, linewidth=1, linestyle=SWEEPSTYLE, color=SWEEP)
+
                         elif eachLine[0] == '~':
                             # This line of the journal is telling us about what the teams are doing. 
                             team, task = eachLine[1:].split(';')
                             self.teamstats[int(team)] = task
                             self.app.update_teamstats(self.teamstats)
                             # If this tells us the teams have quit, we know we're not getting any more new points. 
-                            if task == 'q': self.running = False                                
+                            if task == 'q': 
+                                self.running = False
+                                # Move sweepline to the end. 
+                                xs = [float(point[0][self.freeindex]) for point in self.points] 
+                                self.sweep = xs[-1]
+                                if self.sweepline is not None: self.sweepline.remove()
+                                self.sweepline = bfdiag.axvline(x=self.sweep, linewidth=1, linestyle=SWEEPSTYLE, color=SWEEP)
+                                                             
                         else:
                             # This is a newly discovered point. Get all the information we need.
                             teamno, oldparams, branchid, newparams, functionals, cont = eachLine.split(';')
@@ -621,7 +629,7 @@ class PlotConstructor():
                     plt_ys.append(ys[self.current_functional])
             plt.plot(plt_xs, plt_ys, '-', linewidth=3, color='k')
         plt.show(False)
- 
+
         
 
 
