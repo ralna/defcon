@@ -39,7 +39,7 @@ class FileJournal(Journal):
         self.sign = sign
         self.sweep_params = None
 
-    def setup(self, nteams, minparam, maxparam):       
+    def setup(self, nteams, minparam, maxparam):
         # Create the journal file and directory
         try: os.mkdir(self.directory)
         except OSError: pass
@@ -50,28 +50,20 @@ class FileJournal(Journal):
         unicodeylabels = [func[1] for func in self.functionals]
         with file(self.directory + os.path.sep + "journal.txt", 'w') as f:
             f.write("%s;%s;%s;%s;%s;%s;%s\n" % (self.freeindex, xlabel, ylabels, unicodeylabels, nteams, minparam, maxparam))
-            f.flush()
-            f.close()
 
     def entry(self, teamid, oldparams, branchid, newparams, functionals, continuation):
         with file(self.directory + os.path.sep + "journal.txt", 'a') as f:
             f.write("%s;%s;%s;%s;%s;%s \n" % (teamid, oldparams, branchid, newparams, functionals, continuation))
-            f.flush()
-            f.close()
 
     def sweep(self, params):
         if (self.sweep_params is None) or self.sign*self.sweep_params < self.sign*params:
             self.sweep_params = params
             with file(self.directory + os.path.sep + "journal.txt", 'a') as f:
                 f.write("$%.20f\n" % params) # Need to make sure we get the decimal places correct here, else there will be bugs with checkpointing.
-                f.flush()
-                f.close()
 
     def team_job(self, team, task):
         with file(self.directory + os.path.sep + "journal.txt", 'a') as f:
             f.write("~%s;%s\n" % (team, task))
-            f.flush()
-            f.close()
 
     def exists(self):
         return os.path.exists(self.directory)
@@ -90,20 +82,20 @@ class FileJournal(Journal):
                     sweep = float(eachLine[1:])
                 elif eachLine[0] == '~':
                     # This lines tells us something about what task one of the teams was doing, which is unimportant.
-                    pass   
+                    pass
                 else:
-                    # This tells us about a point we discovered. 
+                    # This tells us about a point we discovered.
                     teamno, oldparams, branchid, newparams, functionals, cont = eachLine.split(';')
                     params = literal_eval(newparams)
                     branches[branchid] = (tuple([float(param) for param in params]), cont)
 
-        # Remove any branches that consist of only one point found by deflation, 
-        # which avoids a bug whereby a point might be discovered by deflation 
-        # and written to the journal, but not saved by the IO module. 
+        # Remove any branches that consist of only one point found by deflation,
+        # which avoids a bug whereby a point might be discovered by deflation
+        # and written to the journal, but not saved by the IO module.
         for branchid in branches.keys():
             if not branches[branchid][1]: del branches[branchid]
 
-        # Strip the 'cont' vaues out of the branches dictionary. 
+        # Strip the 'cont' values out of the branches dictionary.
         branches = dict([(key, branches[key][0]) for key in branches.keys()])
 
         self.sweep_params = sweep

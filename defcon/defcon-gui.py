@@ -535,7 +535,7 @@ class PlotConstructor():
                 x = interpolate(Expression("x[0]", degree=1), V)
                 # FIXME: For functions f other than CG1, we might need to sort both arrays so that x is increasing. Check this out!
                 plt.plot(x.vector().array(), y.vector().array(), '-', linewidth=3, color='b')
-                plt.title("%s: branch %s, params %s" % (problem_class, branchid, params))
+                plt.title("branch %s, params %s" % (branchid, params))
                 plt.axhline(0, color='k') # Plot a black line through the origin
                 plt.show(False) # False here means the window is non-blocking, so we may continue using the GUI while the plot shows. 
             except RuntimeError, e:
@@ -547,7 +547,7 @@ class PlotConstructor():
     def save_movie(self, filename, length, fps):
         """ Creates a matplotlib animation of the plotting up to the current maxtime. """
 
-        # Fix the functional we're currently on, to avoid unplesantness if we try and change it while the movie is writing.
+        # Fix the functional we're currently on, to avoid unpleasantness if we try and change it while the movie is writing.
         self.func_index = self.current_functional
 
         # Make an iterator of the points list.
