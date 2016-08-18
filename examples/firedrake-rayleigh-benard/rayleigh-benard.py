@@ -9,14 +9,18 @@ from defcon import *
 import matplotlib.pyplot as plt
 
 params = {
-          "snes_max_it": 100,
-          "snes_atol": 1.0e-9,
-          "snes_rtol": 0.0,
-          "snes_monitor": None,
-          "snes_linesearch_type": "basic",
-          "ksp_type": "preonly",
-          "pc_type": "lu"
-         }
+    "snes_max_it": 100,
+    "snes_atol": 1.0e-9,
+    "snes_rtol": 0.0,
+    "snes_monitor": None,
+    "snes_linesearch_type": "basic",
+    "ksp_type": "preonly",
+    "ksp_converged_reason": None,
+    "ksp_monitor": None,
+    "pc_type": "lu",
+    "pc_factor_mat_solver_package": "mumps"
+}
+
 options = PETSc.Options()
 for k in params:
     options[k] = params[k]
@@ -26,7 +30,7 @@ class RayleighBenardProblem(BifurcationProblem):
         self.bcs = None
 
     def mesh(self, comm):
-        return RectangleMesh(250, 50, 5.0, 1.0, comm=comm)
+        return RectangleMesh(50, 10, 5.0, 1.0, comm=comm)
 
     def function_space(self, mesh):
         V = VectorFunctionSpace(mesh, "CG", 2)
@@ -84,16 +88,11 @@ class RayleighBenardProblem(BifurcationProblem):
     def initial_guess(self, V, params, n):
         return Function(V)
 
-    def number_solutions(self, params):
-        return float("inf")
-
-#    def squared_norm(self, a, b, params):
-#        return inner(a - b, a - b)*dx + inner(grad(a - b), grad(a - b))*dx
 
 if __name__ == "__main__":
     io = FileIO("output")
     dc = DeflatedContinuation(problem=RayleighBenardProblem(), io=io, teamsize=1, verbose=True)
-    dc.run(free={"Ra": linspace(1700, 1780, 81)}, fixed={"Pr": 6.8})
+    dc.run(free={"Ra": linspace(1700, 1780, 1.0)}, fixed={"Pr": 6.8})
 
     dc.bifurcation_diagram("sqL2", fixed={"Pr": 6.8})
     plt.title(r"Rayleigh-Benard convection, $Pr = 6.8$")
