@@ -183,7 +183,7 @@ class DeflatedContinuation(object):
             self.master(freeindex, values)
         else:
             # join a worker team
-            self.worker(freeindex, values)   
+            self.worker(freeindex, values)
 
     def send_task(self, task, team):
         self.log("Sending task %s to team %s" % (task, team), master=True)
@@ -262,7 +262,6 @@ class DeflatedContinuation(object):
     def load_parameters(self, params):
         for (param, value) in zip(self.parameters, params):
             param[0].assign(value)
-     
 
     def master(self, freeindex, values):
         """
@@ -292,7 +291,7 @@ class DeflatedContinuation(object):
 
         # Next, seed the list of tasks to perform with the initial search
         newtasks = []  # tasks yet to be sent out
-        deferredtasks = [] # tasks that we've been forced to defer as we don't have enough information to ensure they're necessary
+        deferredtasks = [] # tasks that we've been forced to defer as we don't have enough information to ensure they're necessary; only used in strict mode
         waittasks = {} # tasks sent out, waiting to hear back about
 
         # A dictionary of parameters -> branches to ensure they exist,
@@ -311,13 +310,13 @@ class DeflatedContinuation(object):
         # If there's only one process, show a warning. FIXME: do something more advanced so we can run anyway. 
         if self.worldcomm.size < 2:
             backend.info_red("Defcon started with only 1 process. At least 2 processes are required (one master, one worker).\n\nLaunch with mpiexec: mpiexec -n <number of processes> python <path to file>")
-            assert self.worldcomm.size > 1
+            import sys; sys.exit(1)
 
         # Create a journal object. 
         journal = FileJournal(self.io.directory, self.parameters, self.functionals, freeindex, sign)
         try:
             assert(journal.exists())
-            # The journal file already exists. Lets find out what we already know so we can resume our computation where we left off.
+            # The journal file already exists. Let's find out what we already know so we can resume our computation where we left off.
             previous_sweep, branches = journal.resume()
             branchid_counter = len(branches)
 
@@ -337,10 +336,11 @@ class DeflatedContinuation(object):
                     heappush(newtasks, (-1, task))
                     taskid_counter += 1
 
-            
+
             # We need to schedule deflation tasks at every point from where we'd completed our sweep up to previously 
             # to the furthest we've got in continuation, on every branch.
             for branchid in branches.keys():
+		# Get the fixed parameters
                 oldparams = list(parameterstofloats(self.parameters, freeindex, values[0]))
                 oldparams[freeindex] = previous_sweep
                 newparams = nextparameters(values, freeindex, tuple(oldparams))
@@ -364,7 +364,7 @@ class DeflatedContinuation(object):
             initialparams = parameterstofloats(self.parameters, freeindex, values[0])
             previous_sweep = initialparams[freeindex]
 
-            # Send off intial tasks
+            # Send off initial tasks
             knownbranches = self.io.known_branches(initialparams)
             if len(knownbranches) > 0:
                 self.log("Using known solutions at %s" % (initialparams,), master=True)
@@ -408,15 +408,16 @@ class DeflatedContinuation(object):
                         self.log("Master not dispatching %s because we have enough solutions" % task, master=True)
                         continue
 
-                    # Strict mode: If either there's still a continuation task looking for solutions on earlier 
-                    # parameters,  or there's a deflation task still looking for a new branch on earlier 
-                    # parameter values, we want to not send this task out now and look at it again later.
+                    # Strict mode: If either there's still a task looking for solutions on earlier
+                    # parameters, we want to not send this task out now and look at it again later.
+                    # This is because the currently running task might find a branch that we will
+                    # to deflate here.
                     if self.strict:
                         for (t, r) in waittasks.values():
                             if (sign*t.newparams[freeindex]<=sign*task.newparams[freeindex]):
                                 send = False
                                 break
-                                         
+
                 if send:
                     # OK, we're happy to send it out. Let's tell it any new information
                     # we've found out since we scheduled it.
@@ -456,9 +457,6 @@ class DeflatedContinuation(object):
 
                         # Write to the journal saying where we've completed our sweep up to.
                         journal.sweep(minwait)
-                    else: # special case for the first parameter value, start the sweep at the initial value
-                        # Write to the journal saying where we've completed our sweep up to.
-                        journal.sweep(minparams[freeindex])
 
                 response = self.worldcomm.recv(status=stat, source=MPI.ANY_SOURCE, tag=self.responsetag)
 
@@ -504,7 +502,10 @@ class DeflatedContinuation(object):
                 elif isinstance(task, DeflationTask):
                     if response.success:
                         # In this case, we want the master to
-                        # 1. Allocate a new branch id for the discovered branch. There cannot be duplicates. 
+                        # 1. Allocate a new branch id for the discovered branch.
+                        # FIXME: We might want to make this more sophisticated
+                        # to catch duplicates --- in that event, send None. But
+                        # for now we'll just accept it.
                         self.send_branchid(branchid_counter, team)
 
                         # Record this new solution in the journal
@@ -571,7 +572,7 @@ class DeflatedContinuation(object):
             self.send_task(quit, teamno)
             journal.team_job(teamno, "q")
 
-       
+
     def worker(self, freeindex, values):
         """
         The main worker routine.
@@ -729,4 +730,3 @@ class DeflatedContinuation(object):
         plt.grid()
         plt.xlabel(self.parameters[freeindex][2])
         plt.ylabel(self.functionals[funcindex][2])
-

@@ -58,7 +58,8 @@ class ElasticaProblem(BifurcationProblem):
             # Argh.
             j = sqrt(assemble(inner(theta, theta)*dx))
             g = project(grad(theta)[0], theta.function_space())
-            return j*g((0.0,))
+            #return j*g((0.0,))
+            return j
 
         def max(theta, params):
             return theta.vector().max()
@@ -92,7 +93,7 @@ class ElasticaProblem(BifurcationProblem):
 
 if __name__ == "__main__":
     io = FileIO("output")
-    dc = DeflatedContinuation(problem=ElasticaProblem(), io=io, teamsize=1, verbose=True)
+    dc = DeflatedContinuation(problem=ElasticaProblem(), io=io, teamsize=2, verbose=True)
     dc.run(free={"lambda": linspace(0, 3.9*pi, 200)}, fixed={"mu": 0.5})
 
     dc.bifurcation_diagram("signedL2", fixed={"mu": 0.5})

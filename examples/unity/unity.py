@@ -2,13 +2,10 @@
 import sys
 from   math import degrees, atan2, pi, floor
 
-from petsc4py import PETSc
 from dolfin import *
 from defcon import *
 
 import matplotlib.pyplot as plt
-
-from numpy import arange, linspace
 
 args = [sys.argv[0]] + """
                        --petsc.snes_max_it 50
@@ -71,7 +68,7 @@ class RootsOfUnityProblem(BifurcationProblem):
         # much more quickly. This can be disabled without changing the
         # correctness of the calculations.
         p = params[0]
-        if p==2.0:
+        if p == 2:
             return 1
         else:
             return int(floor(p/2.0))*2

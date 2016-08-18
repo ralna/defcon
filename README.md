@@ -25,7 +25,6 @@ Defcon depends on
 
 * mpi4py (http://pythonhosted.org/mpi4py/)
 * FEniCS, compiled with PETSc and petsc4py support (http://fenicsproject.org)
-* h5py (http://www.h5py.org)
 
 Defcon recommends (and some of the examples depend on)
 

@@ -207,6 +207,9 @@ class IO(object):
     Base class for I/O implementations.
     """
 
+    def __init__(self, directory):
+        self.directory = directory
+
     def setup(self, parameters, functionals, function_space):
         self.parameters = parameters
         self.functionals = functionals
@@ -248,6 +251,7 @@ class FileIO(IO):
         return self.directory + os.path.sep + "branch-%s.hdf5" % branchid
 
     def known_params_file(self, branchid, params, mode):
+	# Records the existence of a solution with branchid for params.
         g = file(self.directory + os.path.sep + "branch-%s.txt" % branchid, mode)
         g.write(str(params)+';')
         g.flush()
@@ -288,7 +292,6 @@ class FileIO(IO):
                         soln = Function(self.function_space)
                         f.read(soln, "/" + parameterstostring(self.parameters, params))
                         f.flush()
-                        f.close()
                     solns.append(soln)
                     break
   
@@ -333,7 +336,7 @@ class FileIO(IO):
                     fixed_indices.append(i)
                     break
 
-        seen = list()
+        seen = []
 
         pullData = open(self.directory + os.path.sep + "branch-%s.txt" % branchid, 'r').read().split(';')[0:-1]
         saved_params = [tuple([float(param) for param in literal_eval(params)]) for params in pullData]
