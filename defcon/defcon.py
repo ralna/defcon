@@ -52,10 +52,6 @@ class DeflatedContinuation(object):
 
         self.strict = strict
 
-        if deflation is None:
-            deflation = ShiftedDeflation(problem, power=2, shift=1)
-        self.deflation = deflation
-
         self.teamsize = teamsize
         self.verbose = verbose
 
@@ -119,6 +115,12 @@ class DeflatedContinuation(object):
             else:
                 sys.stdout = open(os.devnull, "w")
                 sys.stderr = open(os.devnull, "w")
+
+        if deflation is None:
+            params = [x[0] for x in self.parameters]
+            deflation = ShiftedDeflation(problem, params, power=2, shift=1)
+        self.deflation = deflation
+
 
     def log(self, msg, master=False):
         if not self.verbose: return

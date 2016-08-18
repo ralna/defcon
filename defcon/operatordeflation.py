@@ -31,14 +31,15 @@ class ShiftedDeflation(DeflationOperator):
     """
     The shifted deflation operator presented in doi:10.1137/140984798.
     """
-    def __init__(self, problem, power, shift):
+    def __init__(self, problem, parameters, power, shift):
         self.problem = problem
+        self.parameters = parameters
         self.power = power
         self.shift = shift
         self.roots = []
 
     def normsq(self, y, root):
-        return self.problem.squared_norm(y, root)
+        return self.problem.squared_norm(y, root, self.parameters)
 
     def evaluate(self, y):
         m = 1.0

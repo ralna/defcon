@@ -82,7 +82,7 @@ class ElasticaProblem(BifurcationProblem):
         n = int(floor((lmbda/pi)))*2
         return n + 1
 
-    def squared_norm(self, a, b):
+    def squared_norm(self, a, b, params):
         return inner(a - b, a - b)*dx + inner(grad(a - b), grad(a - b))*dx
 
 if __name__ == "__main__":

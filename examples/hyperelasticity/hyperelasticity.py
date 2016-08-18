@@ -114,7 +114,7 @@ class HyperelasticityProblem(BifurcationProblem):
             return 9
         return float("inf")
 
-    def squared_norm(self, a, b):
+    def squared_norm(self, a, b, params):
         return inner(a - b, a - b)*dx + inner(grad(a - b), grad(a - b))*dx
 
     def configure_snes(self, snes):
