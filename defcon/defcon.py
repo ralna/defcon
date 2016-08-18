@@ -1,6 +1,8 @@
+# -*- coding: utf-8 -*-
+
 from operatordeflation import ShiftedDeflation
 from parallellayout import ranktoteamno, teamnotoranks
-from parametertools import parameterstofloats, parameterstoconstants, nextparameters
+from parametertools import parameterstofloats, parameterstoconstants, nextparameters, prevparameters
 from newton import newton
 from tasks import QuitTask, ContinuationTask, DeflationTask, Response
 from journal import Journal, FileJournal
@@ -9,6 +11,7 @@ import backend
 
 from mpi4py import MPI
 from petsc4py import PETSc
+from numpy import isinf
 
 import math
 import time
@@ -436,10 +439,27 @@ class DeflatedContinuation(object):
             # If we aren't waiting for anything to finish, we'll exit the loop
             # here. otherwise, we wait for responses and deal with consequences.
             if len(waittasks) > 0:
-                minwait = minvals([wtask[0].newparams[freeindex] for wtask in waittasks.values()] + [ntask[1].newparams[freeindex] for ntask in newtasks])
-                self.log("Cannot dispatch any tasks, waiting for response. Sweep completed up to: %14.12e" % (minwait), master=True)
-                # Write to the journal saying where we've completed our sweep up to.
-                journal.sweep(minwait)
+                self.log("Cannot dispatch any tasks, waiting for response.", master=True)
+
+                waiting_values = [wtask[0].oldparams for wtask in waittasks.values() if wtask[0].oldparams is not None]
+                newtask_values = [ntask[1].oldparams for ntask in newtasks if ntask[1].oldparams is not None]
+                if len(waiting_values + newtask_values) > 0:
+                    minparams = minvals(waiting_values + newtask_values, key = lambda x: x[freeindex])
+                    prevparams = prevparameters(values, freeindex, minparams)
+                    if prevparams is not None:
+                        minwait = prevparams[freeindex]
+
+                        tot_solutions = self.problem.number_solutions(minparams)
+                        if isinf(tot_solutions): tot_solutions = '∞'
+                        num_solutions = len(self.io.known_branches(minparams))
+                        self.log("Sweep completed <= %14.12e (%s/%s solutions)." % (minwait, num_solutions, tot_solutions), master=True)
+
+                        # Write to the journal saying where we've completed our sweep up to.
+                        journal.sweep(minwait)
+                    else: # special case for the first parameter value, start the sweep at the initial value
+                        # Write to the journal saying where we've completed our sweep up to.
+                        journal.sweep(minparams[freeindex])
+
                 response = self.worldcomm.recv(status=stat, source=MPI.ANY_SOURCE, tag=self.responsetag)
 
                 (task, team) = waittasks[response.taskid]

@@ -34,6 +34,19 @@ def nextparameters(values, freeindex, oldparams):
     newparams[freeindex] = next_value
     return tuple(newparams)
 
+def prevparameters(values, freeindex, oldparams):
+    current_value = oldparams[freeindex]
+    current_index = values.index(current_value)
+
+    if current_index == 0:
+        # We've reached the first value, no more continuation to do.
+        return None
+    prev_value = values[current_index - 1]
+
+    newparams = list(oldparams)
+    newparams[freeindex] = prev_value
+    return tuple(newparams)
+
 def parameterstostring(parameters, values):
     s = ""
     for (param, value) in zip(parameters, values):
