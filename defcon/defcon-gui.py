@@ -165,7 +165,7 @@ io.setup(problem_parameters, None, V)
 class PlotConstructor():
     """ Class for handling everything to do with the bifuraction diagram plot. """
 
-    def __init__(self, app):
+    def __init__(self):
         self.points = [] # Keep track of the points we've found, so we can redraw everything if necessary. Also for annotation.
         self.pointers = [] # Pointers to each point on the plot, so we can remove them. 
 
@@ -183,8 +183,6 @@ class PlotConstructor():
         self.freeindex = None # The index of the free parameter.
 
         self.current_functional = 0 # The index of the functional we're currently on.
-
-        self.app = app # The QT window, so that we can set the time.
 
         self.teamstats = [] # The status of each team. 
 
@@ -355,7 +353,7 @@ class PlotConstructor():
         """ Handles the redrawing of the graph. """
 
         # Update the run time.
-        if self.running: self.app.set_elapsed_time(TimeModule.time() - self.start_time) # if defcon is still going, update the timer
+        if self.running: aw.set_elapsed_time(TimeModule.time() - self.start_time) # if defcon is still going, update the timer
 
         # If we're in pause mode then do nothing more.
         if self.paused:
@@ -391,7 +389,7 @@ class PlotConstructor():
                     self.freeindex = int(freeindex)
                     self.functional_names = literal_eval(functional_names)
                     self.unicode_functional_names = literal_eval(unicode_functional_names)
-                    self.app.make_radio_buttons(self.unicode_functional_names)
+                    aw.make_radio_buttons(self.unicode_functional_names)
                     bfdiag.set_xlabel(self.parameter_name)
                     bfdiag.set_ylabel(self.functional_names[self.current_functional])
                     bfdiag.set_xlim([self.minparam, self.maxparam]) # fix the limits of the x-axis
@@ -413,7 +411,7 @@ class PlotConstructor():
                             # This line of the journal is telling us about what the teams are doing. 
                             team, task = eachLine[1:].split(';')
                             self.teamstats[int(team)] = task
-                            self.app.update_teamstats(self.teamstats)
+                            aw.update_teamstats(self.teamstats)
                             # If this tells us the teams have quit, we know we're not getting any more new points. 
                             if task == 'q': 
                                 self.running = False
@@ -444,7 +442,7 @@ class PlotConstructor():
                 # Update the current time.
                 self.changed = True
                 self.maxtime = self.time
-                self.app.set_time(self.time)
+                aw.set_time(self.time)
                 return self.changed         
 
 
@@ -453,18 +451,18 @@ class PlotConstructor():
          """ Annotate a point when clicking on it. """
          if self.annotated_point is None:
 
-             # Sets a clickbox that is generally too small in practice. 
-             #xs = [float(point[0][self.freeindex]) for point in self.points[:self.time]]
-             #ys = [float(point[1][self.current_functional]) for point in self.points[:self.time]]
-             #xtol = ((max(xs) - min(xs))/float(len(xs)))/2 
-             #ytol = ((max(ys) - min(ys))/float(len(ys)))/2 
- 
-             # Sets the clickbox to be one 'square' of the diagram.
+             # Sets a clickbox. 
+             xs = [float(point[0][self.freeindex]) for point in self.points[:self.time]]
+             ys = [float(point[1][self.current_functional]) for point in self.points[:self.time]]
+
+             xlen = max(xs) - min(xs)
+             ylen = max(ys) - min(ys)
+
              xtick = bfdiag.get_xticks()
              ytick = bfdiag.get_yticks()
-             xtol = (xtick[1]-xtick[0])/2 
-             ytol = (ytick[1]-ytick[0])/2 
-
+             xtol = (xtick[1]-xtick[0])/(2)
+             ytol = (ytick[1]-ytick[0])/(2)
+           
              annotes = []
 
              # Find the point on the diagram closest to the point the user clicked.
@@ -473,7 +471,7 @@ class PlotConstructor():
                   x = float(xs[self.freeindex])
                   y = float(ys[self.current_functional])
                   if ((clickX-xtol < x < clickX+xtol) and (clickY-ytol < y < clickY+ytol)):
-                      annotes.append((self.distance(x, clickX, y, clickY), x, y, branchid, xs, teamno, cont, time))
+                      annotes.append((self.distance(x/xlen, clickX/xlen, y/ylen, clickY/ylen), x, y, branchid, xs, teamno, cont, time))
                   time += 1
 
              if annotes:
@@ -485,7 +483,7 @@ class PlotConstructor():
                  self.annotated_point = (xs, branchid)  
                  if cont: s = "continuation"
                  else: s = "deflation"
-                 self.app.set_output_box("Solution on branch %d\nFound by team %d\nUsing %s\nAs event #%d\n\nx = %s\ny = %s" % (branchid, teamno, s, time, x, y))
+                 aw.set_output_box("Solution on branch %d\nFound by team %d\nUsing %s\nAs event #%d\n\nx = %s\ny = %s" % (branchid, teamno, s, time, x, y))
                  self.changed = True
 
              return self.changed
@@ -498,50 +496,44 @@ class PlotConstructor():
         self.annotation_highlight.remove()
         self.annotation_highlight = None
         self.annotated_point = None
-        self.app.set_output_box("")
+        aw.set_output_box("")
         self.changed = True
         return False
 
-    ## Functions that handle the plotting of solutions. ##
-    def hdf52pvd(self):
-        """Function for creating a pvd from hdf5. Uses the point that is annotated. """
+    def plot(self):
+        """ Fetch a solution and plot it. If the solutions are 1D we use matplotlib, otherwise we use paraview. """
         if self.annotated_point is not None:
-            # Get the params and branchid of the point.
-            params, branchid = self.annotated_point
-
-            # Make a directory to put solutions in, if it doesn't exist. 
-            try: os.mkdir(output_dir + os.path.sep + "solutions")
-            except OSError: pass
-
-            # Create the file to which we will write these solutions.
-            pvd_filename = solutions_dir +  "SOLUTION$%s$branchid=%d.pvd" % (parameterstostring(problem_parameters, params), branchid)
-            pvd = File(pvd_filename)
-    
-            # Use the I/O module to fetch the solution and write it to the pvd file. 
-            y = io.fetch_solutions(params, [branchid])[0]
-            pvd << y
-            pvd
-            
-            # Finally, launch paraview with the newly created file. 
-            self.launch_paraview(pvd_filename)
-
-    def mpl_plot(self):
-        """ Fetch a solution and plot it with matplotlib. Used when the solutions are 1D. """
-        if self.annotated_point is not None:
+            # Get the solution from the IO module. 
             params, branchid = self.annotated_point
             y = io.fetch_solutions(params, [branchid])[0]
 
-            try:
-                x = interpolate(Expression("x[0]", degree=1), V)
-                # FIXME: For functions f other than CG1, we might need to sort both arrays so that x is increasing. Check this out!
-                plt.plot(x.vector().array(), y.vector().array(), '-', linewidth=3, color='b')
-                plt.title("branch %s, params %s" % (branchid, params))
-                plt.axhline(0, color='k') # Plot a black line through the origin
-                plt.show(False) # False here means the window is non-blocking, so we may continue using the GUI while the plot shows. 
-            except RuntimeError, e:
-                print "\033[91m [Warning] Error plotting expression. Are your solutions numbers rather than functions? If so, this is why I failed. Anyway, the error was: \033[00m"
-                print str(e)
-                pass
+            if plot_with_mpl:
+                try:
+                    x = interpolate(Expression("x[0]", degree=1), V)
+                    # FIXME: For functions f other than CG1, we might need to sort both arrays so that x is increasing. Check this out!
+                    plt.plot(x.vector().array(), y.vector().array(), '-', linewidth=3, color='b')
+                    plt.title("branch %s, params %s" % (branchid, params))
+                    plt.axhline(0, color='k') # Plot a black line through the origin
+                    plt.show(False) # False here means the window is non-blocking, so we may continue using the GUI while the plot shows. 
+                except RuntimeError, e:
+                    print "\033[91m [Warning] Error plotting expression. Are your solutions numbers rather than functions? If so, this is why I failed. Anyway, the error was: \033[00m"
+                    print str(e)
+                    pass
+            else:
+                # Make a directory to put solutions in, if it doesn't exist. 
+                try: os.mkdir(output_dir + os.path.sep + "solutions")
+                except OSError: pass
+
+                # Create the file to which we will write these solutions.
+                pvd_filename = solutions_dir +  "SOLUTION$%s$branchid=%d.pvd" % (parameterstostring(problem_parameters, params), branchid)
+                pvd = File(pvd_filename)
+
+                # Write the solution.
+                pvd << y
+                pvd
+
+                # Finally, launch paraview with the newly created file. 
+                self.launch_paraview(pvd_filename)
 
     ## Functions for saving to disk ##
     def save_movie(self, filename, length, fps):
@@ -617,21 +609,7 @@ class PlotConstructor():
             ax.clear()
         else: print "\033[91m[Warning] matplotlib2tikz not installed. I can't save to tikz! \033[00m \n"
 
-    def arclength(self):
-        branches = set([point[2] for point in self.points])
-        for branchid in branches:
-            plt_xs = []
-            plt_ys = []
-            for xs, ys, bid, teamno, cont in self.points:
-                if bid == branchid:
-                    plt_xs.append(xs[self.freeindex])
-                    plt_ys.append(ys[self.current_functional])
-            plt.plot(plt_xs, plt_ys, '-', linewidth=3, color='k')
-        plt.show(False)
-
-        
-
-
+    
 ################################
 ### Custom matplotlib Figure ###
 ################################
@@ -672,8 +650,8 @@ class CustomToolbar(NavigationToolbar2QT):
         self.buttonSaveTikz= self.addAction(QtGui.QIcon(resources_dir + "save_tikz.png"), "Save Tikz", self.save_tikz)
         self.buttonSaveTikz.setToolTip("Save the figure as tikz")
 
-        self.buttonArclength= self.addAction(QtGui.QIcon(resources_dir + "save_tikz.png"), "Arclength", self.arclength)
-        self.buttonArclength.setToolTip("Use arclength continuation to generate a plot")
+        #self.buttonArclength= self.addAction(QtGui.QIcon(resources_dir + "save_tikz.png"), "Arclength", self.arclength)
+        #self.buttonArclength.setToolTip("Use arclength continuation to generate a plot")
 
     def save_movie(self):
         """ A method that saves an animation of the bifurcation diagram. """
@@ -708,25 +686,7 @@ class CustomToolbar(NavigationToolbar2QT):
             except Exception, e:
                 QtGui.QMessageBox.critical(self, "Error saving file", str(e), QtGui.QMessageBox.Ok, QtGui.QMessageBox.NoButton)
 
-    def arclength(self):
-        start = working_dir + os.path.sep + "bfdiag.jpg"
-        filters = "JPEG Image (*.jpg, *.jpeg)"
-        selectedFilter = filters
- 
-        # Ask for some input parameters.
-        """inputter = ArclengthDialog(aw)
-        inputter.exec_()"""
-        # TODO: get args
-
-        fname = True #QtGui.QFileDialog.getSaveFileName(self, "Choose a filename to save to", start, filters, selectedFilter)
-        if fname:
-            try:
-                # Set up the ArclengthContinuation object and run it.
-                pc.arclength()
-                # Make and save the resulting plot. 
-            except Exception, e:
-                QtGui.QMessageBox.critical(self, "Error saving file", str(e), QtGui.QMessageBox.Ok, QtGui.QMessageBox.NoButton)
-        
+      
 
 
 ############################
@@ -780,51 +740,15 @@ class MovieDialog(QtGui.QDialog):
         self.setWindowTitle("Movie parameters")
 
 
-
-##########################
-### ARCLENGTH DIALOGUE ###
-##########################
-class ArclengthDialog(QtGui.QDialog):
-    def __init__(self, parent=None):
-
-        QtGui.QWidget.__init__(self, parent)
-
-        # Layout
-        mainLayout = QtGui.QVBoxLayout()
-
-        layout = QtGui.QHBoxLayout()
-        self.label = QtGui.QLabel()
-        self.label.setText(label)
-        layout.addWidget(self.label)
-
-        self.text = QtGui.QLineEdit(text)
-        self.text.setFixedWidth(80)
-        layout.addWidget(self.text)
-
-        mainLayout.addLayout(layout)
-
-        # The Button
-        layout = QtGui.QHBoxLayout()
-        button = QtGui.QPushButton("Enter")
-        button.setFixedWidth(80)
-        self.connect(button, QtCore.SIGNAL("clicked()"), self.close)
-        layout.addWidget(button)
-
-        mainLayout.addLayout(layout)
-        self.setLayout(mainLayout)
-
-        self.resize(400, 60)
-        self.setWindowTitle("Arclength continuation parameters")
-
-
-
 ######################
 ### Main QT Window ###
 ######################
 class ApplicationWindow(QtGui.QMainWindow):
-    def __init__(self):
+    def __init__(self, pc):
         QtGui.QMainWindow.__init__(self)     
         self.setAttribute(QtCore.Qt.WA_DeleteOnClose)
+
+        self.pc = pc
 
         # Use these to add a toolbar, if desired. 
         #self.file_menu = QtGui.QMenu('&File', self)
@@ -882,7 +806,7 @@ class ApplicationWindow(QtGui.QMainWindow):
 
 
         # Toolbar, with save_movie and save_tikz buttons.
-        toolbar = CustomToolbar( self.dc, self )
+        toolbar = CustomToolbar(self.dc, self)
         toolbar.update()
         canvasBox.addWidget(toolbar)
 
@@ -1022,7 +946,7 @@ class ApplicationWindow(QtGui.QMainWindow):
         for rb in self.radio_buttons:
             if rb.isChecked(): 
                 # If this is the radiobutton that has been clicked, switch to the appropriate function and jump out of the loop.
-                pc.switch_functional(i) 
+                self.pc.switch_functional(i) 
                 break
             else: i+=1
 
@@ -1037,34 +961,33 @@ class ApplicationWindow(QtGui.QMainWindow):
 
     def start(self):
         """ Set Time=0. """
-        t = pc.start()
+        t = self.pc.start()
         self.set_time(t)
 
     def back(self):
         """ Set Time=Time-1. """
-        t = pc.back()
+        t = self.pc.back()
         self.set_time(t)
 
     def forward(self):
         """ Set Time=Time+1. """
-        t = pc.forward()
+        t = self.pc.forward()
         self.set_time(t)
 
     def end(self):
         """ Set Time=Maxtime. """
-        t = pc.end()
+        t = self.pc.end()
         self.set_time(t)
 
     def jump(self):
         """ Jump to Time=t. """
         t = int(self.jumpInput.text())
-        new_time = pc.jump(t)
+        new_time = self.pc.jump(t)
         self.set_time(new_time)
 
     def plot(self):
-        """ Launch Paraview to graph the highlighted solution. """
-        if not plot_with_mpl: pc.hdf52pvd()
-        else: pc.mpl_plot()
+        """ Launch Matplotlib/Paraview to graph the highlighted solution. """
+        self.pc.plot()
 
     def set_elapsed_time(self, elapsed):
         """ Gets the amount of time that has elapsed since defcon started running. """
@@ -1077,8 +1000,8 @@ class ApplicationWindow(QtGui.QMainWindow):
 ### Main Loop ###
 #################
 qApp = QtGui.QApplication(sys.argv)
-aw = ApplicationWindow()
-pc = PlotConstructor(aw)
+pc = PlotConstructor()
+aw = ApplicationWindow(pc)
 aw.setWindowTitle("DEFCON")
 aw.setWindowIcon(QtGui.QIcon(resources_dir + 'defcon_icon.png'))
 aw.show()
