@@ -55,11 +55,9 @@ class ElasticaProblem(BifurcationProblem):
 
     def functionals(self):
         def signedL2(theta, params):
-            # Argh.
             j = sqrt(assemble(inner(theta, theta)*dx))
             g = project(grad(theta)[0], theta.function_space())
-            #return j*g((0.0,))
-            return j
+            return j*g((0.0,))
 
         def max(theta, params):
             return theta.vector().max()
