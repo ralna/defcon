@@ -125,12 +125,15 @@ class DeflatedContinuation(object):
         self.deflation = deflation
 
 
-    def log(self, msg, master=False):
+    def log(self, msg, master=False, warning=False):
         if not self.verbose: return
         if self.teamrank != 0: return
 
         if master:
-            fmt = BLUE  = "\033[1;37;34m%s\033[0m"
+            if not warning:
+                fmt = BLUE = "\033[1;37;34m%s\033[0m"
+            else:
+                fmt = RED = "\033[1;37;31m%s\033[0m"
         else:
             fmt = GREEN = "\033[1;37;32m%s\033[0m"
 
@@ -496,6 +499,7 @@ class DeflatedContinuation(object):
                     else:
                         # We tried to continue a branch, but the continuation died. Oh well.
                         # The team is now idle.
+                        self.log("Continuation task on branch %d failed at parameters %s." % (task.branchid, task.newparams), master=True, warning=True)
                         idleteams.append(team)
                         journal.team_job(team, "i")
 
