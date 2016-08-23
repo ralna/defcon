@@ -169,11 +169,15 @@ class BifurcationProblem(object):
         """
         return backend.inner(state1 - state2, state1 - state2)*backend.dx
 
-    def trivial_solutions(self, function_space):
+    def trivial_solutions(self, function_space, params, freeindex):
         """
         This method returns any trivial solutions of the problem,
         i.e. solutions u such that f(u, \lambda) = 0 for all \lambda.
         These will be deflated at every computation.
+
+        freeindex is the index into params that is being modified by this
+        current continuation run. This is useful if the trivial solutions
+        depend on the values of parameters in params other than freeindex.
         """
         return []
 

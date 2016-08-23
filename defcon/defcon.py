@@ -101,7 +101,7 @@ class DeflatedContinuation(object):
         self.functionals = problem.functionals()
         self.state = backend.Function(self.function_space)
         self.residual = problem.residual(self.state, parameterstoconstants(self.parameters), backend.TestFunction(self.function_space))
-        self.trivial_solutions = problem.trivial_solutions(self.function_space)
+        self.trivial_solutions = None # computed by the worker on initialisation later
 
         io.setup(self.parameters, self.functionals, self.function_space)
         self.io = io
@@ -451,7 +451,7 @@ class DeflatedContinuation(object):
                         minwait = prevparams[freeindex]
 
                         tot_solutions = self.problem.number_solutions(minparams)
-                        if isinf(tot_solutions): tot_solutions = '∞'
+                        if isinf(tot_solutions): tot_solutions = '?'
                         num_solutions = len(self.io.known_branches(minparams))
                         self.log("Sweep completed <= %14.12e (%s/%s solutions)." % (minwait, num_solutions, tot_solutions), master=True)
 
@@ -591,6 +591,10 @@ class DeflatedContinuation(object):
             elif isinstance(task, DeflationTask):
                 self.log("Executing task %s" % task)
 
+                # Check for trivial solutions
+                if self.trivial_solutions is None:
+                    self.trivial_solutions = self.problem.trivial_solutions(self.function_space, task.newparams, freeindex)
+
                 # Set up the problem
                 self.load_solution(task.oldparams, task.branchid, task.newparams)
                 self.load_parameters(task.newparams)
@@ -654,6 +658,10 @@ class DeflatedContinuation(object):
 
             elif isinstance(task, ContinuationTask):
                 self.log("Executing task %s" % task)
+
+                # Check for trivial solutions
+                if self.trivial_solutions is None:
+                    self.trivial_solutions = self.problem.trivial_solutions(self.function_space, task.newparams, freeindex)
 
                 # Set up the problem
                 self.load_solution(task.oldparams, task.branchid, task.newparams)

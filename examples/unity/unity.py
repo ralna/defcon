@@ -73,7 +73,7 @@ class RootsOfUnityProblem(BifurcationProblem):
         else:
             return int(floor(p/2.0))*2
 
-    def trivial_solutions(self, V):
+    def trivial_solutions(self, V, params, freeindex):
         return [interpolate(Constant((1, 0)), V)]
 
 if __name__ == "__main__":
