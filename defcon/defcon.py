@@ -312,7 +312,7 @@ class DeflatedContinuation(object):
             backend.info_red("Defcon started with only 1 process. At least 2 processes are required (one master, one worker).\n\nLaunch with mpiexec: mpiexec -n <number of processes> python <path to file>")
             import sys; sys.exit(1)
 
-        # Create a journal object. 
+        # Create a journal object.
         journal = FileJournal(self.io.directory, self.parameters, self.functionals, freeindex, sign)
         try:
             assert(journal.exists())
@@ -340,7 +340,7 @@ class DeflatedContinuation(object):
             # We need to schedule deflation tasks at every point from where we'd completed our sweep up to previously 
             # to the furthest we've got in continuation, on every branch.
             for branchid in branches.keys():
-		# Get the fixed parameters
+                # Get the fixed parameters
                 oldparams = list(parameterstofloats(self.parameters, freeindex, values[0]))
                 oldparams[freeindex] = previous_sweep
                 newparams = nextparameters(values, freeindex, tuple(oldparams))
@@ -367,8 +367,8 @@ class DeflatedContinuation(object):
             # Send off initial tasks
             knownbranches = self.io.known_branches(initialparams)
             if len(knownbranches) > 0:
-                self.log("Using known solutions at %s" % (initialparams,), master=True)
                 nguesses = len(knownbranches)
+                self.log("Using %d known solutions at %s" % (nguesses, initialparams,), master=True)
                 oldparams = initialparams
                 initialparams = nextparameters(values, freeindex, initialparams)
 
