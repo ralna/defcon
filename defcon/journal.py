@@ -40,6 +40,7 @@ class FileJournal(Journal):
         self.sweep_params = None
 
     def setup(self, nteams, minparam, maxparam):
+        """ Create the journal file and write the initial line of information. """
         # Create the journal file and directory
         try: os.mkdir(self.directory)
         except OSError: pass
@@ -52,23 +53,28 @@ class FileJournal(Journal):
             f.write("%s;%s;%s;%s;%s;%s;%s\n" % (self.freeindex, xlabel, ylabels, unicodeylabels, nteams, minparam, maxparam))
 
     def entry(self, teamid, oldparams, branchid, newparams, functionals, continuation):
+        """ Tell the journal about a new point we've discovered. """
         with file(self.directory + os.path.sep + "journal.txt", 'a') as f:
             f.write("%s;%s;%s;%s;%s;%s \n" % (teamid, oldparams, branchid, newparams, functionals, continuation))
 
     def sweep(self, params):
+        """ Tell the journal about an update to the sweepline. """
         if (self.sweep_params is None) or self.sign*self.sweep_params < self.sign*params:
             self.sweep_params = params
             with file(self.directory + os.path.sep + "journal.txt", 'a') as f:
                 f.write("$%.20f\n" % params) # Need to make sure we get the decimal places correct here, else there will be bugs with checkpointing.
 
     def team_job(self, team, task):
+        """ Tell the journal about what this team is doing. """
         with file(self.directory + os.path.sep + "journal.txt", 'a') as f:
             f.write("~%s;%s\n" % (team, task))
 
     def exists(self):
+        """ Check if the journal file exists. """
         return os.path.exists(self.directory)
 
     def resume(self):
+        """ Read the journal file and find the furthest extend of the branches we've discovered so far, as well as the position of the sweepline."""
         # Read data from the file.
         pullData = open(self.directory + os.path.sep + "journal.txt", 'r').read().split('\n')
 
@@ -81,7 +87,7 @@ class FileJournal(Journal):
                     # This line tells us how far the sweep has gone.
                     sweep = float(eachLine[1:])
                 elif eachLine[0] == '~':
-                    # This lines tells us something about what task one of the teams was doing, which is unimportant.
+                    # This line tells us something about what task one of the teams was doing, which is unimportant.
                     pass
                 else:
                     # This tells us about a point we discovered.
@@ -99,4 +105,5 @@ class FileJournal(Journal):
         branches = dict([(key, branches[key][0]) for key in branches.keys()])
 
         self.sweep_params = sweep
+        assert(branches) # assert that branches is a nonempty dictionary.
         return sweep, branches

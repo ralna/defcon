@@ -215,7 +215,7 @@ class IO(object):
         self.functionals = functionals
         self.function_space = function_space
 
-    def save_solution(self, solution, params, branchid):
+    def save_solution(self, solution, funcs, params, branchid):
         raise NotImplementedError
 
     def fetch_solutions(self, params, branchids):
@@ -234,10 +234,9 @@ class IO(object):
         raise NotImplementedError
 
 class FileIO(IO):
-    """ I/O Module that uses HDF5 files to store the solutions and functionals. 
-        We create one HDF5 file for each parameter value, with groups that contain the solutions for each branch.
-        The file has the form: f = self.directory/params-(x1=...).hdf5/solution-0, solution-1, ...
-        The functionals are stored as attributes for the file, so f.attrs.keys() = [functional-0, functional-1, ...]
+    """ 
+    I/O Module that uses HDF5 files to store the solutions and functionals. 
+    We create one HDF5 file for each branch, with groups that contain the solutions for each parameter value.
     """
 
     def __init__(self, directory):
@@ -251,14 +250,13 @@ class FileIO(IO):
         return self.directory + os.path.sep + "branch-%s.hdf5" % branchid
 
     def known_params_file(self, branchid, params, mode):
-	# Records the existence of a solution with branchid for params.
+        """ Records the existence of a solution with branchid for params. """
         g = file(self.directory + os.path.sep + "branch-%s.txt" % branchid, mode)
         g.write(str(params)+';')
-        g.flush()
         g.close()
 
     def save_solution(self, solution, funcs, params, branchid):
-        """ Save a solution to the file branch-branchid.hdf5. """
+        """ Save a solution to the file branch-branchid.hdf5. Also save the functionals as an attribute in the file."""
         # Urgh... we need to check if the file already exists to decide if we use write mode or append mode. HDF5File's 'a' mode fails if the file doesn't exist.
         # This behaviour is different from h5py's 'a' mode, which can create a file if it doesn't exist and modify otherwise.
         if os.path.exists(self.dir(branchid)): mode='a'
@@ -316,7 +314,7 @@ class FileIO(IO):
         return set(branches)
      
     def fetch_functionals(self, params, branchid):
-        """ Gets the functionals back. Output [[all functionals...]]. """
+        """ Gets functionals for a particular branchid, one for each param in params. """
         funcs = []
         with HDF5File(self.function_space.mesh().mpi_comm(), self.dir(branchid), 'r') as f:
             for param in params: 
@@ -326,34 +324,13 @@ class FileIO(IO):
 
     def known_parameters(self, fixed, branchid):
         """ Returns a list of known parameters for a given branch. """
-        fixed_indices = []
-        fixed_values = []
-        for key in fixed:
-            fixed_values.append(fixed[key])
-            # find the index
-            for (i, param) in enumerate(self.parameters):
-                if param[1] == key:
-                    fixed_indices.append(i)
-                    break
-
-        seen = []
-
         pullData = open(self.directory + os.path.sep + "branch-%s.txt" % branchid, 'r').read().split(';')[0:-1]
         saved_params = [tuple([float(param) for param in literal_eval(params)]) for params in pullData]
         
-        for param in saved_params:
-            should_add = True
-            for (index, value) in zip(fixed_indices, fixed_values):
-                if param[index] != value:
-                    should_add = False
-                    break
-
-            if should_add:
-                seen.append(param)
-
-        return seen
+        return saved_params
 
     def max_branch(self):
+        """ Returns the index of the maximum branch we have found. """
         saved_branch_files = glob.glob(self.directory + os.path.sep + "*.hdf5")
         branchids = [int(branch_file.split('-')[-1].split('.')[0]) for branch_file in saved_branch_files]
         return max(branchids)
