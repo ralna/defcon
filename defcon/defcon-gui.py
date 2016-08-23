@@ -170,13 +170,21 @@ class PlotConstructor():
     def redraw(self):
         "Clears the window, redraws the labels and the grid. """
         bfdiag.clear()
+
+        # Redraw labels.
         bfdiag.set_xlabel(self.parameter_name)
         bfdiag.set_ylabel(self.functional_names[self.current_functional])
         bfdiag.grid(color=GRID)
+
+        # Reset the x and y limits.
         ys = [point[1][self.current_functional] for point in self.points] 
         bfdiag.set_xlim([self.minparam, self.maxparam]) # fix the limits of the x-axis
         bfdiag.set_ylim([min(ys), max(ys)]) # reset the y limits, to prevent stretching
-        self.sweepline = bfdiag.axvline(x=self.sweep, linewidth=1, linestyle=SWEEPSTYLE, color=SWEEP) # re-plot the sweepline
+
+        # Redraw the sweepline.
+        self.sweepline = bfdiag.axvline(x=self.sweep, linewidth=1, linestyle=SWEEPSTYLE, color=SWEEP)
+
+        # Reset the scale of the x axis. 
         self.setx(bfdiag)
 
     def animate(self, i):
@@ -191,7 +199,7 @@ class PlotConstructor():
                 if self.animsweepline is not None: self.animsweepline.remove()
                 self.animsweepline = self.ax.axvline(x=self.animsweep, linewidth=1, linestyle=SWEEPSTYLE, color=SWEEP)                
             except StopIteration: return
-        # Let's output a little log of how we're doing, so the user can see that something is in fact being done.
+        # Let's output a log of how we're doing, so the user can see that something is in fact being done.
         if i % 50 == 0: print "Completed %d/%d frames" % (i, self.frames)
         return       
          
