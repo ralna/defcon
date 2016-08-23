@@ -251,7 +251,7 @@ class FileIO(IO):
         return self.directory + os.path.sep + "branch-%s.hdf5" % branchid
 
     def known_params_file(self, branchid, params, mode):
-	# Records the existence of a solution with branchid for params.
+        # Records the existence of a solution with branchid for params.
         g = file(self.directory + os.path.sep + "branch-%s.txt" % branchid, mode)
         g.write(str(params)+';')
         g.flush()
@@ -280,7 +280,7 @@ class FileIO(IO):
         else: mode = 'w'
 
         self.known_params_file(branchid, params, mode)
-     
+
     def fetch_solutions(self, params, branchids):
         """ Fetch solutions for a particular parameter value for each branchid in branchids. """
         solns = []
@@ -294,7 +294,7 @@ class FileIO(IO):
                         f.flush()
                     solns.append(soln)
                     break
-  
+
                 # We failed to open/read the file. Shouldn't happen, but just in case.
                 except Exception:
                     print "Loading file %s failed. Sleeping for a second and trying again." % self.dir(branchid)
@@ -314,7 +314,7 @@ class FileIO(IO):
             if str(params) in pullData: 
                 branches.append(int(branch_file.split('-')[-1].split('.')[0]))
         return set(branches)
-     
+
     def fetch_functionals(self, params, branchid):
         """ Gets the functionals back. Output [[all functionals...]]. """
         funcs = []
@@ -340,7 +340,7 @@ class FileIO(IO):
 
         pullData = open(self.directory + os.path.sep + "branch-%s.txt" % branchid, 'r').read().split(';')[0:-1]
         saved_params = [tuple([float(param) for param in literal_eval(params)]) for params in pullData]
-        
+
         for param in saved_params:
             should_add = True
             for (index, value) in zip(fixed_indices, fixed_values):
