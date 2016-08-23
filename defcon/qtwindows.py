@@ -23,6 +23,7 @@ from matplotlib.backends.backend_qt4agg import NavigationToolbar2QT
 from matplotlib.figure import Figure
 
 from datetime import timedelta
+import os
 
 # Colours.
 MAIN = 'black' # colour for regular points
@@ -67,7 +68,7 @@ class DynamicCanvas(FigureCanvas):
 
 class CustomToolbar(NavigationToolbar2QT):
     """ A custom matplotlib toolbar, so we can remove those pesky extra buttons. """  
-    def __init__(self, canvas, parent, resources_dir):
+    def __init__(self, canvas, parent, pc, resources_dir, working_dir):
         self.toolitems = (
             ('Home', 'Reset original view', 'home', 'home'),
             ('Pan', 'Pan axes with left mouse, zoom with right', 'move', 'pan'),
@@ -77,6 +78,11 @@ class CustomToolbar(NavigationToolbar2QT):
         NavigationToolbar2QT.__init__(self, canvas, parent)
         self.layout().takeAt(4)
 
+        self.working_dir = os.path.realpath(working_dir)
+        print self.working_dir
+        self.parent = parent
+        self.pc = pc
+
         # Add new buttons for saving movies and saving to tikz. 
         self.buttonSaveMovie = self.addAction(QtGui.QIcon(resources_dir + "save_movie.png"), "Save Movie", self.save_movie)
         self.buttonSaveMovie.setToolTip("Save the figure as an animation")
@@ -84,17 +90,14 @@ class CustomToolbar(NavigationToolbar2QT):
         self.buttonSaveTikz= self.addAction(QtGui.QIcon(resources_dir + "save_tikz.png"), "Save Tikz", self.save_tikz)
         self.buttonSaveTikz.setToolTip("Save the figure as tikz")
 
-        #self.buttonArclength= self.addAction(QtGui.QIcon(resources_dir + "save_tikz.png"), "Arclength", self.arclength)
-        #self.buttonArclength.setToolTip("Use arclength continuation to generate a plot")
-
     def save_movie(self):
         """ A method that saves an animation of the bifurcation diagram. """
-        start = working_dir + os.path.sep + "bfdiag.mp4" # default name of the file. 
+        start = self.working_dir + os.path.sep + "bfdiag.mp4" # default name of the file. 
         filters = "FFMPEG Video (*.mp4)" # what kinds of file extension we allow.
         selectedFilter = filters
 
         # Ask for some input parameters.
-        inputter = MovieDialog(aw)
+        inputter = MovieDialog(self.parent)
         inputter.exec_()
         length = inputter.length.text()
         fps = inputter.fps.text()
@@ -102,21 +105,21 @@ class CustomToolbar(NavigationToolbar2QT):
         fname = QtGui.QFileDialog.getSaveFileName(self, "Choose a filename to save to", start, filters, selectedFilter)
         if fname:
             try:
-                pc.save_movie(str(fname), int(length), int(fps))
+                self.pc.save_movie(str(fname), int(length), int(fps))
             # Handle any exceptions by printing a dialogue box. 
             except Exception, e:
                 QtGui.QMessageBox.critical(self, "Error saving file", str(e), QtGui.QMessageBox.Ok, QtGui.QMessageBox.NoButton)
 
     def save_tikz(self):
         """ A method that saves a .tikz of the bifurcation diagram. """
-        start = working_dir + os.path.sep + "bfdiag.tex"
+        start = self.working_dir + os.path.sep + "bfdiag.tex"
         filters = "Tikz Image (*.tex)"
         selectedFilter = filters
  
         fname = QtGui.QFileDialog.getSaveFileName(self, "Choose a filename to save to", start, filters, selectedFilter)
         if fname:
             try:
-                pc.save_tikz(str(fname))
+                self.pc.save_tikz(str(fname))
             except Exception, e:
                 QtGui.QMessageBox.critical(self, "Error saving file", str(e), QtGui.QMessageBox.Ok, QtGui.QMessageBox.NoButton)
 
@@ -178,7 +181,7 @@ class MovieDialog(QtGui.QDialog):
 ### Main QT Window ###
 ######################
 class ApplicationWindow(QtGui.QMainWindow):
-    def __init__(self, pc, update_interval, resources_dir):
+    def __init__(self, pc, update_interval, resources_dir, working_dir):
         QtGui.QMainWindow.__init__(self)     
         self.setAttribute(QtCore.Qt.WA_DeleteOnClose)
 
@@ -240,7 +243,7 @@ class ApplicationWindow(QtGui.QMainWindow):
 
 
         # Toolbar, with save_movie and save_tikz buttons.
-        toolbar = CustomToolbar(self.dc, self, resources_dir)
+        toolbar = CustomToolbar(self.dc, self, self.pc, resources_dir, working_dir)
         toolbar.update()
         canvasBox.addWidget(toolbar)
 

@@ -6,7 +6,7 @@ warnings.filterwarnings("ignore", module="matplotlib")
 # NOTE: The figure, colours and markers will be imported from here. Change them in qtwindows.py.
 from qtwindows import *
 
-import sys, getopt, os
+import sys, getopt
 from math import sqrt, floor, ceil
 import time as TimeModule
 
@@ -577,7 +577,7 @@ class PlotConstructor():
 #################
 qApp = QtGui.QApplication(sys.argv)
 pc = PlotConstructor()
-aw = ApplicationWindow(pc, update_interval, resources_dir)
+aw = ApplicationWindow(pc, update_interval, resources_dir, working_dir)
 aw.setWindowTitle("DEFCON")
 aw.setWindowIcon(QtGui.QIcon(resources_dir + 'defcon_icon.png'))
 aw.show()
