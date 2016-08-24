@@ -369,6 +369,7 @@ class DeflatedContinuation(object):
 
             # Send off initial tasks
             knownbranches = self.io.known_branches(initialparams)
+            branchid_counter = len(knownbranches)
             if len(knownbranches) > 0:
                 nguesses = len(knownbranches)
                 self.log("Using %d known solutions at %s" % (nguesses, initialparams,), master=True)
