@@ -32,8 +32,6 @@ from datetime import timedelta
 import os
 
 # Colours.
-
-
 MAIN = 'black' # colour for regular points
 DEF = blue # colour for points found via deflation
 HIGHLIGHT = red # colour for selected points

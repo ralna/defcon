@@ -473,6 +473,7 @@ class PlotConstructor():
     def plot(self):
         """ Fetch a solution and plot it. If the solutions are 1D we use matplotlib, otherwise we use paraview. """
         if self.annotated_point is not None:
+            os.chdir(working_dir)
             # Get the solution from the IO module. 
             params, branchid = self.annotated_point
             y = io.fetch_solutions(params, [branchid])[0]
@@ -504,6 +505,7 @@ class PlotConstructor():
 
                 # Finally, launch paraview with the newly created file. 
                 Popen(["paraview", pvd_filename])
+            os.chdir(current_dir)
 
     ## Functions for saving to disk ##
     def save_movie(self, filename, length, fps):
