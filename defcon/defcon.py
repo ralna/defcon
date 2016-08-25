@@ -350,7 +350,7 @@ class DeflatedContinuation(object):
                     # of this branch, schedule a deflation. 
                     task = DeflationTask(taskid=taskid_counter,
                                          oldparams=oldparams,
-                                         branchid=branchid, 
+                                         branchid=int(branchid),
                                          newparams=newparams)
                     taskid_counter += 1
                     heappush(newtasks, (sign*task.newparams[freeindex], task))

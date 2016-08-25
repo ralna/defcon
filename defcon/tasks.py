@@ -30,6 +30,7 @@ class ContinuationTask(Task):
         self.oldparams = oldparams
         self.branchid  = branchid
         self.newparams = newparams
+        assert isinstance(branchid, int)
 
         if ensure_branches is None: ensure_branches = set()
         self.ensure_branches = ensure_branches
@@ -63,6 +64,7 @@ class DeflationTask(Task):
         self.oldparams = oldparams
         self.branchid  = branchid
         self.newparams = newparams
+        assert isinstance(branchid, int)
 
         if ensure_branches is None: ensure_branches = set()
         self.ensure_branches = ensure_branches
