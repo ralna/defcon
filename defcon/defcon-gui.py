@@ -80,6 +80,8 @@ if problem_type is None:
 # If we didn't specify a directory for solutions we plot, store them in the "solutions" subdir of the output directory.
 if solutions_dir is None: solutions_dir = output_dir + os.path.sep + "solutions" + os.path.sep
 
+current_dir = os.path.dirname(os.path.realpath(sys.argv[0]))
+
 # Put the working directory on our path.
 sys.path.insert(0, working_dir) 
 sys.path.insert(0, os.path.dirname(os.path.realpath(sys.argv[0])) + os.path.sep + "..")
@@ -91,7 +93,7 @@ globals().update(vars(problem_name))
 # Run through each class we've imported and figure out which one inherits from BifurcationProblem.
 classes = []
 for key in globals().keys():
-    if key is not 'BifurcationProblem': classes.append(key)
+    if key is not 'BifurcationProblem': classes.append(key) # remove this to make sure we don't fetch the wrong class.
 for c in classes:
     try:
         globals()["bfprob"] = getattr(problem_name, c)
@@ -101,6 +103,7 @@ for c in classes:
     except Exception: pass
 
 # Change to the working directory.
+
 os.chdir(working_dir)
 
 # Get the mesh.
@@ -114,7 +117,8 @@ V = problem.function_space(mesh)
 problem_parameters = problem.parameters()
 io = FileIO(output_dir)
 io.setup(problem_parameters, None, V)
-    
+
+os.chdir(current_dir)
 
 #####################
 ### Utility Class ###
@@ -136,7 +140,7 @@ class PlotConstructor():
         self.annotation_highlight = None # The point we've annotated. 
         self.annotated_point = None # The (params, branchid) of the annotated point
 
-        self.path = output_dir + os.path.sep + "journal" + os.path.sep +"journal.txt" # Journal file.
+        self.path = working_dir + os.path.sep + output_dir + os.path.sep + "journal" + os.path.sep +"journal.txt" # Journal file.
 
         self.freeindex = None # The index of the free parameter.
 
@@ -156,7 +160,7 @@ class PlotConstructor():
     ## Private utility functions. ##
     def distance(self, x1, x2, y1, y2):
         """ Return the L2 distance between two points. """
-        return(sqrt((x1 - x2)**2 + (y1 - y2)**2))
+        return sqrt((x1 - x2)**2 + (y1 - y2)**2)
 
     def setx(self, ax):
         """ Sets the xscale to the user defined variable. """
@@ -312,7 +316,7 @@ class PlotConstructor():
         """ Get data from the file. """
         # If the file doesn't exist, just pass.
         try: pullData = open(self.path, 'r').read()
-        except Exception: pullData = None
+        except Exception: raise#pullData = None
         return pullData
 
     def update(self):
@@ -447,7 +451,7 @@ class PlotConstructor():
 
                  # Plot the annotation, and keep a handle on all the stuff we plot so we can use/remove it later. 
                  self.annotation_highlight = bfdiag.scatter([x], [y], s=[50], marker='o', color=HIGHLIGHT) # Note: change 's' to make the highlight blob bigger/smaller
-                 self.annotated_point = (xs, branchid)  
+                 self.annotated_point = (xs, branchid)
                  if cont: s = "continuation"
                  else: s = "deflation"
                  aw.set_output_box("Solution on branch %d\nFound by team %d\nUsing %s\nAs event #%d\n\nx = %s\ny = %s" % (branchid, teamno, s, time, x, y))
@@ -488,11 +492,11 @@ class PlotConstructor():
                     pass
             else:
                 # Make a directory to put solutions in, if it doesn't exist. 
-                try: os.mkdir(output_dir + os.path.sep + "solutions")
+                try: os.mkdir(solutions_dir)
                 except OSError: pass
 
                 # Create the file to which we will write these solutions.
-                pvd_filename = solutions_dir +  "SOLUTION$%s$branchid=%d.pvd" % (parameterstostring(problem_parameters, params), branchid)
+                pvd_filename = solutions_dir + "SOLUTION$%s$branchid=%d.pvd" % (parameterstostring(problem_parameters, params), branchid)
                 pvd = File(pvd_filename)
 
                 # Write the solution.

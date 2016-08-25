@@ -315,9 +315,16 @@ class DeflatedContinuation(object):
         # Create a journal object. 
         journal = FileJournal(self.io.directory, self.parameters, self.functionals, freeindex, sign)
         try:
+            # First check to see if the journal exists.
             assert(journal.exists())
+
             # The journal file already exists. Let's find out what we already know so we can resume our computation where we left off.
-            previous_sweep, branches = journal.resume()
+            previous_sweep, branches, oldfreeindex = journal.resume()
+
+            # Check that we are continuing from the same free parameter. If not, we want to start again.
+            assert(oldfreeindex==freeindex)
+
+            # Everything checks out, so lets schedule the appropriate tasks. 
             branchid_counter = len(branches)
 
             # Set all teams to idle.
@@ -340,7 +347,7 @@ class DeflatedContinuation(object):
             # We need to schedule deflation tasks at every point from where we'd completed our sweep up to previously 
             # to the furthest we've got in continuation, on every branch.
             for branchid in branches.keys():
-		# Get the fixed parameters
+		        # Get the fixed parameters
                 oldparams = list(parameterstofloats(self.parameters, freeindex, values[0]))
                 oldparams[freeindex] = previous_sweep
                 newparams = nextparameters(values, freeindex, tuple(oldparams))

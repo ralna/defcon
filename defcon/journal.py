@@ -81,6 +81,8 @@ class FileJournal(Journal):
         branches = dict()
         sweep = None
 
+        freeindex = pullData[0].split(';')[0]
+
         for eachLine in pullData[1:]:
             if len(eachLine) > 1:
                 if eachLine[0] == '$':
@@ -106,4 +108,4 @@ class FileJournal(Journal):
 
         self.sweep_params = sweep
         assert(branches) # assert that branches is a nonempty dictionary.
-        return sweep, branches
+        return sweep, branches, int(freeindex)

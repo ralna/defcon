@@ -78,10 +78,9 @@ class CustomToolbar(NavigationToolbar2QT):
         NavigationToolbar2QT.__init__(self, canvas, parent)
         self.layout().takeAt(4)
 
-        self.working_dir = os.path.realpath(working_dir)
-        print self.working_dir
         self.parent = parent
         self.pc = pc
+        self.working_dir = working_dir
 
         # Add new buttons for saving movies and saving to tikz. 
         self.buttonSaveMovie = self.addAction(QtGui.QIcon(resources_dir + "save_movie.png"), "Save Movie", self.save_movie)
@@ -390,7 +389,7 @@ class ApplicationWindow(QtGui.QMainWindow):
     def clicked_diagram(self, event):
         """ Annotates the diagram, by plotting a tooltip with the params and branchid of the point the user clicked.
             If the diagram is already annotated, remove the annotation. """
-        annotated = pc.annotate(event.xdata, event.ydata)
+        annotated = self.pc.annotate(event.xdata, event.ydata)
         if annotated:
             self.buttonPlot.setEnabled(True)
         else:     
