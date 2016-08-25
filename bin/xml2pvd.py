@@ -14,7 +14,7 @@ probpath = sys.argv[1]
 outputdir = sys.argv[2]
 
 probdir = os.path.dirname(probpath)
-os.chdir(probdir)
+if len(probdir) > 0: os.chdir(probdir)
 
 prob = imp.load_source("prob", probpath)
 
