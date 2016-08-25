@@ -316,7 +316,7 @@ class PlotConstructor():
         """ Get data from the file. """
         # If the file doesn't exist, just pass.
         try: pullData = open(self.path, 'r').read()
-        except Exception: raise#pullData = None
+        except Exception: pullData = None
         return pullData
 
     def update(self):
