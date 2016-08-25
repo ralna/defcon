@@ -56,14 +56,13 @@ Options:
       -x: The scale of the x-axis of the bifurcation diagram. This should be a valid matplotlib scale setting, eg 'log'.""" % sys.argv[0])
 
 for o, a in myopts:
-    if o == '-p':   problem_type = a
+    if   o == '-p': problem_type = a
     elif o == '-o': output_dir = os.path.expanduser(a)
     elif o == '-w': working_dir = os.path.expanduser(a)
     elif o == '-s': solutions_dir = os.path.expanduser(a)
     elif o == '-i': update_interval = int(a)
     elif o == '-x': xscale = a
-    else:           
-        usage()
+    else          : usage()
 
 if working_dir is None:
     usage()

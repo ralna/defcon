@@ -1,12 +1,18 @@
+# Try to use the seaborn palette for matplotlib, but fail gracefully if it isn't installed. 
+try: 
+    import seaborn as sns
+    blue, green, red, purple, yellow, cyan = sns.color_palette()
+except ImportError: 
+    blue, green, red, purple, yellow, cyan = 'blue', 'green', 'red', 'purple', 'yellow', 'cyan'
+
 import matplotlib
 matplotlib.use("Qt4Agg")
 
+# QT compatibility for matplotlib.
 from matplotlib.backends import qt_compat
 use_pyside = qt_compat.QT_API == qt_compat.QT_API_PYSIDE
-if use_pyside:
-    from PySide import QtGui, QtCore
-else:
-    from PyQt4 import QtGui, QtCore
+if use_pyside: from PySide import QtGui, QtCore
+else: from PyQt4 import QtGui, QtCore
 
 # Styles for matplotlib.
 # See matpoltlib.styles.available for options.
@@ -26,12 +32,14 @@ from datetime import timedelta
 import os
 
 # Colours.
+
+
 MAIN = 'black' # colour for regular points
-DEF = 'blue' # colour for points found via deflation
-HIGHLIGHT = 'red' # colour for selected points
+DEF = blue # colour for points found via deflation
+HIGHLIGHT = red # colour for selected points
 GRID = 'white' # colour the for grid.
 BORDER = 'black' # borders on the UI
-SWEEP = 'red' # colour for the sweep line
+SWEEP = red # colour for the sweep line
 
 # Markers and various other styles.
 CONTPLOT = '.' # marker to use for points found by continuation
@@ -43,6 +51,18 @@ figure = Figure(figsize=(7,6), dpi=100)
 bfdiag = figure.add_subplot(111)
 bfdiag.grid(color=GRID)
 
+def rgb2hex(col):
+    """ Utility function for converting RGB tuples to hex strings. """
+    if isinstance(col, str): return col # if seaborn failed to import, we don't need to convert the colours. 
+    else: return '#%02x%02x%02x' % tuple([int(c*255) for c in col])
+
+def teamtext(job):
+    """ Utility function for converting a team's job into a colour and a label. """
+    if job == "d": colour, label = rgb2hex(blue), 'Deflating'
+    if job == "c": colour, label = rgb2hex(green), 'Continuing'
+    if job == "i": colour, label = rgb2hex(yellow), 'Idle'
+    if job == "q": colour, label = rgb2hex(red), 'Quit'
+    return colour, label  
 
 ################################
 ### Custom matplotlib Figure ###
@@ -358,11 +378,8 @@ class ApplicationWindow(QtGui.QMainWindow):
         """ Update the text that tells us what each team is doing. """
         text = ""
         for i in range(len(teamstats)):
-            # For each time, change the colour of the label for that team depedning on what it's doing. 
-            if teamstats[i] == "d": colour, label = 'blue', 'Deflating'
-            if teamstats[i] == "c": colour, label = 'green', 'Continuing'
-            if teamstats[i] == "i": colour, label = 'yellow', 'Idle'
-            if teamstats[i] == "q": colour, label = 'red', 'Quit'    
+            # For each team, change the colour of the label for that team depedning on what it's doing. 
+            colour, label = teamtext(teamstats[i])
             text += "<p style='margin:0;' ><font color=%s size='+2'> Team %d: %s</FONT></p>\n" % (colour, i, label)
         self.teambox.setText(text)
 
@@ -374,14 +391,14 @@ class ApplicationWindow(QtGui.QMainWindow):
             radio_button.clicked.connect(lambda: self.switch_functional())
             self.functionalBox.addWidget(radio_button)
             self.radio_buttons.append(radio_button)
-        self.radio_buttons[0].setChecked(True) # Select the radiobutton corresponding to functional 0. 
+        self.radio_buttons[0].setChecked(True) # Select the radio button corresponding to functional 0. 
 
     def switch_functional(self):
         """ Switch functionals. Which one we switch to depends on the radiobutton clicked. """
         i = 0 # keep track of the index of the radiobutton.
         for rb in self.radio_buttons:
             if rb.isChecked(): 
-                # If this is the radiobutton that has been clicked, switch to the appropriate function and jump out of the loop.
+                # If this is the radio button that has been clicked, switch to the appropriate functional and jump out of the loop.
                 self.pc.switch_functional(i) 
                 break
             else: i+=1
