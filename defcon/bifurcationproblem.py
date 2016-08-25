@@ -196,7 +196,7 @@ class BifurcationProblem(object):
         """
         pass
 
-    def io(self):
+    def io(self, prefix=""):
         """
         Return an IO object that defcon will use to save solutions and functionals.
 
@@ -204,7 +204,7 @@ class BifurcationProblem(object):
         """
 
         if backend.__name__ == "dolfin":
-            return iomodule.XMLIO("output")
+            return iomodule.XMLIO(prefix + "output")
         elif backend.__name__ == "firedrake":
-            return iomodule.HDF5IO("output")
+            return iomodule.HDF5IO(prefix + "output")
 
