@@ -498,7 +498,7 @@ class DeflatedContinuation(object):
                     else:
                         # We tried to continue a branch, but the continuation died. Oh well.
                         # The team is now idle.
-                        self.log("Continuation task on branch %d failed at parameters %s." % (task.branchid, task.newparams), master=True, warning=True)
+                        self.log("Continuation task of team %d on branch %d failed at parameters %s." % (team, task.branchid, task.newparams), master=True, warning=True)
                         idleteams.append(team)
                         journal.team_job(team, "i")
 

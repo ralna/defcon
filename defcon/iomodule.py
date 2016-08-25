@@ -402,10 +402,10 @@ class XMLIO(IO):
             solns.append(soln)
         return solns
 
-    def fetch_functionals(self, params, branchids):
+    def fetch_functionals(self, params, branchid):
         funcs = []
-        for branchid in branchids:
-            f = file(self.dir(params) + "functional-%d.txt" % branchid, "r")
+        for param in params:
+            f = file(self.dir(param) + "functional-%d.txt" % branchid, "r")
             func = []
             for line in f:
                 func.append(float(line.split('=')[-1]))
@@ -417,7 +417,7 @@ class XMLIO(IO):
         branches = [int(filename.split('-')[-1][:-7]) for filename in filenames]
         return set(branches)
 
-    def known_parameters(self, fixed):
+    def known_parameters(self, fixed, branchid):
         fixed_indices = []
         fixed_values = []
         for key in fixed:
@@ -429,7 +429,8 @@ class XMLIO(IO):
                     break
 
         seen = set()
-        saved_param_dirs = glob.glob(self.directory + "/*")
+        filenames = glob.glob(self.directory + "/*/solution-%d.xml.gz" % branchid)
+        saved_param_dirs = [x.replace("output", "").split('/')[1] for x in filenames]
         saved_params = [tuple([float(x.split('=')[-1]) for x in dirname.split('/')[-1].split('@')]) for dirname in saved_param_dirs]
 
         for param in saved_params:
@@ -442,7 +443,7 @@ class XMLIO(IO):
             if should_add:
                 seen.add(param)
 
-        return seen
+        return sorted(list(seen))
 
     def max_branch(self):
         filenames = glob.glob(self.directory + "/*/solution-*.xml.gz")
