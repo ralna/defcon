@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 import backend
+import iomodule
 
 class BifurcationProblem(object):
     """
@@ -194,4 +195,16 @@ class BifurcationProblem(object):
         the nonlinear problem.
         """
         pass
+
+    def io(self):
+        """
+        Return an IO object that defcon will use to save solutions and functionals.
+
+        The default is usually a good choice.
+        """
+
+        if backend.__name__ == "dolfin":
+            return iomodule.XMLIO("output")
+        elif backend.__name__ == "firedrake":
+            return iomodule.HDF5IO("output")
 

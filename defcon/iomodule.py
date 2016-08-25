@@ -233,7 +233,7 @@ class IO(object):
     def max_branch(self):
         raise NotImplementedError
 
-class FileIO(IO):
+class HDF5IO(IO):
     """ I/O Module that uses HDF5 files to store the solutions and functionals. 
         We create one HDF5 file for each parameter value, with groups that contain the solutions for each branch.
         The file has the form: f = self.directory/params-(x1=...).hdf5/solution-0, solution-1, ...

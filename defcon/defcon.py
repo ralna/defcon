@@ -30,15 +30,13 @@ class DeflatedContinuation(object):
     This class is the main driver that implements deflated continuation.
     """
 
-    def __init__(self, problem, io, deflation=None, teamsize=1, verbose=False, logfiles=False, strict=False):
+    def __init__(self, problem, deflation=None, teamsize=1, verbose=False, logfiles=False, strict=False):
         """
         Constructor.
 
         *Arguments*
           problem (:py:class:`defcon.BifurcationProblem`)
             A class representing the bifurcation problem to be solved.
-          io (:py:class:`defcon.IO`)
-            A class describing how to store the solutions on disk.
           deflation (:py:class:`defcon.DeflationOperator`)
             A class defining a deflation operator.
           teamsize (:py:class:`int`)
@@ -103,6 +101,7 @@ class DeflatedContinuation(object):
         self.residual = problem.residual(self.state, parameterstoconstants(self.parameters), backend.TestFunction(self.function_space))
         self.trivial_solutions = None # computed by the worker on initialisation later
 
+        io = self.problem.io()
         io.setup(self.parameters, self.functionals, self.function_space)
         self.io = io
 
@@ -123,7 +122,6 @@ class DeflatedContinuation(object):
             params = [x[0] for x in self.parameters]
             deflation = ShiftedDeflation(problem, params, power=2, shift=1)
         self.deflation = deflation
-
 
     def log(self, msg, master=False, warning=False):
         if not self.verbose: return

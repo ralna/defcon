@@ -77,8 +77,7 @@ class RootsOfUnityProblem(BifurcationProblem):
         return [interpolate(Constant((1, 0)), V)]
 
 if __name__ == "__main__":
-    io = FileIO("output")
-    dc = DeflatedContinuation(problem=RootsOfUnityProblem(), io=io, teamsize=1, verbose=True, logfiles=False)
+    dc = DeflatedContinuation(problem=RootsOfUnityProblem(), teamsize=1, verbose=True, logfiles=False)
     dc.run(free={"p": linspace(2.0, 9.0, 501)})
 
     dc.bifurcation_diagram("arg")

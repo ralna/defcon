@@ -12,9 +12,12 @@ args = [sys.argv[0]] + """
                        --petsc.snes_atol 1.0e-9
                        --petsc.snes_rtol 0.0
                        --petsc.snes_monitor
+                       --petsc.snes_converged_reason
 
                        --petsc.ksp_type preonly
                        --petsc.pc_type lu
+                       --petsc.pc_factor_mat_solver_package mumps
+                       --petsc.ksp_converged_reason
                        """.split()
 parameters.parse(args)
 
@@ -24,9 +27,10 @@ class NavierStokesProblem(BifurcationProblem):
         return mesh
 
     def function_space(self, mesh):
-        V  = VectorFunctionSpace(mesh, "CG", 2)
-        Q  = FunctionSpace(mesh, "CG",  1)
-        Z  = MixedFunctionSpace([V, Q])
+        Ve = VectorElement("CG", triangle, 2)
+        Qe = FiniteElement("CG", triangle, 1)
+        Ze = MixedElement([Ve, Qe])
+        Z  = FunctionSpace(mesh, Ze)
         return Z
 
     def parameters(self):
@@ -101,8 +105,7 @@ class NavierStokesProblem(BifurcationProblem):
         else:          return float("inf")
 
 if __name__ == "__main__":
-    io = FileIO("output")
-    dc = DeflatedContinuation(problem=NavierStokesProblem(), io=io, teamsize=1, verbose=True)
+    dc = DeflatedContinuation(problem=NavierStokesProblem(), teamsize=1, verbose=True)
     dc.run(free={"Re": linspace(10.0, 100.0, 181)})
 
     dc.bifurcation_diagram("sqL2")

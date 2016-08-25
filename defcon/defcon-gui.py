@@ -154,9 +154,8 @@ if mesh.geometry().dim() < 2: plot_with_mpl = True
 # Get the function space and set up the I/O module for fetching solutions. 
 V = problem.function_space(mesh)
 problem_parameters = problem.parameters()
-io = FileIO(output_dir)
+io = problem.io()
 io.setup(problem_parameters, None, V)
-    
 
 #####################
 ### Utility Class ###

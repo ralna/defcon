@@ -87,8 +87,7 @@ class CarrierProblem(BifurcationProblem):
         return inner(a - b, a - b)*dx + sqrt(eps)*inner(grad(a - b), grad(a - b))*dx
 
 if __name__ == "__main__":
-    io = FileIO("output")
-    dc = DeflatedContinuation(problem=CarrierProblem(), io=io, teamsize=1, verbose=True)
+    dc = DeflatedContinuation(problem=CarrierProblem(), teamsize=1, verbose=True)
     dc.run(free={"epsilon": list(arange(0.25, 0.01, -0.0005)) + [0.01]})
 
     dc.bifurcation_diagram("signedL2")

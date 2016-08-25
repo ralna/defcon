@@ -90,8 +90,7 @@ class ElasticaProblem(BifurcationProblem):
         return inner(a - b, a - b)*dx + inner(grad(a - b), grad(a - b))*dx
 
 if __name__ == "__main__":
-    io = FileIO("output")
-    dc = DeflatedContinuation(problem=ElasticaProblem(), io=io, teamsize=1, verbose=True)
+    dc = DeflatedContinuation(problem=ElasticaProblem(), teamsize=1, verbose=True)
     dc.run(free={"lambda": linspace(0, 3.9*pi, 200)}, fixed={"mu": 0.5})
 
     dc.bifurcation_diagram("signedL2", fixed={"mu": 0.5})
