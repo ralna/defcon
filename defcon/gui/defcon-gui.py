@@ -438,6 +438,9 @@ class PlotConstructor():
         xlen = max(xs) - min(xs)
         ylen = max(ys) - min(ys)
 
+        if xlen == 0: xlen = 1
+        if ylen == 0: ylen = 1
+
         xtick = bfdiag.get_xticks()
         ytick = bfdiag.get_yticks()
         xtol = (xtick[1]-xtick[0])/(2)
