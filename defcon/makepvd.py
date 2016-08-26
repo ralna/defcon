@@ -3,6 +3,7 @@ import os
 from parametertools import parameterstostring
 
 def makepvd(branches, problem_type, working_dir, output_dir="output", solutions_dir=None):
+    # Switch to the working directory and import the problem.
     os.chdir(working_dir)
     problem_name = __import__(problem_type)
     globals().update(vars(problem_name))

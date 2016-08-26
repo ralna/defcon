@@ -7,6 +7,9 @@ warnings.filterwarnings("ignore", module="matplotlib")
 from qtwindows import *
 
 import sys, getopt
+sys.path.insert(0, os.path.dirname(os.path.realpath(sys.argv[0])) + os.path.sep + "..")
+sys.path.insert(0, os.path.dirname(os.path.realpath(sys.argv[0])) + os.path.sep + ".." + os.path.sep + "..")
+
 from math import sqrt, floor, ceil
 import time as TimeModule
 
@@ -30,7 +33,7 @@ try:
     from matplotlib2tikz import save as tikz_save
     use_tikz = True
 except Exception: 
-    print "\033[91m[Warning] Could not import the library matplotlib2tikz. You will unable to save the file as a .tikz.\nTo use this functionality, install matplotlib2tikz, eg with:\n     # pip install matplotlib2tikz\033[00m\n"
+    issuewarning("Could not import the library matplotlib2tikz. You will unable to save the file as a .tikz.\nTo use this functionality, install matplotlib2tikz, eg with:\n     # pip install matplotlib2tikz")
     use_tikz = False
 
 # Set some defaults.
@@ -83,7 +86,6 @@ current_dir = os.path.dirname(os.path.realpath(sys.argv[0]))
 
 # Put the working directory on our path.
 sys.path.insert(0, working_dir) 
-sys.path.insert(0, os.path.dirname(os.path.realpath(sys.argv[0])) + os.path.sep + "..")
 
 # Get the name and type of the problem we're dealing with, as well as everything else we're going to need for plotting solutions.
 problem_name = __import__(problem_type)
@@ -167,7 +169,7 @@ class PlotConstructor():
             if xscale is not None:
                 ax.set_xscale(xscale)
         except Exception:
-            print "\033[91m[Warning] User-provided xscale variable is not a valid option for matplotlib.\033[00m\n"
+            issuewarning("User-provided xscale variable is not a valid option for matplotlib.")
             pass
 
     def redraw(self):
@@ -353,6 +355,7 @@ class PlotConstructor():
                     # Set up info about what the teams are doing.
                     self.nteams = int(nteams)
                     for team in range(self.nteams): self.teamstats.append('i')
+                    aw.set_teamstats(self.nteams)
 
                     # Info about functionals
                     self.freeindex = int(freeindex)
@@ -487,7 +490,7 @@ class PlotConstructor():
                     plt.axhline(0, color='k') # Plot a black line through the origin
                     plt.show(False) # False here means the window is non-blocking, so we may continue using the GUI while the plot shows. 
                 except RuntimeError, e:
-                    print "\033[91m [Warning] Error plotting expression. Are your solutions numbers rather than functions? If so, this is why I failed. Anyway, the error was: \033[00m"
+                    issuewarning("Error plotting expression. Are your solutions numbers rather than functions? If so, this is why I failed. Anyway, the error was:")
                     print str(e)
                     pass
             else:
@@ -552,7 +555,7 @@ class PlotConstructor():
             print "Movie saved."    
             return
         except Exception, e: 
-            print "\033[91m[Warning] Saving movie failed. Perhaps you don't have ffmpeg installed? Anyway, the error was: \033[00m"
+            issuewarning("Saving movie failed. Perhaps you don't have ffmpeg installed? Anyway, the error was:")
             print str(e)
             return
 
@@ -582,7 +585,7 @@ class PlotConstructor():
                 ax.plot(x, y, marker=m, color=c, linestyle='None')
             tikz_save(filename)
             ax.clear()
-        else: print "\033[91m[Warning] matplotlib2tikz not installed. I can't save to tikz! \033[00m \n"
+        else: issuewarning("matplotlib2tikz not installed. I can't save to tikz!")
 
     
 #################

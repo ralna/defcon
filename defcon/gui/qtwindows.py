@@ -1,7 +1,7 @@
-# Try to use the seaborn palette for matplotlib, but fail gracefully if it isn't installed. 
+# Try to use the seaborn palette for matplotlib, but fail gracefully if it isn't available. 
 try: 
     import seaborn as sns
-    blue, green, red, purple, yellow, cyan = sns.color_palette()
+    blue, green, red, purple, yellow, cyan = ['#%02x%02x%02x' % tuple([int(c*255) for c in col]) for col in sns.color_palette()] # convert the RGB values to HEX values.
 except ImportError: 
     blue, green, red, purple, yellow, cyan = 'blue', 'green', 'red', 'purple', 'yellow', 'cyan'
 
@@ -20,7 +20,7 @@ try:
     from matplotlib import style
     style.use('ggplot')
 except AttributeError:
-    print "\033[91m[Warning] Update to the latest version of matplotlib to use styles.\033[00m\n"
+    issuewarning("Update to the latest version of matplotlib to use styles.")
     pass
 
 # For plotting the bifurcation diagram.
@@ -29,6 +29,7 @@ from matplotlib.backends.backend_qt4agg import NavigationToolbar2QT
 from matplotlib.figure import Figure
 
 from datetime import timedelta
+from numpy import sqrt, floor, ceil
 import os
 
 # Colours.
@@ -49,18 +50,20 @@ figure = Figure(figsize=(7,6), dpi=100)
 bfdiag = figure.add_subplot(111)
 bfdiag.grid(color=GRID)
 
-def rgb2hex(col):
-    """ Utility function for converting RGB tuples to hex strings. """
-    if isinstance(col, str): return col # if seaborn failed to import, we don't need to convert the colours. 
-    else: return '#%02x%02x%02x' % tuple([int(c*255) for c in col])
-
+#########################
+### Utility Functions ###
+#########################
 def teamtext(job):
     """ Utility function for converting a team's job into a colour and a label. """
-    if job == "d": colour, label = rgb2hex(blue), 'Deflating'
-    if job == "c": colour, label = rgb2hex(green), 'Continuing'
-    if job == "i": colour, label = rgb2hex(yellow), 'Idle'
-    if job == "q": colour, label = rgb2hex(red), 'Quit'
+    if job == "d": colour, label = blue, 'Deflating'
+    if job == "c": colour, label = green, 'Continuing'
+    if job == "i": colour, label = yellow, 'Idle'
+    if job == "q": colour, label = red, 'Quit'
     return colour, label  
+
+def issuewarning(text):
+    """ Prints a red warning message to the console. """
+    print "\033[91m[Warning] %s\033[00m\n" % text
 
 ################################
 ### Custom matplotlib Figure ###
@@ -248,9 +251,9 @@ class ApplicationWindow(QtGui.QMainWindow):
         plotBox = QtGui.QHBoxLayout()
         rVBox.addLayout(plotBox)
         plotBox.setAlignment(QtCore.Qt.AlignTop | QtCore.Qt.AlignCenter)
-        teamBox = QtGui.QVBoxLayout()
-        teamBox.setContentsMargins(0, 10, 0, 10)
-        rVBox.addLayout(teamBox)
+        self.teamBox = QtGui.QVBoxLayout()
+        self.teamBox.setContentsMargins(0, 10, 0, 10)
+        rVBox.addLayout(self.teamBox)
 
 
         # Canvas.
@@ -341,14 +344,9 @@ class ApplicationWindow(QtGui.QMainWindow):
         label = QtGui.QLabel("Team Status:")
         label.setFixedHeight(20)
         label.setAlignment(QtCore.Qt.AlignCenter)
-        teamBox.addWidget(label)
+        self.teamBox.addWidget(label)
 
-        self.teambox = QtGui.QLabel("")
-        #self.infobox.setFixedHeight(250)
-        self.teambox.setFixedWidth(250)
-        self.teambox.setAlignment(QtCore.Qt.AlignTop | QtCore.Qt.AlignCenter)
-        #self.teambox.setStyleSheet('border-color: %s; border-style: outset; border-width: 2px' % BORDER)
-        teamBox.addWidget(self.teambox)
+        self.teamLabels = [] # A list of labels, one for each team.     
 
 
         # Elapsed time counter.
@@ -357,7 +355,6 @@ class ApplicationWindow(QtGui.QMainWindow):
         lowerBox.addWidget(self.elapsedTime)
 
 
-    ## Utility Functions. ##
     def set_time(self, t):
         """ Set the time, and also update the limits of time jump box if we need to. """
         if not t == self.time:
@@ -372,14 +369,42 @@ class ApplicationWindow(QtGui.QMainWindow):
         """ Set the text describing our annotated point. """
         self.infobox.setText(text)
 
+    def set_teamstats(self, nteams):
+        """ Do the intial setup for the grid of team status boxes. """
+        # We'll define a square grid large enough to hold a box for each team.
+        boxes = int(ceil(sqrt(nteams)))
+        teamGrid = QtGui.QGridLayout()
+
+        # Create a box for each team, going first along each column and then down a
+        # row when we fill the column up.
+        teamno, col, row = 0, 0, 0
+        while teamno < nteams:
+            while col <= boxes-1 and teamno < nteams:
+                # Create a label, 
+                label = QtGui.QLabel(str(teamno))
+                label.setAlignment(QtCore.Qt.AlignCenter)
+                label.setStyleSheet("font-size:40px;background-color:%s;border: 2px solid %s" % (teamtext('i')[0], BORDER))
+                size = floor(250.0/(1.5*boxes))
+                label.setFixedSize(size, size)
+
+                # Add this label to a list so we can access it later, then put it into the
+                # appropriate cell on the grid. 
+                self.teamLabels.append(label)
+                teamGrid.addWidget(label, row, col)
+                teamno += 1
+                col += 1
+            # We got to the end of the row. Go down a row and go back to the first column. 
+            row += 1
+            col = 0
+        teamGrid.setAlignment(QtCore.Qt.AlignTop | QtCore.Qt.AlignCenter)
+        self.teamBox.addLayout(teamGrid)
+                        
+
     def update_teamstats(self, teamstats):
-        """ Update the text that tells us what each team is doing. """
-        text = ""
+        """ Update the boxes that tell us what each team is doing. """
         for i in range(len(teamstats)):
-            # For each team, change the colour of the label for that team depedning on what it's doing. 
             colour, label = teamtext(teamstats[i])
-            text += "<p style='margin:0;' ><font color=%s size='+2'> Team %d: %s</FONT></p>\n" % (colour, i, label)
-        self.teambox.setText(text)
+            self.teamLabels[i].setStyleSheet("font-size:30px;background-color:%s;border: 2px solid %s" % (colour, BORDER))
 
     def make_radio_buttons(self, functionals):
         """ Build the radiobuttons for switching functionals. """
