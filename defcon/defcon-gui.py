@@ -455,47 +455,45 @@ class PlotConstructor():
                self.unannotate()
            return
 
-        if self.annotated_point is None:
+        # Sets a clickbox that is generally too small in practice. 
+        #xs = [float(point[0][self.freeindex]) for point in self.points[:self.time]]
+        #ys = [float(point[1][self.current_functional]) for point in self.points[:self.time]]
+        #xtol = ((max(xs) - min(xs))/float(len(xs)))/2 
+        #ytol = ((max(ys) - min(ys))/float(len(ys)))/2 
 
-            # Sets a clickbox that is generally too small in practice. 
-            #xs = [float(point[0][self.freeindex]) for point in self.points[:self.time]]
-            #ys = [float(point[1][self.current_functional]) for point in self.points[:self.time]]
-            #xtol = ((max(xs) - min(xs))/float(len(xs)))/2 
-            #ytol = ((max(ys) - min(ys))/float(len(ys)))/2 
+        # Sets the clickbox to be one 'square' of the diagram.
+        xtick = bfdiag.get_xticks()
+        ytick = bfdiag.get_yticks()
+        xtol = (xtick[1]-xtick[0])/2 
+        ytol = (ytick[1]-ytick[0])/2 
 
-            # Sets the clickbox to be one 'square' of the diagram.
-            xtick = bfdiag.get_xticks()
-            ytick = bfdiag.get_yticks()
-            xtol = (xtick[1]-xtick[0])/2 
-            ytol = (ytick[1]-ytick[0])/2 
+        annotes = []
 
-            annotes = []
+        # Find the point on the diagram closest to the point the user clicked.
+        time = 1
+        for xs, ys, branchid, teamno, cont in self.points[:self.time]:
+             x = float(xs[self.freeindex])
+             y = float(ys[self.current_functional])
+             if ((clickX-xtol < x < clickX+xtol) and (clickY-ytol < y < clickY+ytol)):
+                 annotes.append((self.distance(x, clickX, y, clickY), x, y, branchid, xs, teamno, cont, time))
+             time += 1
 
-            # Find the point on the diagram closest to the point the user clicked.
-            time = 1
-            for xs, ys, branchid, teamno, cont in self.points[:self.time]:
-                 x = float(xs[self.freeindex])
-                 y = float(ys[self.current_functional])
-                 if ((clickX-xtol < x < clickX+xtol) and (clickY-ytol < y < clickY+ytol)):
-                     annotes.append((self.distance(x, clickX, y, clickY), x, y, branchid, xs, teamno, cont, time))
-                 time += 1
+        if annotes:
+            annotes.sort()
+            distance, x, y, branchid, xs, teamno, cont, time = annotes[0]
 
-            if annotes:
-                annotes.sort()
-                distance, x, y, branchid, xs, teamno, cont, time = annotes[0]
+            if self.annotated_point is not None:
+                self.unannotate()
 
-                # Plot the annotation, and keep a handle on all the stuff we plot so we can use/remove it later. 
-                self.annotation_highlight = bfdiag.scatter([x], [y], s=[50], marker='o', color=HIGHLIGHT) # Note: change 's' to make the highlight blob bigger/smaller
-                self.annotated_point = (xs, branchid)  
-                if cont: s = "continuation"
-                else: s = "deflation"
-                self.app.set_output_box("Solution on branch %d\nFound by team %d\nUsing %s\nAs event #%d\n\nx = %s\ny = %s" % (branchid, teamno, s, time, x, y))
-                self.changed = True
+            # Plot the annotation, and keep a handle on all the stuff we plot so we can use/remove it later. 
+            self.annotation_highlight = bfdiag.scatter([x], [y], s=[50], marker='o', color=HIGHLIGHT) # Note: change 's' to make the highlight blob bigger/smaller
+            self.annotated_point = (xs, branchid)  
+            if cont: s = "continuation"
+            else: s = "deflation"
+            self.app.set_output_box("Solution on branch %d\nFound by team %d\nUsing %s\nAs event #%d\n\nx = %s\ny = %s" % (branchid, teamno, s, time, x, y))
+            self.changed = True
 
-            return self.changed
-
-        else: self.unannotate()
-
+        return self.changed
 
     def unannotate(self):
         """ Remove annotation from the graph. """
