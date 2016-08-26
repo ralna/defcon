@@ -438,10 +438,6 @@ class PlotConstructor():
         xlen = max(xs) - min(xs)
         ylen = max(ys) - min(ys)
 
-        # If these are set to zero we'll get errors, so let's be careful.
-        if xlen==0: xlen=1
-        if ylen==0: ylen=1
-
         xtick = bfdiag.get_xticks()
         ytick = bfdiag.get_yticks()
         xtol = (xtick[1]-xtick[0])/(2)
@@ -455,7 +451,7 @@ class PlotConstructor():
              x = float(xs[self.freeindex])
              y = float(ys[self.current_functional])
              if ((clickX-xtol < x < clickX+xtol) and (clickY-ytol < y < clickY+ytol)):
-                annotes.append((self.distance(x/xlen, clickX/xlen, y/ylen, clickY/ylen), x, y, branchid, xs, teamno, cont, time)) # uses rescaled distance. 
+                 annotes.append((self.distance(x/xlen, clickX/xlen, y/ylen, clickY/ylen), x, y, branchid, xs, teamno, cont, time)) # uses rescaled distance. 
              time += 1
 
         if annotes:
@@ -467,7 +463,7 @@ class PlotConstructor():
 
             # Plot the annotation, and keep a handle on all the stuff we plot so we can use/remove it later. 
             self.annotation_highlight = bfdiag.scatter([x], [y], s=[50], marker='o', color=HIGHLIGHT) # Note: change 's' to make the highlight blob bigger/smaller
-            self.annotated_point = (xs, branchid)
+            self.annotated_point = (xs, branchid)  
             if cont: s = "continuation"
             else: s = "deflation"
             aw.set_output_box("Solution on branch %d\nFound by team %d\nUsing %s\nAs event #%d\n\nx = %s\ny = %s" % (branchid, teamno, s, time, x, y))
