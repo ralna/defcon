@@ -139,7 +139,7 @@ classes = [key for key in globals().keys()]
 for c in classes:
     try:
         globals()["bfprob"] = getattr(problem_name, c)
-        assert(issubclass(bfprob, BifurcationProblem)) # check whether the class is a subclass of BifurcationProblem, which would mean it's the class we want. 
+        assert issubclass(bfprob, BifurcationProblem) and bfprob is not BifurcationProblem # check whether the class is a subclass of BifurcationProblem, which would mean it's the class we want. 
         problem = bfprob() # initialise the class.
         break
     except Exception: pass
