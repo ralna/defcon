@@ -133,7 +133,6 @@ class HyperelasticityProblem(BifurcationProblem):
             P.setNearNullSpace(nullsp)
 
 if __name__ == "__main__":
-    io = FileIO("output")
-    dc = DeflatedContinuation(problem=HyperelasticityProblem(), io=io, teamsize=1, verbose=True)
+    dc = DeflatedContinuation(problem=HyperelasticityProblem(), teamsize=1, verbose=True)
     params = list(arange(0.0, 0.2, 0.001)) + [0.2]
     dc.run(free={"eps": params})

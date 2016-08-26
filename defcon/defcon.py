@@ -30,15 +30,13 @@ class DeflatedContinuation(object):
     This class is the main driver that implements deflated continuation.
     """
 
-    def __init__(self, problem, io, deflation=None, teamsize=1, verbose=False, logfiles=False, strict=False):
+    def __init__(self, problem, deflation=None, teamsize=1, verbose=False, logfiles=False, strict=False):
         """
         Constructor.
 
         *Arguments*
           problem (:py:class:`defcon.BifurcationProblem`)
             A class representing the bifurcation problem to be solved.
-          io (:py:class:`defcon.IO`)
-            A class describing how to store the solutions on disk.
           deflation (:py:class:`defcon.DeflationOperator`)
             A class defining a deflation operator.
           teamsize (:py:class:`int`)
@@ -101,8 +99,9 @@ class DeflatedContinuation(object):
         self.functionals = problem.functionals()
         self.state = backend.Function(self.function_space)
         self.residual = problem.residual(self.state, parameterstoconstants(self.parameters), backend.TestFunction(self.function_space))
-        self.trivial_solutions = problem.trivial_solutions(self.function_space)
+        self.trivial_solutions = None # computed by the worker on initialisation later
 
+        io = self.problem.io()
         io.setup(self.parameters, self.functionals, self.function_space)
         self.io = io
 
@@ -120,17 +119,20 @@ class DeflatedContinuation(object):
                 sys.stderr = open(os.devnull, "w")
 
         if deflation is None:
-            params = [x[0] for x in self.parameters]
-            deflation = ShiftedDeflation(problem, params, power=2, shift=1)
+            deflation = ShiftedDeflation(problem, power=2, shift=1)
+        params = [x[0] for x in self.parameters]
+        deflation.set_parameters(params)
         self.deflation = deflation
 
-
-    def log(self, msg, master=False):
+    def log(self, msg, master=False, warning=False):
         if not self.verbose: return
         if self.teamrank != 0: return
 
         if master:
-            fmt = BLUE  = "\033[1;37;34m%s\033[0m"
+            if not warning:
+                fmt = BLUE = "\033[1;37;34m%s\033[0m"
+            else:
+                fmt = RED = "\033[1;37;31m%s\033[0m"
         else:
             fmt = GREEN = "\033[1;37;32m%s\033[0m"
 
@@ -158,6 +160,7 @@ class DeflatedContinuation(object):
 
         assert len(self.parameters) == len(fixed) + len(free)
         assert len(free) == 1
+        self.fixed = fixed
 
         # Fix the fixed parameters and identify the free parameter.
 
@@ -312,7 +315,7 @@ class DeflatedContinuation(object):
             backend.info_red("Defcon started with only 1 process. At least 2 processes are required (one master, one worker).\n\nLaunch with mpiexec: mpiexec -n <number of processes> python <path to file>")
             import sys; sys.exit(1)
 
-        # Create a journal object. 
+        # Create a journal object.
         journal = FileJournal(self.io.directory, self.parameters, self.functionals, freeindex, sign)
         try:
             # First check to see if the journal exists.
@@ -329,7 +332,7 @@ class DeflatedContinuation(object):
 
             # Set all teams to idle.
             for teamno in range(self.nteams):
-                journal.team_job(teamno, "i")         
+                journal.team_job(teamno, "i")
 
             # Schedule continuation tasks for any branches that aren't done yet.
             for branchid in branches.keys():
@@ -340,6 +343,7 @@ class DeflatedContinuation(object):
                                             oldparams=oldparams,
                                             branchid=int(branchid),
                                             newparams=newparams)
+                    self.log("Scheduling task: %s" % task, master=True)
                     heappush(newtasks, (-1, task))
                     taskid_counter += 1
 
@@ -347,19 +351,23 @@ class DeflatedContinuation(object):
             # We need to schedule deflation tasks at every point from where we'd completed our sweep up to previously 
             # to the furthest we've got in continuation, on every branch.
             for branchid in branches.keys():
-		        # Get the fixed parameters
+                # Get the fixed parameters
+                knownparams = [x[freeindex] for x in self.io.known_parameters(self.fixed, branchid)]
                 oldparams = list(parameterstofloats(self.parameters, freeindex, values[0]))
                 oldparams[freeindex] = previous_sweep
                 newparams = nextparameters(values, freeindex, tuple(oldparams))
                 while newparams is not None and sign*newparams[freeindex] <= sign*branches[branchid][freeindex]: 
                     # As long as we're not at the end of the parameter range and we haven't exceeded the extent
                     # of this branch, schedule a deflation. 
-                    task = DeflationTask(taskid=taskid_counter,
-                                         oldparams=oldparams,
-                                         branchid=branchid, 
-                                         newparams=newparams)
-                    taskid_counter += 1
-                    heappush(newtasks, (sign*task.newparams[freeindex], task))
+
+                    if oldparams[freeindex] in knownparams:
+                        task = DeflationTask(taskid=taskid_counter,
+                                             oldparams=oldparams,
+                                             branchid=int(branchid),
+                                             newparams=newparams)
+                        self.log("Scheduling task: %s" % task, master=True)
+                        taskid_counter += 1
+                        heappush(newtasks, (sign*task.newparams[freeindex], task))
 
                     oldparams = newparams
                     newparams = nextparameters(values, freeindex, newparams)
@@ -373,9 +381,10 @@ class DeflatedContinuation(object):
 
             # Send off initial tasks
             knownbranches = self.io.known_branches(initialparams)
+            branchid_counter = len(knownbranches)
             if len(knownbranches) > 0:
-                self.log("Using known solutions at %s" % (initialparams,), master=True)
                 nguesses = len(knownbranches)
+                self.log("Using %d known solutions at %s" % (nguesses, initialparams,), master=True)
                 oldparams = initialparams
                 initialparams = nextparameters(values, freeindex, initialparams)
 
@@ -458,7 +467,7 @@ class DeflatedContinuation(object):
                         minwait = prevparams[freeindex]
 
                         tot_solutions = self.problem.number_solutions(minparams)
-                        if isinf(tot_solutions): tot_solutions = '∞'
+                        if isinf(tot_solutions): tot_solutions = '?'
                         num_solutions = len(self.io.known_branches(minparams))
                         self.log("Sweep completed <= %14.12e (%s/%s solutions)." % (minwait, num_solutions, tot_solutions), master=True)
 
@@ -503,6 +512,7 @@ class DeflatedContinuation(object):
                     else:
                         # We tried to continue a branch, but the continuation died. Oh well.
                         # The team is now idle.
+                        self.log("Continuation task of team %d on branch %d failed at parameters %s." % (team, task.branchid, task.newparams), master=True, warning=True)
                         idleteams.append(team)
                         journal.team_job(team, "i")
 
@@ -598,6 +608,10 @@ class DeflatedContinuation(object):
             elif isinstance(task, DeflationTask):
                 self.log("Executing task %s" % task)
 
+                # Check for trivial solutions
+                if self.trivial_solutions is None:
+                    self.trivial_solutions = self.problem.trivial_solutions(self.function_space, task.newparams, freeindex)
+
                 # Set up the problem
                 self.load_solution(task.oldparams, task.branchid, task.newparams)
                 self.load_parameters(task.newparams)
@@ -617,7 +631,7 @@ class DeflatedContinuation(object):
                 bcs = self.problem.boundary_conditions(self.function_space, task.newparams)
 
                 self.deflation.deflate(other_solutions + self.trivial_solutions)
-                success = newton(self.residual, self.state, bcs, self.deflation, snes_setup=self.problem.configure_snes)
+                success = newton(self.residual, self.state, bcs, self.teamno, self.deflation, snes_setup=self.problem.configure_snes)
 
                 self.state_id = (None, None) # not sure if it is a solution we care about yet
 
@@ -662,6 +676,10 @@ class DeflatedContinuation(object):
             elif isinstance(task, ContinuationTask):
                 self.log("Executing task %s" % task)
 
+                # Check for trivial solutions
+                if self.trivial_solutions is None:
+                    self.trivial_solutions = self.problem.trivial_solutions(self.function_space, task.newparams, freeindex)
+
                 # Set up the problem
                 self.load_solution(task.oldparams, task.branchid, task.newparams)
                 self.load_parameters(task.newparams)
@@ -671,7 +689,7 @@ class DeflatedContinuation(object):
 
                 # Try to solve it
                 self.deflation.deflate(other_solutions + self.trivial_solutions)
-                success = newton(self.residual, self.state, bcs, self.deflation, snes_setup=self.problem.configure_snes)
+                success = newton(self.residual, self.state, bcs, self.teamno, self.deflation, snes_setup=self.problem.configure_snes)
 
                 if success:
                     self.state_id = (task.newparams, task.branchid)

@@ -44,7 +44,7 @@ if backend.__name__ == "dolfin":
             ksp.setConvergedReason(self.ksp.getConvergedReason())
 
 
-    def newton(F, y, bcs, deflation=None, prefix="", snes_setup=None):
+    def newton(F, y, bcs, teamno, deflation=None, prefix="", snes_setup=None):
 
         comm = y.function_space().mesh().mpi_comm()
         solver = PETScSNESSolver(comm)
@@ -54,6 +54,8 @@ if backend.__name__ == "dolfin":
         snes.setOptionsPrefix(prefix)
         PETScOptions.set(prefix + "snes_monitor_cancel")
         solver.init(problem, y.vector())
+
+        snes.incrementTabLevel(teamno*2)
 
         if snes_setup is not None:
             snes_setup(snes)
@@ -95,12 +97,14 @@ elif backend.__name__ == "firedrake":
 
             ksp.setConvergedReason(self.ksp.getConvergedReason())
 
-    def newton(F, y, bcs, deflation=None, prefix="", snes_setup=None):
+    def newton(F, y, bcs, teamno, deflation=None, prefix="", snes_setup=None):
 
         problem = NonlinearVariationalProblem(F, y, bcs)
         solver  = NonlinearVariationalSolver(problem, options_prefix=prefix)
         snes = solver.snes
         comm = snes.comm
+
+        snes.incrementTabLevel(teamno*2)
 
         if snes_setup is not None:
             snes_setup(snes)

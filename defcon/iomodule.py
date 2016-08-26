@@ -7,7 +7,7 @@ implement more efficient/scalable backends at a later time.
 
 import backend
 if backend.__name__ == "dolfin":
-    from backend import HDF5File, Function
+    from backend import HDF5File, Function, File
 elif backend.__name__ == "firedrake":
     from backend import Function
     from firedrake.petsc import PETSc
@@ -233,7 +233,7 @@ class IO(object):
     def max_branch(self):
         raise NotImplementedError
 
-class FileIO(IO):
+class HDF5IO(IO):
     """ 
     I/O Module that uses HDF5 files to store the solutions and functionals. 
     We create one HDF5 file for each branch, with groups that contain the solutions for each parameter value.
@@ -278,7 +278,7 @@ class FileIO(IO):
         else: mode = 'w'
 
         self.known_params_file(branchid, params, mode)
-     
+
     def fetch_solutions(self, params, branchids):
         """ Fetch solutions for a particular parameter value for each branchid in branchids. """
         solns = []
@@ -292,7 +292,7 @@ class FileIO(IO):
                         f.flush()
                     solns.append(soln)
                     break
-  
+
                 # We failed to open/read the file. Shouldn't happen, but just in case.
                 except Exception:
                     print "Loading file %s failed. Sleeping for a second and trying again." % self.dir(branchid)
@@ -312,7 +312,7 @@ class FileIO(IO):
             if str(params) in pullData: 
                 branches.append(int(branch_file.split('-')[-1].split('.')[0]))
         return set(branches)
-     
+
     def fetch_functionals(self, params, branchid):
         """ Gets functionals for a particular branchid, one for each param in params. """
         funcs = []
@@ -326,7 +326,6 @@ class FileIO(IO):
         """ Returns a list of known parameters for a given branch. """
         pullData = open(self.directory + os.path.sep + "branch-%s.txt" % branchid, 'r').read().split(';')[0:-1]
         saved_params = [tuple([float(param) for param in literal_eval(params)]) for params in pullData]
-        
         return saved_params
 
     def max_branch(self):
@@ -335,3 +334,94 @@ class FileIO(IO):
         branchids = [int(branch_file.split('-')[-1].split('.')[0]) for branch_file in saved_branch_files]
         return max(branchids)
 
+class XMLIO(IO):
+    def dir(self, params):
+        return self.directory + os.path.sep + parameterstostring(self.parameters, params) + os.path.sep
+
+    def save_solution(self, solution, funcs, params, branchid):
+        f = File(self.function_space.mesh().mpi_comm(), self.dir(params) + "solution-%d.xml.gz" % branchid)
+        f << solution
+        del f
+
+        # wait for the file to be written
+        size = 0
+        while True:
+            try:
+                size = os.stat(self.dir(params) + "solution-%d.xml.gz" % branchid).st_size
+            except OSError:
+                pass
+            if size > 0: break
+            #print "Waiting for %s to have nonzero size" % (self.dir(params) + "solution-%d.xml.gz" % branchid)
+            time.sleep(0.1)
+
+        f = file(self.dir(params) + "functional-%d.txt" % branchid, "w")
+        s = parameterstostring(self.functionals, funcs).replace('@', '\n') + '\n'
+        f.write(s)
+
+    def fetch_solutions(self, params, branchids):
+        solns = []
+        for branchid in branchids:
+            filename = self.dir(params) + "solution-%d.xml.gz" % branchid
+            failcount = 0
+            while True:
+                try:
+                    soln = Function(self.function_space, filename)
+                    break
+                except Exception:
+                    print "WTF? Loading file %s failed. Sleeping for a second and trying again." % filename
+                    failcount += 1
+                    if failcount == 5:
+                        print "Argh. Tried 5 times to load file %s. Raising exception." % filename
+                        raise
+                    time.sleep(1)
+
+            solns.append(soln)
+        return solns
+
+    def fetch_functionals(self, params, branchid):
+        funcs = []
+        for param in params:
+            f = file(self.dir(param) + "functional-%d.txt" % branchid, "r")
+            func = []
+            for line in f:
+                func.append(float(line.split('=')[-1]))
+            funcs.append(func)
+        return funcs
+
+    def known_branches(self, params):
+        filenames = glob.glob(self.dir(params) + "solution-*.xml.gz")
+        branches = [int(filename.split('-')[-1][:-7]) for filename in filenames]
+        return set(branches)
+
+    def known_parameters(self, fixed, branchid):
+        fixed_indices = []
+        fixed_values = []
+        for key in fixed:
+            fixed_values.append(fixed[key])
+            # find the index
+            for (i, param) in enumerate(self.parameters):
+                if param[1] == key:
+                    fixed_indices.append(i)
+                    break
+
+        seen = set()
+        filenames = glob.glob(self.directory + "/*/solution-%d.xml.gz" % branchid)
+        saved_param_dirs = [x.replace("output", "").split('/')[1] for x in filenames]
+        saved_params = [tuple([float(x.split('=')[-1]) for x in dirname.split('/')[-1].split('@')]) for dirname in saved_param_dirs]
+
+        for param in saved_params:
+            should_add = True
+            for (index, value) in zip(fixed_indices, fixed_values):
+                if param[index] != value:
+                    should_add = False
+                    break
+
+            if should_add:
+                seen.add(param)
+
+        return sorted(list(seen))
+
+    def max_branch(self):
+        filenames = glob.glob(self.directory + "/*/solution-*.xml.gz")
+        branches = [int(filename.split('-')[-1][:-7]) for filename in filenames]
+        return max(branches)

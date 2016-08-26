@@ -49,6 +49,12 @@ class FileJournal(Journal):
         xlabel = self.parameters[self.freeindex][2]
         ylabels = [func[2] for func in self.functionals]
         unicodeylabels = [func[1] for func in self.functionals]
+
+        try:
+            os.makedirs(self.directory)
+        except OSError:
+            pass
+
         with file(self.directory + os.path.sep + "journal.txt", 'w') as f:
             f.write("%s;%s;%s;%s;%s;%s;%s\n" % (self.freeindex, xlabel, ylabels, unicodeylabels, nteams, minparam, maxparam))
 
@@ -94,6 +100,7 @@ class FileJournal(Journal):
                 else:
                     # This tells us about a point we discovered.
                     teamno, oldparams, branchid, newparams, functionals, cont = eachLine.split(';')
+                    branchid = int(branchid)
                     params = literal_eval(newparams)
                     branches[branchid] = (tuple([float(param) for param in params]), cont)
 

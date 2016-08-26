@@ -14,6 +14,7 @@ params = {
     "snes_rtol": 0.0,
     "snes_monitor": None,
     "snes_linesearch_type": "basic",
+    "mat_type": "aij",
     "ksp_type": "preonly",
     "ksp_converged_reason": None,
     "ksp_monitor": None,
@@ -56,6 +57,7 @@ class RayleighBenardProblem(BifurcationProblem):
             + inner(dot(grad(u), u), v)*dx
             - inner(p, div(v))*dx
             - Ra*Pr*inner(T*g, v)*dx
+            + 1.e-6 * p * q * dx
             + inner(div(u), q)*dx
             + inner(dot(grad(T), u), S)*dx
             + 1/Pr * inner(grad(T), grad(S))*dx
@@ -87,6 +89,11 @@ class RayleighBenardProblem(BifurcationProblem):
 
     def initial_guess(self, V, params, n):
         return Function(V)
+
+    def squared_norm(self, a, b, params):
+        u1, p1, T1 = split(a)
+        u2, p2, T2 = split(b)
+        return inner(u1-u2, u1-u2)*dx + inner(T1-T2, T1-T2)*dx
 
 
 if __name__ == "__main__":

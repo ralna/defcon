@@ -55,11 +55,9 @@ class ElasticaProblem(BifurcationProblem):
 
     def functionals(self):
         def signedL2(theta, params):
-            # Argh.
             j = sqrt(assemble(inner(theta, theta)*dx))
             g = project(grad(theta)[0], theta.function_space())
-            #return j*g((0.0,))
-            return j
+            return j*g((0.0,))
 
         def max(theta, params):
             return theta.vector().max()
@@ -92,8 +90,7 @@ class ElasticaProblem(BifurcationProblem):
         return inner(a - b, a - b)*dx + inner(grad(a - b), grad(a - b))*dx
 
 if __name__ == "__main__":
-    io = FileIO("output")
-    dc = DeflatedContinuation(problem=ElasticaProblem(), io=io, teamsize=1, verbose=True)
+    dc = DeflatedContinuation(problem=ElasticaProblem(), teamsize=1, verbose=True)
     dc.run(free={"lambda": linspace(0, 3.9*pi, 200)}, fixed={"mu": 0.5})
 
     dc.bifurcation_diagram("signedL2", fixed={"mu": 0.5})

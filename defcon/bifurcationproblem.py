@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 import backend
+import iomodule
 
 class BifurcationProblem(object):
     """
@@ -169,11 +170,15 @@ class BifurcationProblem(object):
         """
         return backend.inner(state1 - state2, state1 - state2)*backend.dx
 
-    def trivial_solutions(self, function_space):
+    def trivial_solutions(self, function_space, params, freeindex):
         """
         This method returns any trivial solutions of the problem,
         i.e. solutions u such that f(u, \lambda) = 0 for all \lambda.
         These will be deflated at every computation.
+
+        freeindex is the index into params that is being modified by this
+        current continuation run. This is useful if the trivial solutions
+        depend on the values of parameters in params other than freeindex.
         """
         return []
 
@@ -191,3 +196,24 @@ class BifurcationProblem(object):
         """
         pass
 
+    def io(self, prefix=""):
+        """
+        Return an IO object that defcon will use to save solutions and functionals.
+
+        The default is usually a good choice.
+        """
+
+        if backend.__name__ == "dolfin":
+            return iomodule.XMLIO(prefix + "output")
+        elif backend.__name__ == "firedrake":
+            return iomodule.HDF5IO(prefix + "output")
+
+    def save_pvd(self, y, pvd):
+        """
+        Save the function y to a PVD file.
+
+        The default is
+
+        pvd << y
+        """
+        pvd << y
