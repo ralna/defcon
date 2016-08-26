@@ -208,3 +208,12 @@ class BifurcationProblem(object):
         elif backend.__name__ == "firedrake":
             return iomodule.HDF5IO(prefix + "output")
 
+    def save_pvd(self, y, pvd):
+        """
+        Save the function y to a PVD file.
+
+        The default is
+
+        pvd << y
+        """
+        pvd << y

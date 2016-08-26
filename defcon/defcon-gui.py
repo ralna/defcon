@@ -515,12 +515,11 @@ class PlotConstructor():
             # Create the file to which we will write these solutions.
             pvd_filename = solutions_dir +  "SOLUTION$%s$branchid=%d.pvd" % (parameterstostring(problem_parameters, params), branchid)
             pvd = File(pvd_filename)
-    
+
             # Use the I/O module to fetch the solution and write it to the pvd file. 
             y = io.fetch_solutions(params, [branchid])[0]
-            pvd << y
-            pvd
-            
+            problem.save_pvd(y, pvd)
+
             # Finally, launch paraview with the newly created file. 
             self.launch_paraview(pvd_filename)
 
