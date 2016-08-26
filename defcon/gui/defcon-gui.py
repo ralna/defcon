@@ -7,10 +7,11 @@ warnings.filterwarnings("ignore", module="matplotlib")
 from qtwindows import *
 
 import sys, getopt
+
+# Put the defcon directories on the path.
 sys.path.insert(0, os.path.dirname(os.path.realpath(sys.argv[0])) + os.path.sep + "..")
 sys.path.insert(0, os.path.dirname(os.path.realpath(sys.argv[0])) + os.path.sep + ".." + os.path.sep + "..")
 
-from math import sqrt, floor, ceil
 import time as TimeModule
 
 # Imports for the paraview and hdf5topvd methods.
@@ -47,25 +48,29 @@ update_interval = 100 # update interval for the diagram
 resources_dir = os.path.dirname(os.path.realpath(sys.argv[0])) + os.path.sep + 'resources' + os.path.sep # icons, etc. 
 
 # Get commandline args.
-myopts, args = getopt.getopt(sys.argv[1:],"p:o:w:i:s:x:")
-
 def usage():
-    sys.exit("""Usage: %s -p <problem_type> -w <working_dir> -o <defcon_output_directory> -i <update interval in ms> -x <x scale> 
+    sys.exit("""Usage: %s -p <problem type> -o <defcon output directory> -i <update interval in ms> -x <x scale> <working directory>
+Required:
+      The working directory. This is the location where your problem script is. 
 Options:
-      -w: The working directory. This is the location where your problem script is. Providing this is mandatory.
       -o: The directory that defcon uses for its output. The defaults to the "output" subdir of the working dir.
       -s: The directory to save solutions in. When you use paraview to visualise a solution, this is where it is saved. Defaults to the "solutions" subdir of the output dir
       -i: The update interval of the bifurcation diagram, in milliseconds. Defaults to 100.
       -x: The scale of the x-axis of the bifurcation diagram. This should be a valid matplotlib scale setting, eg 'log'.""" % sys.argv[0])
 
+try: myopts, args = getopt.getopt(sys.argv[1:-1],"p:o:i:s:x:")
+except Exception: usage()
+
 for o, a in myopts:
     if   o == '-p': problem_type = a
     elif o == '-o': output_dir = os.path.expanduser(a)
-    elif o == '-w': working_dir = os.path.expanduser(a)
     elif o == '-s': solutions_dir = os.path.expanduser(a)
     elif o == '-i': update_interval = int(a)
     elif o == '-x': xscale = a
     else          : usage()
+
+# Get the working dir as the last command line argument.
+working_dir = os.path.expanduser(sys.argv[-1])
 
 if working_dir is None:
     usage()
