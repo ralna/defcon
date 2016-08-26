@@ -76,7 +76,7 @@ for o, a in myopts:
     else          : usage()
 
 # Get the working dir from the last command line argument.
-working_dir = os.path.expanduser(sys.argv[-1])
+working_dir = os.path.realpath(os.path.expanduser(sys.argv[-1]))
 
 if working_dir is None:
     usage()
