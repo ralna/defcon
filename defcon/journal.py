@@ -92,6 +92,7 @@ class FileJournal(Journal):
                 else:
                     # This tells us about a point we discovered.
                     teamno, oldparams, branchid, newparams, functionals, cont = eachLine.split(';')
+                    branchid = int(branchid)
                     params = literal_eval(newparams)
                     branches[branchid] = (tuple([float(param) for param in params]), cont)
 

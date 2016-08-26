@@ -160,6 +160,7 @@ class DeflatedContinuation(object):
 
         assert len(self.parameters) == len(fixed) + len(free)
         assert len(free) == 1
+        self.fixed = fixed
 
         # Fix the fixed parameters and identify the free parameter.
 
@@ -324,7 +325,7 @@ class DeflatedContinuation(object):
 
             # Set all teams to idle.
             for teamno in range(self.nteams):
-                journal.team_job(teamno, "i")         
+                journal.team_job(teamno, "i")
 
             # Schedule continuation tasks for any branches that aren't done yet.
             for branchid in branches.keys():
@@ -335,6 +336,7 @@ class DeflatedContinuation(object):
                                             oldparams=oldparams,
                                             branchid=int(branchid),
                                             newparams=newparams)
+                    self.log("Scheduling task: %s" % task, master=True)
                     heappush(newtasks, (-1, task))
                     taskid_counter += 1
 
@@ -343,18 +345,22 @@ class DeflatedContinuation(object):
             # to the furthest we've got in continuation, on every branch.
             for branchid in branches.keys():
                 # Get the fixed parameters
+                knownparams = [x[freeindex] for x in self.io.known_parameters(self.fixed, branchid)]
                 oldparams = list(parameterstofloats(self.parameters, freeindex, values[0]))
                 oldparams[freeindex] = previous_sweep
                 newparams = nextparameters(values, freeindex, tuple(oldparams))
                 while newparams is not None and sign*newparams[freeindex] <= sign*branches[branchid][freeindex]: 
                     # As long as we're not at the end of the parameter range and we haven't exceeded the extent
                     # of this branch, schedule a deflation. 
-                    task = DeflationTask(taskid=taskid_counter,
-                                         oldparams=oldparams,
-                                         branchid=int(branchid),
-                                         newparams=newparams)
-                    taskid_counter += 1
-                    heappush(newtasks, (sign*task.newparams[freeindex], task))
+
+                    if oldparams[freeindex] in knownparams:
+                        task = DeflationTask(taskid=taskid_counter,
+                                             oldparams=oldparams,
+                                             branchid=int(branchid),
+                                             newparams=newparams)
+                        self.log("Scheduling task: %s" % task, master=True)
+                        taskid_counter += 1
+                        heappush(newtasks, (sign*task.newparams[freeindex], task))
 
                     oldparams = newparams
                     newparams = nextparameters(values, freeindex, newparams)
