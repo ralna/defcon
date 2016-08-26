@@ -469,7 +469,7 @@ class PlotConstructor():
             self.annotated_point = (xs, branchid)  
             if cont: s = "continuation"
             else: s = "deflation"
-            self.app.set_output_box("Solution on branch %d\nFound by team %d\nUsing %s\nAs event #%d\n\nx = %s\ny = %s" % (branchid, teamno, s, time, x, y))
+            aw.set_output_box("Solution on branch %d\nFound by team %d\nUsing %s\nAs event #%d\n\nx = %s\ny = %s" % (branchid, teamno, s, time, x, y))
             self.changed = True
         return self.changed
 
