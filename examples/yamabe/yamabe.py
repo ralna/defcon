@@ -4,8 +4,6 @@ import sys
 from defcon import *
 from dolfin import *
 
-import matplotlib.pyplot as plt
-
 args = [sys.argv[0]] + """
                        --petsc.snes_max_it 100
                        --petsc.snes_stol 0.0
@@ -14,14 +12,14 @@ args = [sys.argv[0]] + """
                        --petsc.snes_monitor
 
                        --petsc.ksp_monitor_cancel
-                       --petsc.ksp_type preonly
+                       --petsc.ksp_type gmres
                        --petsc.ksp_gmres_restart 100
-                       --petsc.ksp_monitor_true_residualx
+                       --petsc.ksp_monitor_short
                        --petsc.ksp_max_it 1000
                        --petsc.ksp_atol 1.0e-10
                        --petsc.ksp_rtol 1.0e-10
 
-                       --petsc.pc_type lu
+                       --petsc.pc_type gamg
                        --petsc.pc_gamg_verbose 10
                        --petsc.pc_gamg_type agg
                        --petsc.pc_gamg_coarse_eq_limit 2000
