@@ -492,7 +492,7 @@ class PlotConstructor():
                     plt.axhline(0, color='k') # Plot a black line through the origin
                     plt.show(False) # False here means the window is non-blocking, so we may continue using the GUI while the plot shows. 
                 except RuntimeError, e:
-                    issuewarning("Error plotting expression. Are your solutions numbers rather than functions? If so, this is why I failed. Anyway, the error was:")
+                    issuewarning("Error plotting expression. Are your solutions numbers rather than functions? If so, this is why I failed. The error was:")
                     print str(e)
                     pass
             else:
@@ -509,7 +509,12 @@ class PlotConstructor():
                 pvd
 
                 # Finally, launch paraview with the newly created file. 
-                Popen(["paraview", pvd_filename])
+                # If this fails, issue a warning. 
+                try: Popen(["paraview", pvd_filename])
+                except Exception, e:
+                    issuewarning("Oops, something went wrong with launching paraview. Are you sure you have it installed and on your PATH? The error was:")
+                    print str(e)
+
             os.chdir(current_dir)
 
     ## Functions for saving to disk ##
