@@ -32,6 +32,7 @@ If you're compiling things yourself, defcon depends on
 Defcon recommends (and some of the examples depend on)
 
 * matplotlib (http://matplotlib.org)
+* mshr (https://bitbucket.org/fenics-project/mshr)
 
 ## Current status
 

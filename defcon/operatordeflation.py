@@ -5,6 +5,9 @@ class DeflationOperator(object):
     """
     Base class for deflation operators.
     """
+    def set_parameters(self, params):
+        self.parameters = params
+
     def deflate(self, roots):
         self.roots = roots
 
@@ -18,9 +21,8 @@ class ShiftedDeflation(DeflationOperator):
     """
     The shifted deflation operator presented in doi:10.1137/140984798.
     """
-    def __init__(self, problem, parameters, power, shift):
+    def __init__(self, problem, power, shift):
         self.problem = problem
-        self.parameters = parameters
         self.power = power
         self.shift = shift
         self.roots = []
@@ -30,7 +32,8 @@ class ShiftedDeflation(DeflationOperator):
 
     def evaluate(self, y):
         m = 1.0
-        for normsq in [assemble(self.normsq(y, root)) for root in self.roots]:
+        for root in self.roots:
+            normsq = assemble(self.normsq(y, root))
             factor = normsq**(-self.power/2.0) + self.shift
             m *= factor
 

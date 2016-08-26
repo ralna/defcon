@@ -119,8 +119,9 @@ class DeflatedContinuation(object):
                 sys.stderr = open(os.devnull, "w")
 
         if deflation is None:
-            params = [x[0] for x in self.parameters]
-            deflation = ShiftedDeflation(problem, params, power=2, shift=1)
+            deflation = ShiftedDeflation(problem, power=2, shift=1)
+        params = [x[0] for x in self.parameters]
+        deflation.set_parameters(params)
         self.deflation = deflation
 
     def log(self, msg, master=False, warning=False):
