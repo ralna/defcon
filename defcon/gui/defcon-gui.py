@@ -2,6 +2,9 @@
 import warnings
 warnings.filterwarnings("ignore", module="matplotlib")
 
+import matplotlib
+matplotlib.use("Qt4Agg")
+
 # Get the window and figure code.
 # NOTE: The figure, colours and markers, and a couple of utility functions will be imported from here.
 # If necessary, make changes in qtwindows.py.
