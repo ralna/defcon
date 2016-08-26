@@ -3,7 +3,8 @@ import warnings
 warnings.filterwarnings("ignore", module="matplotlib")
 
 # Get the window and figure code.
-# NOTE: The figure, colours and markers will be imported from here. Change them in qtwindows.py.
+# NOTE: The figure, colours and markers, and a couple of utility functions will be imported from here.
+# If necessary, make changes in qtwindows.py.
 from qtwindows import *
 
 import sys, getopt
@@ -26,7 +27,7 @@ from ast import literal_eval
 # For saving movies.
 from matplotlib import animation
 
-# For plotting solutions if we don't use paraview.
+# For plotting solutions if we don't use paraview, as well as for creating mvoies. 
 import matplotlib.pyplot as plt
 
 # Saving tikz pictures.
@@ -43,9 +44,9 @@ working_dir= None
 output_dir = None
 solutions_dir = None
 xscale = None
-plot_with_mpl = False # whether we will try to plot solutions with paraview or matplotlib
-update_interval = 100 # update interval for the diagram
-resources_dir = os.path.dirname(os.path.realpath(sys.argv[0])) + os.path.sep + 'resources' + os.path.sep # icons, etc. 
+plot_with_mpl = False # Whether we will try to plot solutions with matplotlib. If false, we use paraview.
+update_interval = 100 # Update interval for the diagram.
+resources_dir = os.path.dirname(os.path.realpath(sys.argv[0])) + os.path.sep + 'resources' + os.path.sep # The directory with the icons, etc. 
 
 # Get commandline args.
 def usage():
@@ -53,9 +54,11 @@ def usage():
 Required:
       The working directory. This is the location where your problem script is. 
 Options:
+      -p: The name of the script you use to run defcon. If not provided, this defualts to the last folder in the working directory.
+          i.e, if the working directory is 'defcon/examples/elastica', we assume the name of the problem scipt is 'elastica'.
       -o: The directory that defcon uses for its output. The defaults to the "output" subdir of the working dir.
-      -s: The directory to save solutions in. When you use paraview to visualise a solution, this is where it is saved. Defaults to the "solutions" subdir of the output dir
-      -i: The update interval of the bifurcation diagram, in milliseconds. Defaults to 100.
+      -s: The directory to save solutions in. When you use paraview to visualise a solution, this is where it is saved. Defaults to the "solutions" subdir of the output dir.
+      -i: The update interval of the bifurcation diagram in milliseconds. Defaults to 100.
       -x: The scale of the x-axis of the bifurcation diagram. This should be a valid matplotlib scale setting, eg 'log'.""" % sys.argv[0])
 
 try: myopts, args = getopt.getopt(sys.argv[1:-1],"p:o:i:s:x:")
@@ -69,7 +72,7 @@ for o, a in myopts:
     elif o == '-x': xscale = a
     else          : usage()
 
-# Get the working dir as the last command line argument.
+# Get the working dir from the last command line argument.
 working_dir = os.path.expanduser(sys.argv[-1])
 
 if working_dir is None:
@@ -87,6 +90,7 @@ if problem_type is None:
 # If we didn't specify a directory for solutions we plot, store them in the "solutions" subdir of the output directory.
 if solutions_dir is None: solutions_dir = output_dir + os.path.sep + "solutions" + os.path.sep
 
+# Get the current directory. 
 current_dir = os.path.dirname(os.path.realpath(sys.argv[0]))
 
 # Put the working directory on our path.
@@ -108,8 +112,6 @@ for c in classes:
         break
     except Exception: pass
 
-# Change to the working directory.
-
 os.chdir(working_dir)
 
 # Get the mesh.
@@ -129,7 +131,6 @@ os.chdir(current_dir)
 #####################
 ### Utility Class ###
 #####################
-
 class PlotConstructor():
     """ Class for handling everything to do with the bifuraction diagram plot. """
 
@@ -171,8 +172,7 @@ class PlotConstructor():
     def setx(self, ax):
         """ Sets the xscale to the user defined variable. """
         try:
-            if xscale is not None:
-                ax.set_xscale(xscale)
+            if xscale is not None: ax.set_xscale(xscale)
         except Exception:
             issuewarning("User-provided xscale variable is not a valid option for matplotlib.")
             pass
@@ -209,6 +209,7 @@ class PlotConstructor():
                 if self.animsweepline is not None: self.animsweepline.remove()
                 self.animsweepline = self.ax.axvline(x=self.animsweep, linewidth=1, linestyle=SWEEPSTYLE, color=SWEEP)                
             except StopIteration: return
+
         # Let's output a log of how we're doing, so the user can see that something is in fact being done.
         if i % 50 == 0: print "Completed %d/%d frames" % (i, self.frames)
         return       
@@ -281,12 +282,12 @@ class PlotConstructor():
         if not self.paused: self.pause()
         if self.annotated_point is not None: self.unannotate()
 
-        # Case where we're going backwards in time, and need to remove points.
+        # Case 1: we're going backwards in time, and need to remove points.
         if t < self.time:
             for i in range(t, self.time):
                 self.pointers[i][0].remove()
         
-        # Case we're going forwards in time, and need to re-plot some points.
+        # Case 2: we're going forwards in time, and need to re-plot some points.
         elif t > self.time:
             for i in range(self.time, t):
                 xs, ys, branchid, teamno, cont = self.points[i]
@@ -295,6 +296,7 @@ class PlotConstructor():
                 if cont: c, m= MAIN, CONTPLOT
                 else: c, m= DEF, DEFPLOT
                 self.pointers[i] = bfdiag.plot(x, y, marker=m, color=c, linestyle='None')
+
         self.time = t 
         self.changed = True
         if self.time==self.maxtime: self.unpause()
@@ -337,21 +339,15 @@ class PlotConstructor():
 
         # If we're not paused, we draw all the points that have come in since we last drew something.
         else:   
-            # Catch up to the points we have in memory.
-            if self.time < self.maxtime:
-                for xs, ys, branchid, teamno, cont in self.points[self.time:]:
-                    bfdiag.plot(float(xs[self.freeindex]), float(ys[self.current_functional]), marker='.', color=MAIN, linestyle='None')
-                    self.time += 1
-
             # Get new points, if they exist. If not, just pass. 
             pullData = self.grab_data()
             if pullData is not None:
                 dataList = pullData.split('\n')
 
-                # Is this is first time, get the information from the first line of the data. 
+                # Is this is first time we've found data, get the information from the first line of the journal. 
                 if self.freeindex is None:
                     self.running = True
-                    self.start_time = TimeModule.time() # Defcon has just started, so get the start time. 
+                    self.start_time = TimeModule.time() # defcon has just started, so get the start time. 
 
                     freeindex, self.parameter_name, functional_names, unicode_functional_names, nteams, minparam, maxparam = dataList[0].split(';')
                     self.minparam = float(minparam)
@@ -362,18 +358,20 @@ class PlotConstructor():
                     for team in range(self.nteams): self.teamstats.append('i')
                     aw.set_teamstats(self.nteams)
 
-                    # Info about functionals
+                    # Info about functionals.
                     self.freeindex = int(freeindex)
                     self.functional_names = literal_eval(functional_names)
                     self.unicode_functional_names = literal_eval(unicode_functional_names)
                     aw.make_radio_buttons(self.unicode_functional_names)
+
+                    # Set the labels and scales of the axes.
                     bfdiag.set_xlabel(self.parameter_name)
                     bfdiag.set_ylabel(self.functional_names[self.current_functional])
                     bfdiag.set_xlim([self.minparam, self.maxparam]) # fix the limits of the x-axis
                     bfdiag.autoscale(axis='y')
                     self.setx(bfdiag)
 
-                dataList = dataList[1:] # exclude the first line. 
+                dataList = dataList[1:] # exclude the first line from now on.  
 
                 # Plot new points one at a time.
                 for eachLine in dataList[self.lines_read:]:
@@ -393,8 +391,7 @@ class PlotConstructor():
                             if task == 'q': 
                                 self.running = False
                                 # Move sweepline to the end. 
-                                xs = [float(point[0][self.freeindex]) for point in self.points] 
-                                self.sweep = xs[-1]
+                                self.sweep = float(self.points[-1][0][self.freeindex]) # x value of the last point we discovered. 
                                 if self.sweepline is not None: self.sweepline.remove()
                                 self.sweepline = bfdiag.axvline(x=self.sweep, linewidth=1, linestyle=SWEEPSTYLE, color=SWEEP)
                                                              
@@ -449,7 +446,7 @@ class PlotConstructor():
                   x = float(xs[self.freeindex])
                   y = float(ys[self.current_functional])
                   if ((clickX-xtol < x < clickX+xtol) and (clickY-ytol < y < clickY+ytol)):
-                      annotes.append((self.distance(x/xlen, clickX/xlen, y/ylen, clickY/ylen), x, y, branchid, xs, teamno, cont, time))
+                      annotes.append((self.distance(x/xlen, clickX/xlen, y/ylen, clickY/ylen), x, y, branchid, xs, teamno, cont, time)) # uses rescaled distance. 
                   time += 1
 
              if annotes:
@@ -464,7 +461,7 @@ class PlotConstructor():
                  aw.set_output_box("Solution on branch %d\nFound by team %d\nUsing %s\nAs event #%d\n\nx = %s\ny = %s" % (branchid, teamno, s, time, x, y))
                  self.changed = True
 
-             return self.changed
+             return True
 
          else: self.unannotate()
 

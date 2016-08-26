@@ -90,6 +90,7 @@ class DynamicCanvas(FigureCanvas):
 class CustomToolbar(NavigationToolbar2QT):
     """ A custom matplotlib toolbar, so we can remove those pesky extra buttons. """  
     def __init__(self, canvas, parent, pc, resources_dir, working_dir):
+        # Define which buttons we want and then initialise the toolbar. 
         self.toolitems = (
             ('Home', 'Reset original view', 'home', 'home'),
             ('Pan', 'Pan axes with left mouse, zoom with right', 'move', 'pan'),
@@ -97,7 +98,7 @@ class CustomToolbar(NavigationToolbar2QT):
             ('Save', 'Save the figure', 'filesave', 'save_figure'),
             )
         NavigationToolbar2QT.__init__(self, canvas, parent)
-        self.layout().takeAt(4)
+        self.layout().takeAt(4) # This removes an annoying extra button at the end. 
 
         self.parent = parent
         self.pc = pc
@@ -131,7 +132,7 @@ class CustomToolbar(NavigationToolbar2QT):
                 QtGui.QMessageBox.critical(self, "Error saving file", str(e), QtGui.QMessageBox.Ok, QtGui.QMessageBox.NoButton)
 
     def save_tikz(self):
-        """ A method that saves a .tikz of the bifurcation diagram. """
+        """ A method that saves a tikz image of the bifurcation diagram. """
         start = self.working_dir + os.path.sep + "bfdiag.tex"
         filters = "Tikz Image (*.tex)"
         selectedFilter = filters
@@ -164,11 +165,7 @@ class MovieDialog(QtGui.QDialog):
 
         self.length = QtGui.QLineEdit("60")
         self.length.setFixedWidth(80)
-        #inputValidator = QtGui.QIntValidator(self)
-        #inputValidator.setRange(1, sys.maxint)
-        #self.length.setValidator(inputValidator)
         lengthLayout.addWidget(self.length)
-
         mainLayout.addLayout(lengthLayout)
 
         fpsLayout = QtGui.QHBoxLayout()
@@ -178,12 +175,10 @@ class MovieDialog(QtGui.QDialog):
 
         self.fps = QtGui.QLineEdit("24")
         self.fps.setFixedWidth(80)
-        #self.fps.setValidator(inputValidator)
         fpsLayout.addWidget(self.fps)
-
         mainLayout.addLayout(fpsLayout)
 
-        # The Button
+        # Enter Button
         layout = QtGui.QHBoxLayout()
         button = QtGui.QPushButton("Enter")
         button.setFixedWidth(80)
@@ -204,10 +199,9 @@ class ApplicationWindow(QtGui.QMainWindow):
     def __init__(self, pc, update_interval, resources_dir, working_dir):
         QtGui.QMainWindow.__init__(self)     
         self.setAttribute(QtCore.Qt.WA_DeleteOnClose)
-
         self.pc = pc
 
-        # Use these to add a toolbar, if desired. 
+        # Use this to add a toolbar, if desired. 
         #self.file_menu = QtGui.QMenu('&File', self)
         #self.file_menu.addAction('&Quit', self.fileQuit, QtCore.Qt.CTRL + QtCore.Qt.Key_Q)
         #self.menuBar().addMenu(self.file_menu)
@@ -224,7 +218,6 @@ class ApplicationWindow(QtGui.QMainWindow):
         # Keep track of the current time and maxtime.
         self.time = 0
         self.maxtime = 0
-
 
         # Layout
         main_layout = QtGui.QHBoxLayout(self.main_widget)
@@ -255,18 +248,15 @@ class ApplicationWindow(QtGui.QMainWindow):
         self.teamBox.setContentsMargins(0, 10, 0, 10)
         rVBox.addLayout(self.teamBox)
 
-
         # Canvas.
         self.dc = DynamicCanvas(self.pc, update_interval, parent=self.main_widget, width=5, height=4, dpi=100)
         canvasBox.addWidget(self.dc)
         self.dc.mpl_connect('button_press_event', self.clicked_diagram)
 
-
-        # Toolbar, with save_movie and save_tikz buttons.
+        # Create the custom toolbar.
         toolbar = CustomToolbar(self.dc, self, self.pc, resources_dir, working_dir)
         toolbar.update()
         canvasBox.addWidget(toolbar)
-
 
         # Time navigation buttons
         self.buttonStart = QtGui.QPushButton()
@@ -310,7 +300,6 @@ class ApplicationWindow(QtGui.QMainWindow):
         self.buttonEnd.setFixedWidth(30)
         timeBox.addWidget(self.buttonEnd)
 
-
         # Plot Buttons
         self.buttonPlot = QtGui.QPushButton("Plot")
         self.buttonPlot.clicked.connect(lambda:self.plot())
@@ -325,7 +314,6 @@ class ApplicationWindow(QtGui.QMainWindow):
         self.functionalBox.addWidget(label)
         self.radio_buttons = []
 
-
         # Output Box
         self.infobox = QtGui.QLabel("")
         self.infobox.setFixedHeight(250)
@@ -339,7 +327,6 @@ class ApplicationWindow(QtGui.QMainWindow):
         self.infobox.setStyleSheet('border-color: %s; border-style: outset; border-width: 2px' % BORDER)
         infoBox.addWidget(self.infobox)
 
-
         # Teamstats Box
         label = QtGui.QLabel("Team Status:")
         label.setFixedHeight(20)
@@ -347,7 +334,6 @@ class ApplicationWindow(QtGui.QMainWindow):
         self.teamBox.addWidget(label)
 
         self.teamLabels = [] # A list of labels, one for each team.     
-
 
         # Elapsed time counter.
         self.elapsedTime = QtGui.QLabel("Runtime: 0:00:00")
@@ -418,7 +404,7 @@ class ApplicationWindow(QtGui.QMainWindow):
 
     def switch_functional(self):
         """ Switch functionals. Which one we switch to depends on the radiobutton clicked. """
-        i = 0 # keep track of the index of the radiobutton.
+        i = 0 # Keep track of the index of the radiobutton we're considering. 
         for rb in self.radio_buttons:
             if rb.isChecked(): 
                 # If this is the radio button that has been clicked, switch to the appropriate functional and jump out of the loop.
@@ -462,7 +448,7 @@ class ApplicationWindow(QtGui.QMainWindow):
         self.set_time(new_time)
 
     def plot(self):
-        """ Launch Matplotlib/Paraview to graph the highlighted solution. """
+        """ Launch Matplotlib/Paraview to graph the selected solution. """
         self.pc.plot()
 
     def set_elapsed_time(self, elapsed):
