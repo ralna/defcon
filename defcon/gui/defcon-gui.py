@@ -107,7 +107,7 @@ for key in globals().keys():
 for c in classes:
     try:
         globals()["bfprob"] = getattr(problem_name, c)
-        assert(issubclass(bfprob, BifurcationProblem)) # check whether the class is a subclass of BifurcationProblem, which would mean it's the class we want. 
+        assert issubclass(bfprob, BifurcationProblem) and bfprob is not BifurcationProblem # check whether the class is a subclass of BifurcationProblem, which would mean it's the class we want. 
         problem = bfprob() # initialise the class.
         break
     except Exception: pass
@@ -123,9 +123,8 @@ if mesh.geometry().dim() < 2: plot_with_mpl = True
 # Get the function space and set up the I/O module for fetching solutions. 
 V = problem.function_space(mesh)
 problem_parameters = problem.parameters()
-io = FileIO(output_dir)
+io = problem.io(prefix=working_dir + os.path.sep)
 io.setup(problem_parameters, None, V)
-
 os.chdir(current_dir)
 
 #####################
@@ -423,48 +422,50 @@ class PlotConstructor():
 
     ## Functions for handling annotation. ##
     def annotate(self, clickX, clickY):
-         """ Annotate a point when clicking on it. """
-         if self.annotated_point is None:
+        """ Annotate a point when clicking on it. """
+        if clickX is None and clickY is None:
+           if self.annotated_point is not None:
+               self.unannotate()
+           return True
 
-             # Sets a clickbox. 
-             xs = [float(point[0][self.freeindex]) for point in self.points[:self.time]]
-             ys = [float(point[1][self.current_functional]) for point in self.points[:self.time]]
+        # Sets a clickbox. 
+        xs = [float(point[0][self.freeindex]) for point in self.points[:self.time]]
+        ys = [float(point[1][self.current_functional]) for point in self.points[:self.time]]
 
-             xlen = max(xs) - min(xs)
-             ylen = max(ys) - min(ys)
+        xlen = max(xs) - min(xs)
+        ylen = max(ys) - min(ys)
 
-             xtick = bfdiag.get_xticks()
-             ytick = bfdiag.get_yticks()
-             xtol = (xtick[1]-xtick[0])/(2)
-             ytol = (ytick[1]-ytick[0])/(2)
-           
-             annotes = []
+        xtick = bfdiag.get_xticks()
+        ytick = bfdiag.get_yticks()
+        xtol = (xtick[1]-xtick[0])/(2)
+        ytol = (ytick[1]-ytick[0])/(2)
 
-             # Find the point on the diagram closest to the point the user clicked.
-             time = 1
-             for xs, ys, branchid, teamno, cont in self.points[:self.time]:
-                  x = float(xs[self.freeindex])
-                  y = float(ys[self.current_functional])
-                  if ((clickX-xtol < x < clickX+xtol) and (clickY-ytol < y < clickY+ytol)):
-                      annotes.append((self.distance(x/xlen, clickX/xlen, y/ylen, clickY/ylen), x, y, branchid, xs, teamno, cont, time)) # uses rescaled distance. 
-                  time += 1
+        annotes = []
 
-             if annotes:
-                 annotes.sort()
-                 distance, x, y, branchid, xs, teamno, cont, time = annotes[0]
+        # Find the point on the diagram closest to the point the user clicked.
+        time = 1
+        for xs, ys, branchid, teamno, cont in self.points[:self.time]:
+             x = float(xs[self.freeindex])
+             y = float(ys[self.current_functional])
+             if ((clickX-xtol < x < clickX+xtol) and (clickY-ytol < y < clickY+ytol)):
+                annotes.append((self.distance(x/xlen, clickX/xlen, y/ylen, clickY/ylen), x, y, branchid, xs, teamno, cont, time)) # uses rescaled distance. 
+             time += 1
 
-                 # Plot the annotation, and keep a handle on all the stuff we plot so we can use/remove it later. 
-                 self.annotation_highlight = bfdiag.scatter([x], [y], s=[50], marker='o', color=HIGHLIGHT) # Note: change 's' to make the highlight blob bigger/smaller
-                 self.annotated_point = (xs, branchid)
-                 if cont: s = "continuation"
-                 else: s = "deflation"
-                 aw.set_output_box("Solution on branch %d\nFound by team %d\nUsing %s\nAs event #%d\n\nx = %s\ny = %s" % (branchid, teamno, s, time, x, y))
-                 self.changed = True
+        if annotes:
+            annotes.sort()
+            distance, x, y, branchid, xs, teamno, cont, time = annotes[0]
 
-             return True
+            if self.annotated_point is not None:
+                self.unannotate()
 
-         else: self.unannotate()
-
+            # Plot the annotation, and keep a handle on all the stuff we plot so we can use/remove it later. 
+            self.annotation_highlight = bfdiag.scatter([x], [y], s=[50], marker='o', color=HIGHLIGHT) # Note: change 's' to make the highlight blob bigger/smaller
+            self.annotated_point = (xs, branchid)
+            if cont: s = "continuation"
+            else: s = "deflation"
+            aw.set_output_box("Solution on branch %d\nFound by team %d\nUsing %s\nAs event #%d\n\nx = %s\ny = %s" % (branchid, teamno, s, time, x, y))
+            self.changed = True
+        return self.changed
 
     def unannotate(self):
         """ Remove annotation from the graph. """
