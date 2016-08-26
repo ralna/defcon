@@ -1,10 +1,3 @@
-# Try to use the seaborn palette for matplotlib, but fail gracefully if it isn't available. 
-try: 
-    import seaborn as sns
-    blue, green, red, purple, yellow, cyan = ['#%02x%02x%02x' % tuple([int(c*255) for c in col]) for col in sns.color_palette()] # convert the RGB values to HEX values.
-except ImportError: 
-    blue, green, red, purple, yellow, cyan = 'blue', 'green', 'red', 'purple', 'yellow', 'cyan'
-
 import matplotlib
 matplotlib.use("Qt4Agg")
 
@@ -31,6 +24,16 @@ from matplotlib.figure import Figure
 from datetime import timedelta
 from numpy import sqrt, floor, ceil
 import os
+
+# Seaborn colour palette.
+colour_palette = [(0.2980392156862745, 0.4470588235294118, 0.6901960784313725),
+                  (0.3333333333333333, 0.6588235294117647, 0.40784313725490196),
+                  (0.7686274509803922, 0.3058823529411765, 0.3215686274509804),
+                  (0.5058823529411764, 0.4470588235294118, 0.6980392156862745),
+                  (0.8, 0.7254901960784313, 0.4549019607843137),
+                  (0.39215686274509803, 0.7098039215686275, 0.803921568627451)]
+
+blue, green, red, purple, yellow, cyan = ['#%02x%02x%02x' % tuple([int(c*255) for c in col]) for col in colour_palette] # convert the RGB values to HEX values.
 
 # Colours.
 MAIN = 'black' # colour for regular points
