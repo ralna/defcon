@@ -583,7 +583,8 @@ class DeflatedContinuation(object):
                         self.log("Rescheduling the previously deferred task %s" % task, master=True)
                     except IndexError: break
 
-        # All continuation tasks have been finished. Tell the workers to quit.
+        # All continuation tasks have been finished. Move sweepline to the end and tell the workers to quit.
+        journal.sweep(values[-1])
         quit = QuitTask()
         for teamno in range(self.nteams):
             self.send_task(quit, teamno)

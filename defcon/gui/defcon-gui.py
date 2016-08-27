@@ -390,12 +390,7 @@ class PlotConstructor():
                             self.teamstats[int(team)] = task
                             aw.update_teamstats(self.teamstats)
                             # If this tells us the teams have quit, we know we're not getting any more new points. 
-                            if task == 'q': 
-                                self.running = False
-                                # Move sweepline to the end. 
-                                self.sweep = float(self.points[-1][0][self.freeindex]) # x value of the last point we discovered. 
-                                if self.sweepline is not None: self.sweepline.remove()
-                                self.sweepline = bfdiag.axvline(x=self.sweep, linewidth=1, linestyle=SWEEPSTYLE, color=SWEEP)
+                            if task == 'q': self.running = False
                                                              
                         else:
                             # This is a newly discovered point. Get all the information we need.
