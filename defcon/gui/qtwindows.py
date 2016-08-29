@@ -56,10 +56,10 @@ bfdiag.grid(color=GRID)
 #########################
 ### Utility Functions ###
 #########################
-def teamtext(job):
+def teamtext(job, params, branchid):
     """ Utility function for converting a team's job into a colour and a label. """
-    if job == "d": colour, label = blue, 'Deflating'
-    if job == "c": colour, label = green, 'Continuing'
+    if job == "d": colour, label = blue, 'Deflating from branch %s at params %s' % (branchid, params)
+    if job == "c": colour, label = green, 'Continuing branch %s to params %s' % (branchid, params)
     if job == "i": colour, label = yellow, 'Idle'
     if job == "q": colour, label = red, 'Quit'
     return colour, label  
@@ -372,7 +372,7 @@ class ApplicationWindow(QtGui.QMainWindow):
                 # Create a label, 
                 label = QtGui.QLabel(str(teamno))
                 label.setAlignment(QtCore.Qt.AlignCenter)
-                label.setStyleSheet("font-size:40px;background-color:%s;border: 2px solid %s" % (teamtext('i')[0], BORDER))
+                label.setStyleSheet("QLabel{font-size:40px;background-color:%s;border: 2px solid %s}" % (teamtext('i', 'None', 'None')[0], BORDER))
                 size = floor(250.0/(1.5*boxes))
                 label.setFixedSize(size, size)
 
@@ -392,8 +392,10 @@ class ApplicationWindow(QtGui.QMainWindow):
     def update_teamstats(self, teamstats):
         """ Update the boxes that tell us what each team is doing. """
         for i in range(len(teamstats)):
-            colour, label = teamtext(teamstats[i])
-            self.teamLabels[i].setStyleSheet("font-size:30px;background-color:%s;border: 2px solid %s" % (colour, BORDER))
+            job, params, branchid = teamstats[i]
+            colour, label = teamtext(job, params, branchid)
+            self.teamLabels[i].setStyleSheet("QLabel {font-size:30px;background-color:%s;border: 2px solid %s}" % (colour, BORDER))
+            self.teamLabels[i].setToolTip(("Team %s: " % i) + label)
 
     def make_radio_buttons(self, functionals):
         """ Build the radiobuttons for switching functionals. """

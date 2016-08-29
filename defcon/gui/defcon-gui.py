@@ -190,8 +190,10 @@ class PlotConstructor():
 
         # Reset the x and y limits.
         ys = [point[1][self.current_functional] for point in self.points] 
-        bfdiag.set_xlim([self.minparam, self.maxparam]) # fix the limits of the x-axis
-        bfdiag.set_ylim([min(ys), max(ys)]) # reset the y limits, to prevent stretching
+        try:
+            bfdiag.set_xlim([self.minparam, self.maxparam]) # fix the limits of the x-axis
+            bfdiag.set_ylim([min(ys), max(ys)]) # reset the y limits, to prevent stretching
+        except Exception: pass
 
         # Redraw the sweepline.
         self.sweepline = bfdiag.axvline(x=self.sweep, linewidth=1, linestyle=SWEEPSTYLE, color=SWEEP)
@@ -357,7 +359,7 @@ class PlotConstructor():
 
                     # Set up info about what the teams are doing.
                     self.nteams = int(nteams)
-                    for team in range(self.nteams): self.teamstats.append('i')
+                    for team in range(self.nteams): self.teamstats.append(('i', 'None', 'None'))
                     aw.set_teamstats(self.nteams)
 
                     # Info about functionals.
@@ -386,8 +388,8 @@ class PlotConstructor():
 
                         elif eachLine[0] == '~':
                             # This line of the journal is telling us about what the teams are doing. 
-                            team, task = eachLine[1:].split(';')
-                            self.teamstats[int(team)] = task
+                            team, task, params, branchid = eachLine[1:].split(';')
+                            self.teamstats[int(team)] = (task, params, branchid)
                             aw.update_teamstats(self.teamstats)
                             # If this tells us the teams have quit, we know we're not getting any more new points. 
                             if task == 'q': self.running = False

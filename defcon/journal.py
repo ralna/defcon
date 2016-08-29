@@ -70,10 +70,10 @@ class FileJournal(Journal):
             with file(self.directory + os.path.sep + "journal.txt", 'a') as f:
                 f.write("$%.20f\n" % params) # Need to make sure we get the decimal places correct here, else there will be bugs with checkpointing.
 
-    def team_job(self, team, task):
+    def team_job(self, team, task, params=None, branch=None):
         """ Tell the journal about what this team is doing. """
         with file(self.directory + os.path.sep + "journal.txt", 'a') as f:
-            f.write("~%s;%s\n" % (team, task))
+            f.write("~%s;%s;%s;%s\n" % (team, task, params, branch))
 
     def exists(self):
         """ Check if the journal file exists. """

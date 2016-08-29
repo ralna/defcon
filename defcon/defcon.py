@@ -444,7 +444,7 @@ class DeflatedContinuation(object):
                     waittasks[task.taskid] = (task, idleteam)
 
                     # Write to the journal, saying that this team is now performing deflation. 
-                    journal.team_job(idleteam, "d")
+                    journal.team_job(idleteam, "d", task.newparams, task.branchid)
                 else: 
                     # Best reschedule for later, as there is still pertinent information yet to come in. 
                     self.log("Deferring task %s." % task, master=True)
@@ -497,7 +497,7 @@ class DeflatedContinuation(object):
                                                         newparams=newparams)
                             waittasks[task.taskid] = ((conttask, team))
                             self.log("Waiting on response for %s" % conttask, master=True)
-                            journal.team_job(team, "c")
+                            journal.team_job(team, "c", task.newparams, task.branchid)
                         else:
                             idleteams.append(team)
                             journal.team_job(team, "i")
@@ -553,7 +553,7 @@ class DeflatedContinuation(object):
                             self.log("Waiting on response for %s" % conttask, master=True)
 
                             # Write to the journal, saying that this team is now doing continuation.
-                            journal.team_job(team, "c")
+                            journal.team_job(team, "c", task.newparams, task.branchid)
                         else:
                             # It's at the end of the continuation, there's no more continuation
                             # to do. Mark the team as idle.
