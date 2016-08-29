@@ -506,8 +506,7 @@ class PlotConstructor():
                 pvd = File(pvd_filename)
 
                 # Write the solution.
-                pvd << y
-                pvd
+                problem.save_pvd(y, pvd)
 
                 # Finally, launch paraview with the newly created file. 
                 # If this fails, issue a warning. 
