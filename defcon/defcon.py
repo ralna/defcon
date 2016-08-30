@@ -99,6 +99,7 @@ class DeflatedContinuation(object):
         self.functionals = problem.functionals()
         self.state = backend.Function(self.function_space)
         self.residual = problem.residual(self.state, parameterstoconstants(self.parameters), backend.TestFunction(self.function_space))
+        self.problemclass = problem.assembler_class()
         self.trivial_solutions = None # computed by the worker on initialisation later
 
         io = self.problem.io()
@@ -632,7 +633,7 @@ class DeflatedContinuation(object):
                 bcs = self.problem.boundary_conditions(self.function_space, task.newparams)
 
                 self.deflation.deflate(other_solutions + self.trivial_solutions)
-                success = newton(self.residual, self.state, bcs, self.teamno, self.deflation, snes_setup=self.problem.configure_snes)
+                success = newton(self.residual, self.state, bcs, self.problemclass, self.teamno, self.deflation, snes_setup=self.problem.configure_snes)
 
                 self.state_id = (None, None) # not sure if it is a solution we care about yet
 
@@ -690,7 +691,7 @@ class DeflatedContinuation(object):
 
                 # Try to solve it
                 self.deflation.deflate(other_solutions + self.trivial_solutions)
-                success = newton(self.residual, self.state, bcs, self.teamno, self.deflation, snes_setup=self.problem.configure_snes)
+                success = newton(self.residual, self.state, bcs, self.problemclass, self.teamno, self.deflation, snes_setup=self.problem.configure_snes)
 
                 if success:
                     self.state_id = (task.newparams, task.branchid)

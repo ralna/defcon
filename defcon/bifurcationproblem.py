@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 import backend
 import iomodule
+import nonlinearproblem
 
 class BifurcationProblem(object):
     """
@@ -217,3 +218,17 @@ class BifurcationProblem(object):
         pvd << y
         """
         pvd << y
+
+    def assembler_class(self):
+        """
+        The class used to assemble the nonlinear problem
+        with DOLFIN.
+
+        Most users will never need to override this: it's only useful if you
+        want to do something unusual in the assembly process.
+        """
+        if backend.__name__ == "dolfin":
+            return nonlinearproblem.GeneralProblem
+        else:
+            return backend.NonlinearVariationalProblem
+

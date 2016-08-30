@@ -7,20 +7,7 @@ from numpy import isnan
 # do the solve. So we have to branch based on backend here.
 
 if backend.__name__ == "dolfin":
-    from backend import NonlinearProblem, derivative, SystemAssembler, PETScSNESSolver, PETScOptions, PETScVector, as_backend_type
-
-    # I can't believe this isn't in DOLFIN.
-    class GeneralProblem(NonlinearProblem):
-        def __init__(self, F, y, bcs):
-            NonlinearProblem.__init__(self)
-            J = derivative(F, y)
-            self.ass = SystemAssembler(J, F, bcs)
-
-        def F(self, b, x):
-            self.ass.assemble(b, x)
-
-        def J(self, A, x):
-            self.ass.assemble(A)
+    from backend import PETScSNESSolver, PETScOptions, PETScVector, as_backend_type
 
     class DeflatedKSP(object):
         def __init__(self, deflation, y, ksp):
@@ -44,12 +31,12 @@ if backend.__name__ == "dolfin":
             ksp.setConvergedReason(self.ksp.getConvergedReason())
 
 
-    def newton(F, y, bcs, teamno, deflation=None, prefix="", snes_setup=None):
+    def newton(F, y, bcs, problemclass, teamno, deflation=None, prefix="", snes_setup=None):
 
         comm = y.function_space().mesh().mpi_comm()
         solver = PETScSNESSolver(comm)
         snes = solver.snes()
-        problem = GeneralProblem(F, y, bcs)
+        problem = problemclass(F, y, bcs)
 
         snes.setOptionsPrefix(prefix)
         PETScOptions.set(prefix + "snes_monitor_cancel")
@@ -75,7 +62,7 @@ if backend.__name__ == "dolfin":
         return success
 
 elif backend.__name__ == "firedrake":
-    from backend import NonlinearVariationalProblem, NonlinearVariationalSolver
+    from backend import NonlinearVariationalSolver
 
     class DeflatedKSP(object):
         def __init__(self, deflation, y, ksp):
@@ -97,9 +84,9 @@ elif backend.__name__ == "firedrake":
 
             ksp.setConvergedReason(self.ksp.getConvergedReason())
 
-    def newton(F, y, bcs, teamno, deflation=None, prefix="", snes_setup=None):
+    def newton(F, y, bcs, problemclass, teamno, deflation=None, prefix="", snes_setup=None):
 
-        problem = NonlinearVariationalProblem(F, y, bcs)
+        problem = problemclass(F, y, bcs)
         solver  = NonlinearVariationalSolver(problem, options_prefix=prefix)
         snes = solver.snes
         comm = snes.comm
