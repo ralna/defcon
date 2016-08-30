@@ -312,7 +312,7 @@ class DeflatedContinuation(object):
 
         # If there's only one process, show a warning. FIXME: do something more advanced so we can run anyway. 
         if self.worldcomm.size < 2:
-            backend.info_red("Defcon started with only 1 process. At least 2 processes are required (one master, one worker).\n\nLaunch with mpiexec: mpiexec -n <number of processes> python <path to file>")
+            self.log("Defcon started with only 1 process. At least 2 processes are required (one master, one worker).\n\nLaunch with mpiexec: mpiexec -n <number of processes> python <path to file>", master=True, warning=True)
             import sys; sys.exit(1)
 
         # Create a journal object.
