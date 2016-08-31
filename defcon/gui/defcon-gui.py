@@ -351,9 +351,9 @@ class PlotConstructor():
                 # Is this is first time we've found data, get the information from the first line of the journal. 
                 if self.freeindex is None:
                     self.running = True
-                    self.start_time = TimeModule.time() # defcon has just started, so get the start time. 
 
-                    freeindex, self.parameter_name, functional_names, unicode_functional_names, nteams, minparam, maxparam = dataList[0].split(';')
+                    freeindex, self.parameter_name, functional_names, unicode_functional_names, nteams, minparam, maxparam, timestamp = dataList[0].split(';')
+                    self.start_time = float(timestamp)
                     self.minparam = float(minparam)
                     self.maxparam = float(maxparam)
 
@@ -388,12 +388,14 @@ class PlotConstructor():
 
                         elif eachLine[0] == '~':
                             # This line of the journal is telling us about what the teams are doing. 
-                            team, task, params, branchid = eachLine[1:].split(';')
+                            team, task, params, branchid, timestamp = eachLine[1:].split(';')
                             self.teamstats[int(team)] = (task, params, branchid)
                             aw.update_teamstats(self.teamstats)
                             # If this tells us the teams have quit, we know we're not getting any more new points. 
-                            if task == 'q': self.running = False
-                                                             
+                            if task == 'q': 
+                                self.running = False
+                                aw.set_elapsed_time(float(timestamp) - self.start_time) # if defcon is still going, update the timer
+
                         else:
                             # This is a newly discovered point. Get all the information we need.
                             teamno, oldparams, branchid, newparams, functionals, cont = eachLine.split(';')

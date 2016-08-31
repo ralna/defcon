@@ -16,7 +16,7 @@ class Journal(object):
     def sweep(self, params):
         raise NotImplementedError
 
-    def team_job(self, team, task):
+    def team_job(self, team, task, params=None, branch=None):
         raise NotImplementedError
 
     def exists(self):
@@ -56,7 +56,7 @@ class FileJournal(Journal):
             pass
 
         with file(self.directory + os.path.sep + "journal.txt", 'w') as f:
-            f.write("%s;%s;%s;%s;%s;%s;%s\n" % (self.freeindex, xlabel, ylabels, unicodeylabels, nteams, minparam, maxparam))
+            f.write("%s;%s;%s;%s;%s;%s;%s;%s\n" % (self.freeindex, xlabel, ylabels, unicodeylabels, nteams, minparam, maxparam, time.time()))
 
     def entry(self, teamid, oldparams, branchid, newparams, functionals, continuation):
         """ Tell the journal about a new point we've discovered. """
@@ -73,7 +73,7 @@ class FileJournal(Journal):
     def team_job(self, team, task, params=None, branch=None):
         """ Tell the journal about what this team is doing. """
         with file(self.directory + os.path.sep + "journal.txt", 'a') as f:
-            f.write("~%s;%s;%s;%s\n" % (team, task, params, branch))
+            f.write("~%s;%s;%s;%s;%s\n" % (team, task, params, branch, time.time()))
 
     def exists(self):
         """ Check if the journal file exists. """
