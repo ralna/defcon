@@ -219,16 +219,15 @@ class BifurcationProblem(object):
         """
         pvd << y
 
-    def assembler_class(self):
+    def assembler(self, F, y, bcs):
         """
-        The class used to assemble the nonlinear problem
-        with DOLFIN.
+        The class used to assemble the nonlinear problem.
 
         Most users will never need to override this: it's only useful if you
         want to do something unusual in the assembly process.
         """
         if backend.__name__ == "dolfin":
-            return nonlinearproblem.GeneralProblem
+            return nonlinearproblem.GeneralProblem(F, y, bcs)
         else:
-            return backend.NonlinearVariationalProblem
+            return backend.NonlinearVariationalProblem(F, y, bcs)
 
