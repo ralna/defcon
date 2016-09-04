@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 # Urgh. We need this to ignore matplotlibs warnings.
 import warnings
 warnings.filterwarnings("ignore", module="matplotlib")
