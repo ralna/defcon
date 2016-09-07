@@ -87,6 +87,8 @@ class RayleighBenardProblem(BifurcationProblem):
         (Ra, Pr) = params
         if Ra < 1705:
             return 1
+        if Ra < 1720:
+            return 3
         return float("inf")
 
     def squared_norm(self, z, w, params):
