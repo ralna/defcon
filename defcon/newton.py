@@ -48,6 +48,7 @@ if backend.__name__ == "dolfin":
             snes_setup(snes)
 
         oldksp = snes.ksp
+        oldksp.incrementTabLevel(teamno*2)
         defksp = DeflatedKSP(deflation, y, oldksp)
         snes.ksp = PETSc.KSP().createPython(defksp, comm)
         snes.ksp.pc.setType('none')
@@ -97,6 +98,7 @@ elif backend.__name__ == "firedrake":
             snes_setup(snes)
 
         oldksp = snes.ksp
+        oldksp.incrementTabLevel(teamno*2)
         defksp = DeflatedKSP(deflation, y, oldksp)
         snes.ksp = PETSc.KSP().createPython(defksp, comm)
         snes.ksp.pc.setType('none')
