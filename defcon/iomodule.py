@@ -233,10 +233,9 @@ class IO(object):
     def max_branch(self):
         raise NotImplementedError
 
-class HDF5IO(IO):
+class BranchIO(IO):
     """ 
-    I/O Module that uses HDF5 files to store the solutions and functionals. 
-    We create one HDF5 file for each branch, with groups that contain the solutions for each parameter value.
+    I/O module that uses one HDF5File per branch.
     """
 
     def __init__(self, directory):
@@ -334,20 +333,20 @@ class HDF5IO(IO):
         branchids = [int(branch_file.split('-')[-1].split('.')[0]) for branch_file in saved_branch_files]
         return max(branchids)
 
-class XMLIO(IO):
+class SolutionIO(IO):
+    """An I/O class that saves one HDF5File per solution found."""
     def dir(self, params):
         return self.directory + os.path.sep + parameterstostring(self.parameters, params) + os.path.sep
 
     def save_solution(self, solution, funcs, params, branchid):
-        f = File(self.function_space.mesh().mpi_comm(), self.dir(params) + "solution-%d.xml.gz" % branchid)
-        f << solution
-        del f
+        with HDF5File(self.function_space.mesh().mpi_comm(), self.dir(params) + "solution-%d.h5" % branchid, 'w') as f:
+            f.write(solution, "/solution")
 
         # wait for the file to be written
         size = 0
         while True:
             try:
-                size = os.stat(self.dir(params) + "solution-%d.xml.gz" % branchid).st_size
+                size = os.stat(self.dir(params) + "solution-%d.h5" % branchid).st_size
             except OSError:
                 pass
             if size > 0: break
@@ -361,17 +360,21 @@ class XMLIO(IO):
     def fetch_solutions(self, params, branchids):
         solns = []
         for branchid in branchids:
-            filename = self.dir(params) + "solution-%d.xml.gz" % branchid
+            filename = self.dir(params) + "solution-%d.h5" % branchid
             failcount = 0
             while True:
                 try:
-                    soln = Function(self.function_space, filename)
+                    with HDF5File(self.function_space.mesh().mpi_comm(), filename, 'r') as f:
+                        soln = Function(self.function_space)
+                        f.read(soln, "/solution")
+                        f.flush()
                     break
                 except Exception:
-                    print "WTF? Loading file %s failed. Sleeping for a second and trying again." % filename
+                    print "Loading file %s failed. Sleeping for a second and trying again." % filename
+                    import traceback; traceback.print_exc()
                     failcount += 1
                     if failcount == 5:
-                        print "Argh. Tried 5 times to load file %s. Raising exception." % filename
+                        print "Tried 5 times to load file %s. Raising exception." % filename
                         raise
                     time.sleep(1)
 
@@ -389,8 +392,8 @@ class XMLIO(IO):
         return funcs
 
     def known_branches(self, params):
-        filenames = glob.glob(self.dir(params) + "solution-*.xml.gz")
-        branches = [int(filename.split('-')[-1][:-7]) for filename in filenames]
+        filenames = glob.glob(self.dir(params) + "solution-*.h5")
+        branches = [int(filename.split('-')[-1][:-3]) for filename in filenames]
         return set(branches)
 
     def known_parameters(self, fixed, branchid):
@@ -405,7 +408,7 @@ class XMLIO(IO):
                     break
 
         seen = set()
-        filenames = glob.glob(self.directory + "/*/solution-%d.xml.gz" % branchid)
+        filenames = glob.glob(self.directory + "/*/solution-%d.h5" % branchid)
         saved_param_dirs = [x.replace("output", "").split('/')[1] for x in filenames]
         saved_params = [tuple([float(x.split('=')[-1]) for x in dirname.split('/')[-1].split('@')]) for dirname in saved_param_dirs]
 
@@ -422,6 +425,6 @@ class XMLIO(IO):
         return sorted(list(seen))
 
     def max_branch(self):
-        filenames = glob.glob(self.directory + "/*/solution-*.xml.gz")
-        branches = [int(filename.split('-')[-1][:-7]) for filename in filenames]
+        filenames = glob.glob(self.directory + "/*/solution-*.h5")
+        branches = [int(filename.split('-')[-1][:-3]) for filename in filenames]
         return max(branches)

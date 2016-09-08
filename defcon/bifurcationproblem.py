@@ -204,10 +204,7 @@ class BifurcationProblem(object):
         The default is usually a good choice.
         """
 
-        if backend.__name__ == "dolfin":
-            return iomodule.XMLIO(prefix + "output")
-        elif backend.__name__ == "firedrake":
-            return iomodule.HDF5IO(prefix + "output")
+        return iomodule.SolutionIO(prefix + "output")
 
     def save_pvd(self, y, pvd):
         """

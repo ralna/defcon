@@ -32,5 +32,5 @@ else: # nothing loaded, default to DOLFIN
 from numpy                import arange, linspace
 from bifurcationproblem   import BifurcationProblem
 from defcon               import DeflatedContinuation
-from iomodule             import IO, HDF5IO, XMLIO
+from iomodule             import IO, SolutionIO, BranchIO
 from operatordeflation    import ShiftedDeflation
