@@ -11,6 +11,11 @@ if "dolfin" in sys.modules and "firedrake" not in sys.modules:
     # dolfin imported, no firedrake
     import dolfin
     assert dolfin.has_petsc4py()
+
+    # Check dolfin version
+    if dolfin.__version__.startswith("1") or dolfin.__version__.startswith("2016.1.0"):
+        raise ImportError("Your version of DOLFIN is too old. DEFCON needs the development version of DOLFIN, 2016.2.0+.")
+
     dolfin.set_log_level(dolfin.ERROR)
     sys.modules['backend'] = dolfin
 
@@ -26,6 +31,11 @@ elif "firedrake" in sys.modules and "dolfin" in sys.modules:
 else: # nothing loaded, default to DOLFIN
     import dolfin
     assert dolfin.has_petsc4py()
+
+    # Check dolfin version
+    if dolfin.__version__.startswith("1") or dolfin.__version__.startswith("2016.1.0"):
+        raise ImportError("Your version of DOLFIN is too old. DEFCON needs the development version of DOLFIN, 2016.2.0+.")
+
     dolfin.set_log_level(dolfin.ERROR)
     sys.modules['backend'] = dolfin
 
