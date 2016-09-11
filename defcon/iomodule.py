@@ -14,7 +14,7 @@ elif backend.__name__ == "firedrake":
     from pyop2.mpi import COMM_WORLD, dup_comm, free_comm
     from firedrake import hdf5interface as h5i
     import numpy as np
-    import os.path
+    import os, os.path
 
     FILE_READ = PETSc.Viewer.Mode.READ
     FILE_WRITE = PETSc.Viewer.Mode.WRITE
@@ -101,6 +101,14 @@ elif backend.__name__ == "firedrake":
             mode = self.mode
             if mode == FILE_UPDATE and not exists:
                 mode = FILE_CREATE
+
+            # Create the directory if necessary
+            dirname = os.path.dirname(name)
+            try:
+                os.makedirs(dirname)
+            except OSError:
+                pass
+
             self._vwr = PETSc.ViewerHDF5().create(name, mode=mode,
                                                   comm=self.comm)
             if self.mode == FILE_READ:

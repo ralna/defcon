@@ -37,8 +37,9 @@ Z = problem.function_space(mesh)
 pvd = File(outputdir + "/roots.pvd")
 f = Function(Z, name="Solution")
 
-for root in sorted(glob.glob(outputdir + "/solution-*.xml.gz")):
-    f.assign(Function(Z, root))
+for root in sorted(glob.glob(outputdir + "/solution-*.h5")):
+    with HDF5File(mpi_comm_world(), root, 'r') as argh:
+        argh.read(f, "/solution")
     problem.save_pvd(f, pvd)
 
 print "Wrote to " + outputdir + "/roots.pvd"
