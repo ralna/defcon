@@ -6,7 +6,7 @@ from petsc4py import PETSc
 from firedrake import *
 from defcon import *
 
-import matplotlib.pyplot as plt
+import numpy
 
 params = {
     "snes_max_it": 100,
@@ -25,13 +25,26 @@ params = {
 options = PETSc.Options()
 for k in params:
     options[k] = params[k]
+parameters["matnest"] = False
+#parameters["default_matrix_type"] = "aij"
+
+# This hack enforces the boundary condition at (0, 0)
+class PointwiseBC(DirichletBC):
+    @utils.cached_property
+    def nodes(self):
+        x = self.function_space().mesh().coordinates.dat.data_ro
+        zero = numpy.array([0, 0])
+        dists = [numpy.linalg.norm(pt - zero) for pt in x]
+        minpt = numpy.argmin(dists)
+        if dists[minpt] < 1.0e-10:
+            out = numpy.array([minpt], dtype=numpy.int32)
+        else:
+            out = numpy.array([], dtype=numpy.int32)
+        return out
 
 class RayleighBenardProblem(BifurcationProblem):
-    def __init__(self):
-        self.bcs = None
-
     def mesh(self, comm):
-        return RectangleMesh(50, 10, 5.0, 1.0, comm=comm)
+        return RectangleMesh(50, 50, 5.0, 1.0, comm=comm)
 
     def function_space(self, mesh):
         V = VectorFunctionSpace(mesh, "CG", 2)
@@ -40,24 +53,25 @@ class RayleighBenardProblem(BifurcationProblem):
         return MixedFunctionSpace([V, W, T])
 
     def parameters(self):
-        Ra = Constant(1.0)
-        Pr = Constant(6.8)
+        Ra = Constant(0)
+        Pr = Constant(0)
+        return [
+                (Ra, "Ra", r"$\mathrm{Ra}$"),
+                (Pr, "Pr", r"$\mathrm{Pr}$")
+               ]
 
-        return [(Ra, "Ra", r"$Ra$"),
-                (Pr, "Pr", r"$Pr$")]
+    def residual(self, z, params, w):
+        (Ra, Pr)  = params
+        (u, p, T) = split(z)
+        (v, q, S) = split(w)
 
-    def residual(self, theta, params, test):
-        u, p, T = split(theta)
-        (Ra, Pr) = params
-        v, q, S = split(test)
-        g = Constant((0, -1))
+        g = as_vector([0, 1])
 
         F = (
             inner(grad(u), grad(v))*dx
             + inner(dot(grad(u), u), v)*dx
             - inner(p, div(v))*dx
             - Ra*Pr*inner(T*g, v)*dx
-            + 1.e-6 * p * q * dx
             + inner(div(u), q)*dx
             + inner(dot(grad(T), u), S)*dx
             + 1/Pr * inner(grad(T), grad(S))*dx
@@ -66,46 +80,51 @@ class RayleighBenardProblem(BifurcationProblem):
         return F
 
     def boundary_conditions(self, Z, params):
-        # The boundary conditions are independent of parameters, so only
-        # evaluate them once for efficiency.
-        if self.bcs is None:
-            self.bcs = [
+        bcs = [
                 DirichletBC(Z.sub(0), Constant((0, 0)), (1, 2, 3, 4)),
-                DirichletBC(Z.sub(2), Constant(1.0), (1,)),
-                DirichletBC(Z.sub(2), Constant(0.0), (2,))
-            ]
-            
-        return self.bcs
+                DirichletBC(Z.sub(2), Constant(1.0), (3,)),
+                DirichletBC(Z.sub(2), Constant(0.0), (4,)),
+                PointwiseBC(Z.sub(1), Constant(0.0), "near(x[0], 0.0) && near(x[1], 0.0)")
+              ]
+        return bcs
 
     def functionals(self):
-        def sqL2(theta, params):
-            (u, p, T) = split(theta)
-            return assemble(inner(u, u)*dx)
+        def sqL2(z, params):
+            (u, p, T) = split(z)
+            j = assemble(inner(u, u)*dx)
+            return j
 
         return [(sqL2, "sqL2", r"$\|u\|^2$")]
 
     def number_initial_guesses(self, params):
         return 1
 
-    def initial_guess(self, V, params, n):
-        return Function(V)
+    def initial_guess(self, Z, params, n):
+        return Function(Z)
 
-    def squared_norm(self, a, b, params):
-        u1, p1, T1 = split(a)
-        u2, p2, T2 = split(b)
-        return inner(u1-u2, u1-u2)*dx + inner(T1-T2, T1-T2)*dx
+    def number_solutions(self, params):
+        (Ra, Pr) = params
+        if Ra < 1705:
+            return 1
+        if Ra < 1720:
+            return 3
+        return float("inf")
 
+    def squared_norm(self, z, w, params):
+        (zu, zp, zT) = split(z)
+        (wu, wp, wT) = split(w)
+        diffu = zu - wu
+        diffp = zp - wp
+        diffT = zT - wT
+        return inner(diffu, diffu)*dx + inner(grad(diffu), grad(diffu))*dx + inner(diffp, diffp)*dx + inner(diffT, diffT)*dx
+
+    def save_pvd(self, z, pvd):
+        (u, p, T) = z.split()
+        u.rename("Velocity", "Velocity")
+        p.rename("Pressure", "Pressure")
+        T.rename("Temperature", "Temperature")
+        pvd << u
 
 if __name__ == "__main__":
-    io = FileIO("output")
-    dc = DeflatedContinuation(problem=RayleighBenardProblem(), io=io, teamsize=1, verbose=True)
-    dc.run(free={"Ra": linspace(1700, 1780, 1.0)}, fixed={"Pr": 6.8})
-
-    dc.bifurcation_diagram("sqL2", fixed={"Pr": 6.8})
-    plt.title(r"Rayleigh-Benard convection, $Pr = 6.8$")
-    plt.savefig("bifurcation.pdf")
-
-    # Maybe you could also do:
-    #dc.run(fixed={"lambda": 4*pi}, free={"mu": linspace(0.5, 0.0, 6)})
-    #dc.run(fixed={"mu": 0.0}, free={"lambda": linspace(4*pi, 0.0, 100)})
-
+    dc = DeflatedContinuation(problem=RayleighBenardProblem(), teamsize=1, verbose=True)
+    dc.run(free={"Ra": range(1705, 1721)}, fixed={"Pr": 6.8})
