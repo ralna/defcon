@@ -100,8 +100,10 @@ class RayleighBenardProblem(BifurcationProblem):
         return inner(diffu, diffu)*dx + inner(grad(diffu), grad(diffu))*dx + inner(diffp, diffp)*dx + inner(diffT, diffT)*dx
 
     def save_pvd(self, z, pvd):
-        u = z.split()[0]
+        (u, p, T) = z.split()
         u.rename("Velocity", "Velocity")
+        p.rename("Pressure", "Pressure")
+        T.rename("Temperature", "Temperature")
         pvd << u
 
 if __name__ == "__main__":
