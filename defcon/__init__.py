@@ -24,6 +24,9 @@ elif "firedrake" in sys.modules and "dolfin" not in sys.modules:
     import firedrake
     sys.modules['backend'] = firedrake
 
+    firedrake.parameters["assembly_cache"]["enabled"] = False
+    firedrake.parameters["pyop2_options"]["lazy_evaluation"] = False
+
 elif "firedrake" in sys.modules and "dolfin" in sys.modules:
     # both loaded, don't know what to do
     raise ImportError("Import exactly one of dolfin or firedrake before importing defcon.")
