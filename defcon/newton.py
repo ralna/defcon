@@ -28,7 +28,6 @@ class DeflatedKSP(object):
 
 
 
-
 if backend.__name__ == "dolfin":
     from backend import PETScSNESSolver, PETScOptions, PETScVector, as_backend_type
 
@@ -38,7 +37,7 @@ if backend.__name__ == "dolfin":
         
     
 
-    def newton(F, y, bcs, problemclass, teamno, deflation=None, prefix="", snes_setup=None):
+    def newton(F, y, bcs, problemclass, teamno, deflation=None, prefix=""):
 
         comm = y.function_space().mesh().mpi_comm()
         solver = PETScSNESSolver(comm)
@@ -50,9 +49,6 @@ if backend.__name__ == "dolfin":
         solver.init(problem, y.vector())
 
         snes.incrementTabLevel(teamno*2)
-
-        if snes_setup is not None:
-            snes_setup(snes)
 
         oldksp = snes.ksp
         oldksp.incrementTabLevel(teamno*2)
@@ -77,7 +73,7 @@ elif backend.__name__ == "firedrake":
             Edy = -deriv.dot(dy)
         return Edy
 
-    def newton(F, y, bcs, problemclass, teamno, deflation=None, prefix="", snes_setup=None):
+    def newton(F, y, bcs, problemclass, teamno, deflation=None, prefix=""):
 
         problem = problemclass(F, y, bcs)
         solver  = NonlinearVariationalSolver(problem, options_prefix=prefix)
@@ -85,9 +81,6 @@ elif backend.__name__ == "firedrake":
         comm = snes.comm
 
         snes.incrementTabLevel(teamno*2)
-
-        if snes_setup is not None:
-            snes_setup(snes)
 
         oldksp = snes.ksp
         oldksp.incrementTabLevel(teamno*2)

@@ -190,13 +190,6 @@ class BifurcationProblem(object):
         """
         pass
 
-    def configure_snes(self, snes):
-        """
-        This method is called on the petsc4py SNES object that will solve
-        the nonlinear problem.
-        """
-        pass
-
     def io(self, prefix=""):
         """
         Return an IO object that defcon will use to save solutions and functionals.
