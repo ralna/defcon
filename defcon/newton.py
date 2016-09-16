@@ -6,30 +6,37 @@ from numpy import isnan
 # Unfortunately DOLFIN and firedrake are completely different in how they
 # do the solve. So we have to branch based on backend here.
 
+class DeflatedKSP(object):
+    def __init__(self, deflation, y, ksp):
+        self.deflation = deflation
+        self.y = y
+        self.ksp = ksp
+        
+    def solve(self, ksp, b, dy_pet):
+        # Use the inner ksp to solve the original problem
+        self.ksp.solve(b, dy_pet)
+        deflation = self.deflation
+        
+        if deflation is not None:
+            Edy = getEdy(deflation, self.y, dy_pet)
+                
+            minv = 1.0 / deflation.evaluate(self.y)
+            tau = (1 + minv*Edy/(1 - minv*Edy))
+            dy_pet.scale(tau)
+
+        ksp.setConvergedReason(self.ksp.getConvergedReason())
+
+
+
+
 if backend.__name__ == "dolfin":
     from backend import PETScSNESSolver, PETScOptions, PETScVector, as_backend_type
 
-    class DeflatedKSP(object):
-        def __init__(self, deflation, y, ksp):
-            self.deflation = deflation
-            self.y = y
-            self.ksp = ksp
-
-        def solve(self, ksp, b, dy_pet):
-            # Use the inner ksp to solve the original problem
-            self.ksp.solve(b, dy_pet)
-            deflation = self.deflation
-
-            if deflation is not None:
-                dy_vec = PETScVector(dy_pet)
-
-                Edy = -deflation.derivative(self.y).inner(dy_vec)
-                minv = 1.0 / deflation.evaluate(self.y)
-                tau = (1 + minv*Edy/(1 - minv*Edy))
-                dy_pet.scale(tau)
-
-            ksp.setConvergedReason(self.ksp.getConvergedReason())
-
+    def getEdy(deflation, y, dy):
+        dy_vec = PETScVector(dy)
+        return -deflation.derivative(y).inner(dy_vec)
+        
+    
 
     def newton(F, y, bcs, problemclass, teamno, deflation=None, prefix="", snes_setup=None):
 
@@ -65,25 +72,10 @@ if backend.__name__ == "dolfin":
 elif backend.__name__ == "firedrake":
     from backend import NonlinearVariationalSolver
 
-    class DeflatedKSP(object):
-        def __init__(self, deflation, y, ksp):
-            self.deflation = deflation
-            self.y = y
-            self.ksp = ksp
-
-        def solve(self, ksp, b, dy):
-            # Use the inner ksp to solve the original problem
-            self.ksp.solve(b, dy)
-            deflation = self.deflation
-
-            if deflation is not None:
-                with deflation.derivative(self.y).dat.vec_ro as deriv:
-                    Edy = -deriv.dot(dy)
-                minv = 1.0 / deflation.evaluate(self.y)
-                tau = (1 + minv*Edy/(1 - minv*Edy))
-                dy.scale(tau)
-
-            ksp.setConvergedReason(self.ksp.getConvergedReason())
+    def getEdy(deflation, y, dy):
+        with deflation.derivative(y).dat.vec_ro as deriv:
+            Edy = -deriv.dot(dy)
+        return Edy
 
     def newton(F, y, bcs, problemclass, teamno, deflation=None, prefix="", snes_setup=None):
 
