@@ -5,6 +5,9 @@ if backend.__name__ == "dolfin":
     # I can't believe this isn't in DOLFIN.
     class GeneralProblem(NonlinearProblem):
         def __init__(self, F, y, bcs):
+            # Firedrake already calls the current Newton state u,
+            # so let's keep track of it
+            self.u = y
             NonlinearProblem.__init__(self)
             J = derivative(F, y)
             self.ass = SystemAssembler(J, F, bcs)
