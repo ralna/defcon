@@ -1,7 +1,7 @@
 import backend
 if backend.__name__ == "dolfin":
     from backend import PETScSNESSolver, as_backend_type
-    
+
     # dolfin lacks a high-level snes frontend like Firedrake,
     # so we're going to put one here and build up what we need
     # to make things happen.
@@ -14,14 +14,13 @@ if backend.__name__ == "dolfin":
 
             snes = low_level_solver.snes()
             snes.setOptionsPrefix(prefix)
-            
-            self.problem=problem
-            self.low_level_solver=low_level_solver
-            self.snes = low_level_solver.snes()
+
+            self.problem = problem
+            self.low_level_solver = low_level_solver
+            self.snes = snes
 
         def solve(self):
             # Need a copy for line searches etc. to work correctly.
             x = self.problem.u.copy(deepcopy=True)
             self.snes.solve(None, as_backend_type(x.vector()).vec())
-            
-            
+
