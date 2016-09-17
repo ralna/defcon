@@ -13,9 +13,9 @@ if backend.__name__ == "dolfin":
         dy_vec = PETScVector(dy)
         return -deflation.derivative(y).inner(dy_vec)
 
-    def cancelSnesMonitor(prefix):
+    def setSnesMonitor(prefix):
         PETScOptions.set(prefix + "snes_monitor_cancel")
-
+        PETScOptions.set(prefix + "snes_monitor")
 
 elif backend.__name__ == "firedrake":
     from backend import NonlinearVariationalSolver
@@ -25,10 +25,11 @@ elif backend.__name__ == "firedrake":
             Edy = -deriv.dot(dy)
         return Edy
 
-    def cancelSnesMonitor(prefix):
+    def setSnesMonitor(prefix):
         from backend.petsc import PETSc
         opts = PETSc.Options()
         opts.setValue(prefix + "cancel_snes_monitor", "")
+        opts.setValue(prefix + "snes_monitor", "")
 
 else:
     raise ImportError("Unknown backend")
@@ -75,8 +76,9 @@ def newton(F, y, bcs, problemclass, solverclass,
 
     # all of this is likely defcon-specific and so shouldn't go
     # into the (general-purpose) SNUFLSolver.
-    cancelSnesMonitor(prefix)
     snes.incrementTabLevel(teamno*2)
+    setSnesMonitor(prefix)
+    snes.setFromOptions()
 
     oldksp = snes.ksp
     oldksp.incrementTabLevel(teamno*2)
@@ -95,6 +97,3 @@ def newton(F, y, bcs, problemclass, solverclass,
 
     success = snes.getConvergedReason() > 0
     return success
-
-
-
