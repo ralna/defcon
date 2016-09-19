@@ -16,7 +16,7 @@ if backend.__name__ == "dolfin":
 
     
     def create_subdm(dm, fields, *args, **kwargs):
-        W = dm.getAttr('__fs__')()
+        W = dm.getAttr('__fs__')
         if len(fields) == 1:
             field = fields[0]
             subdm = funcspace2dm(W.sub[field])
@@ -38,7 +38,7 @@ if backend.__name__ == "dolfin":
         return iset, subdm 
         
     def create_field_decomp(dm, *args, **kwargs):
-        W = dm.getAttr('__fs__')()
+        W = dm.getAttr('__fs__')
         Wsubs = W.split()
         names = [Wsub.name for Wsub in Wsubs]
         dms = [funcspace2dm(Wsub) for Wsub in Wsubs]
@@ -54,7 +54,7 @@ if backend.__name__ == "dolfin":
 
         # this way the dm knows the function space it comes from
         dm = PETSc.DMShell().create(comm=comm)
-        dm.setAttr('__fs__', weakref.ref(func_space))        
+        dm.setAttr('__fs__', func_space)
 
         # this gives the dm a template to create vectors inside snes
         dm.setGlobalVector(
@@ -99,11 +99,15 @@ if backend.__name__ == "dolfin":
             snes.ksp.setOperators(self.A.mat(), self.P.mat()) # why isn't this done in setJacobian?
 
             snes.setDM(funcspace2dm(u.function_space()))
-            print snes.getDM().getAttr('__fs__')()
+
+            print snes.getDM().getAttr('__fs__')
+
             
             snes.setFromOptions()
 
             self.snes = snes
+
+            
 
             
         def update_x(self, x):
