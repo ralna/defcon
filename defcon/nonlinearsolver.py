@@ -1,8 +1,77 @@
 import backend
 from petsc4py import PETSc
 if backend.__name__ == "dolfin":
-    from backend import as_backend_type, PETScVector, PETScMatrix
+    from backend import as_backend_type, PETScVector, PETScMatrix, \
+        MixedElement, VectorElement, Function
+    import numpy, weakref
+    
+    def funcspace2ises(mfs, idx=None):
+        # returns the PETSc index set associated with the idx'th component
+        # of a mixed function space 
+        assert isinstance(mfs.ufl_element(), MixedElement) and not isinstance(mfs.ufl_element(), VectorElement)
+        if idx is None: # ids of whole space
+            return PETSc.IS().createGeneral(mfs.dofmap().dofs())
+        else: # ids of a particular subspace
+            return PETSc.IS().createGeneral(mfs.sub(idx).dofmap().dofs())
 
+    
+    def create_subdm(dm, fields, *args, **kwargs):
+        W = dm.getAttr('__fs__')()
+        if len(fields) == 1:
+            field = fields[0]
+            subdm = funcspace2dm(W.sub[field])
+            iset = funcspace2ises(W, field)
+            return iset, subdm
+        else:
+            sub_el = MixedElement(
+                [W.sub[f].ufl_element() for f in fields]
+            )
+            subspace = FunctionSpace(W.mesh(), sub_el)
+            subdm = funcspace2dm(subspace)
+            
+            iset = PETsc.IS().createGeneral(
+                numpy.concatenate(
+                    [funcspace2ises(W, field).indices for f in fields]
+                )
+            )
+            
+        return iset, subdm 
+        
+    def create_field_decomp(dm, *args, **kwargs):
+        W = dm.getAttr('__fs__')()
+        Wsubs = W.split()
+        names = [Wsub.name for Wsub in Wsubs]
+        dms = [funcspace2dm(Wsub) for Wsub in Wsubs]
+        return names, funcspace2ises(W), dms
+
+        
+    # This code is needed to set up shell dm's that hold the index
+    # sets and allow nice field-splitting to happen
+    def funcspace2dm(func_space):
+        # We need to do different things based on whether
+        # we have a mixed element or not
+        comm = func_space.mesh().mpi_comm()
+
+        # this way the dm knows the function space it comes from
+        dm = PETSc.DMShell().create(comm=comm)
+        dm.setAttr('__fs__', weakref.ref(func_space))        
+
+        # this gives the dm a template to create vectors inside snes
+        dm.setGlobalVector(
+            as_backend_type(Function(func_space).vector()).vec()
+        )
+
+        # if we have a mixed function space, then we need to tell PETSc
+        # how to divvy up the different parts of the function space.
+        # This is not needed for non-mixed elements.
+        ufl_el = func_space.ufl_element()
+        if isinstance(ufl_el, MixedElement) \
+           and not isinstance(ufl_el, VectorElement):
+            dm.setCreateSubDM(create_subdm)
+            dm.setCreateFieldDecomposition(create_field_decomp)
+
+        return dm
+            
     # dolfin lacks a high-level snes frontend like Firedrake,
     # so we're going to put one here and build up what we need
     # to make things happen.
@@ -29,10 +98,14 @@ if backend.__name__ == "dolfin":
             snes.setJacobian(self.jacobian, self.A.mat(), self.P.mat())
             snes.ksp.setOperators(self.A.mat(), self.P.mat()) # why isn't this done in setJacobian?
 
+            snes.setDM(funcspace2dm(u.function_space()))
+            print snes.getDM().getAttr('__fs__')()
+            
             snes.setFromOptions()
 
             self.snes = snes
 
+            
         def update_x(self, x):
             """Given a PETSc Vec x, update the storage of our
                solution function u."""
@@ -56,4 +129,3 @@ if backend.__name__ == "dolfin":
             # Need a copy for line searches etc. to work correctly.
             x = self.problem.u.copy(deepcopy=True)
             self.snes.solve(None, as_backend_type(x.vector()).vec())
-
