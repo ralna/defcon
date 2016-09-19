@@ -27,7 +27,8 @@ if backend.__name__ == "dolfin":
                 [W.sub[f].ufl_element() for f in fields]
             )
             subspace = FunctionSpace(W.mesh(), sub_el)
-            subdm = funcspace2dm(subspace)
+            subspace.collapse()
+            subdm = funcspace2dm(subspace, True)
             
             iset = PETsc.IS().createGeneral(
                 numpy.concatenate(
@@ -40,6 +41,7 @@ if backend.__name__ == "dolfin":
     def create_field_decomp(dm, *args, **kwargs):
         W = dm.getAttr('__fs__')
         Wsubs = W.split()
+        [Wsub.collapse() for Wsub in Wsubs]
         names = [Wsub.name for Wsub in Wsubs]
         dms = [funcspace2dm(Wsub) for Wsub in Wsubs]
         return names, funcspace2ises(W), dms
@@ -47,7 +49,7 @@ if backend.__name__ == "dolfin":
         
     # This code is needed to set up shell dm's that hold the index
     # sets and allow nice field-splitting to happen
-    def funcspace2dm(func_space):
+    def funcspace2dm(func_space, is_sub=False):
         # We need to do different things based on whether
         # we have a mixed element or not
         comm = func_space.mesh().mpi_comm()
@@ -57,6 +59,9 @@ if backend.__name__ == "dolfin":
         dm.setAttr('__fs__', func_space)
 
         # this gives the dm a template to create vectors inside snes
+        if is_sub:
+            func_space.collapse()
+        
         dm.setGlobalVector(
             as_backend_type(Function(func_space).vector()).vec()
         )
@@ -100,9 +105,6 @@ if backend.__name__ == "dolfin":
 
             snes.setDM(funcspace2dm(u.function_space()))
 
-            print snes.getDM().getAttr('__fs__')
-
-            
             snes.setFromOptions()
 
             self.snes = snes
