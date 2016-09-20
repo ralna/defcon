@@ -40,7 +40,7 @@ if backend.__name__ == "dolfin":
     def create_field_decomp(dm, *args, **kwargs):
         W = dm.getAttr('__fs__')
         Wsubs = [Wsub.collapse() for Wsub in W.split()]
-        names = [Wsub.name for Wsub in Wsubs]
+        names = [Wsub.name() for Wsub in Wsubs]
         dms = [funcspace2dm(Wsub) for Wsub in Wsubs]
         return names, funcspace2ises(W), dms
 
