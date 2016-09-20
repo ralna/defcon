@@ -26,8 +26,7 @@ if backend.__name__ == "dolfin":
             sub_el = MixedElement(
                 [W.sub[f].ufl_element() for f in fields]
             )
-            subspace = FunctionSpace(W.mesh(), sub_el)
-            subspace.collapse()
+            subspace = FunctionSpace(W.mesh(), sub_el).collapse()
             subdm = funcspace2dm(subspace, True)
             
             iset = PETsc.IS().createGeneral(
@@ -40,8 +39,7 @@ if backend.__name__ == "dolfin":
         
     def create_field_decomp(dm, *args, **kwargs):
         W = dm.getAttr('__fs__')
-        Wsubs = W.split()
-        [Wsub.collapse() for Wsub in Wsubs]
+        Wsubs = [Wsub.collapse() for Wsub in W.split()]
         names = [Wsub.name for Wsub in Wsubs]
         dms = [funcspace2dm(Wsub) for Wsub in Wsubs]
         return names, funcspace2ises(W), dms
@@ -50,6 +48,7 @@ if backend.__name__ == "dolfin":
     # This code is needed to set up shell dm's that hold the index
     # sets and allow nice field-splitting to happen
     def funcspace2dm(func_space, is_sub=False):
+        print "creating dm for ", func_space
         # We need to do different things based on whether
         # we have a mixed element or not
         comm = func_space.mesh().mpi_comm()
@@ -59,8 +58,6 @@ if backend.__name__ == "dolfin":
         dm.setAttr('__fs__', func_space)
 
         # this gives the dm a template to create vectors inside snes
-        if is_sub:
-            func_space.collapse()
         
         dm.setGlobalVector(
             as_backend_type(Function(func_space).vector()).vec()
@@ -75,6 +72,7 @@ if backend.__name__ == "dolfin":
             dm.setCreateSubDM(create_subdm)
             dm.setCreateFieldDecomposition(create_field_decomp)
 
+        print "done creating dm"
         return dm
             
     # dolfin lacks a high-level snes frontend like Firedrake,
@@ -134,4 +132,11 @@ if backend.__name__ == "dolfin":
         def solve(self):
             # Need a copy for line searches etc. to work correctly.
             x = self.problem.u.copy(deepcopy=True)
-            self.snes.solve(None, as_backend_type(x.vector()).vec())
+            xv = as_backend_type(x.vector()).vec()
+
+            try:
+                self.snes.solve(None, xv)
+            except:
+                import traceback
+                traceback.print_exc()
+                pass

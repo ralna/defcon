@@ -8,39 +8,39 @@ from dolfin import *
 #import matplotlib.pyplot as plt
 
 
+# 
+# args = [sys.argv[0]] + """
+#                        --petsc.snes_max_it 100
+#                        --petsc.snes_atol 1.0e-9
+#                        --petsc.snes_rtol 0.0
+#                        --petsc.snes_monitor
+#                        --petsc.snes_converged_reason
 
-#args = [sys.argv[0]] + """
-#                       --petsc.snes_max_it 100
-#                       --petsc.snes_atol 1.0e-9
-#                       --petsc.snes_rtol 0.0
-#                       --petsc.snes_monitor
-#                       --petsc.snes_converged_reason
-#
-#                       --petsc.ksp_type preonly
-#                       --petsc.pc_type lu
-#                       --petsc.pc_factor_mat_solver_package mumps
-#                       """.split()
-#parameters.parse(args)
+#                        --petsc.ksp_type preonly
+#                        --petsc.pc_type lu
+#                        --petsc.pc_factor_mat_solver_package mumps
+#                        """.split()
+# parameters.parse(args)
 
 args = [sys.argv[0]] + """
-                       --petsc.snes_max_it 100
-                       --petsc.snes_atol 1.0e-9
-                       --petsc.snes_rtol 0.0
-                       --petsc.snes_monitor
-                       --petsc.snes_converged_reason
+                      --petsc.snes_max_it 100
+                      --petsc.snes_atol 1.0e-9
+                      --petsc.snes_rtol 0.0
+                      --petsc.snes_monitor
+                      --petsc.snes_converged_reason
 
-                       --petsc.ksp_type gmres
-                       --petsc.ksp_converged_reason
-                       --petsc.pc_type fieldsplit
-                       --petsc.pc_fieldsplit_type multiplicative
-                       --petsc.pc_fieldsplit_0_fields 0,1
-                       --petsc.pc_fieldsplit_1_fields 2
-                       --petsc.fieldsplit_0_ksp_type preonly
-                       --petsc.fieldsplit_0_pc_type lu
-                       --petsc.fieldsplit_0_pc_factor_mat_solver_package mumps
-                       --petsc.fieldsplit_1_ksp_type preonly
-                       --petsc.fieldsplit_1_pc_type lu
-                       """.split()
+                      --petsc.ksp_type gmres
+                      --petsc.ksp_converged_reason
+                      --petsc.pc_type fieldsplit
+                      --petsc.pc_fieldsplit_type multiplicative
+                      --petsc.pc_fieldsplit_0_fields 0,1
+                      --petsc.pc_fieldsplit_1_fields 2
+                      --petsc.fieldsplit_0_ksp_type preonly
+                      --petsc.fieldsplit_0_pc_type lu
+                      --petsc.fieldsplit_0_pc_factor_mat_solver_package mumps
+                      --petsc.fieldsplit_1_ksp_type preonly
+                      --petsc.fieldsplit_1_pc_type lu
+                      """.split()
 parameters.parse(args)
 
 mesh = RectangleMesh(Point(0, 0), Point(5, 1), 50, 50)
