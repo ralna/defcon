@@ -224,7 +224,7 @@ class BifurcationProblem(object):
     def solver(self, problem, prefix=""):
         """
         The class used to solve the nonlinear problem.
-        
+
         Users might want to override this if they want to customize
         how the nonlinear solver is set up.
         """
@@ -232,4 +232,4 @@ class BifurcationProblem(object):
             return nonlinearsolver.SNUFLSolver(problem, prefix=prefix)
         else:
             return backend.NonlinearVariationalSolver(problem, options_prefix=prefix)
-        
+
