@@ -13,6 +13,7 @@ args = [sys.argv[0]] + """
                        --petsc.snes_max_it 100
                        --petsc.snes_atol 1.0e-7
                        --petsc.snes_rtol 1.0e-10
+                       --petsc.snes_max_linear_solve_fail 100
                        --petsc.snes_monitor
 
                        --petsc.ksp_type gmres
