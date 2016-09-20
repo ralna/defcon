@@ -62,6 +62,9 @@ class DeflatedKSP(object):
     def setUp(self, ksp):
         ksp.setOperators(*self.ksp.getOperators())
 
+    def view(self, ksp, viewer):
+        self.ksp.view(viewer)
+
 def newton(F, y, bcs, problemclass, solverclass,
            teamno, deflation=None, prefix=""):
     comm = y.function_space().mesh().mpi_comm()
