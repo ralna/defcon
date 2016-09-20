@@ -79,6 +79,8 @@ def newton(F, y, bcs, problemclass, solverclass,
     try:
         solver.solve()
     except:
+        import traceback
+        traceback.print_exc()
         pass
 
     success = snes.getConvergedReason() > 0
