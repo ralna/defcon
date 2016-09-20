@@ -2,38 +2,40 @@ import backend
 from petsc4py import PETSc
 if backend.__name__ == "dolfin":
     from backend import as_backend_type, PETScVector, PETScMatrix, \
-        MixedElement, VectorElement, Function
+        MixedElement, VectorElement, Function, FunctionSpace
     import numpy, weakref
-    
-    def funcspace2ises(mfs, idx=None):
-        # returns the PETSc index set associated with the idx'th component
-        # of a mixed function space 
-        assert isinstance(mfs.ufl_element(), MixedElement) and not isinstance(mfs.ufl_element(), VectorElement)
-        if idx is None: # ids of whole space
-            return PETSc.IS().createGeneral(mfs.dofmap().dofs())
-        else: # ids of a particular subspace
-            return PETSc.IS().createGeneral(mfs.sub(idx).dofmap().dofs())
 
+    def funcspace2ises(fs):
+        uflel = fs.ufl_element()
+        if isinstance(uflel, MixedElement) \
+           and not isinstance(uflel, VectorElement):
+            splitdofs = [V.dofmap().dofs() for V in fs.split()]
+            ises = [PETSc.IS().createGeneral(sd) for sd in splitdofs]
+            return tuple(ises)
+        else:
+            return (PETSc.IS().createGeneral(fs.dofmap().dofs()),)
     
     def create_subdm(dm, fields, *args, **kwargs):
         W = dm.getAttr('__fs__')
         if len(fields) == 1:
-            field = fields[0]
-            subdm = funcspace2dm(W.sub[field])
-            iset = funcspace2ises(W, field)
+            f = int(fields[0])
+            subel = W.sub(f).ufl_element()
+            subspace = FunctionSpace(W.mesh(), subel)
+            subdm = funcspace2dm(subspace)
+            iset = PETSc.IS().createGeneral(W.sub(f).dofmap().dofs())
             return iset, subdm
         else:
             sub_el = MixedElement(
-                [W.sub[f].ufl_element() for f in fields]
+                [W.sub(int(f)).ufl_element() for f in fields]
             )
-            subspace = FunctionSpace(W.mesh(), sub_el).collapse()
-            subdm = funcspace2dm(subspace, True)
-            
-            iset = PETsc.IS().createGeneral(
-                numpy.concatenate(
-                    [funcspace2ises(W, field).indices for f in fields]
-                )
-            )
+            subspace = FunctionSpace(W.mesh(), sub_el)
+            subdm = funcspace2dm(subspace)
+
+            bigises = funcspace2ises(W)
+
+            alldofs = numpy.concatenate(
+                [W.sub(int(f)).dofmap().dofs() for f in fields])
+            iset = PETSc.IS().createGeneral(sorted(alldofs))
             
         return iset, subdm 
         
@@ -47,8 +49,7 @@ if backend.__name__ == "dolfin":
         
     # This code is needed to set up shell dm's that hold the index
     # sets and allow nice field-splitting to happen
-    def funcspace2dm(func_space, is_sub=False):
-        print "creating dm for ", func_space
+    def funcspace2dm(func_space):
         # We need to do different things based on whether
         # we have a mixed element or not
         comm = func_space.mesh().mpi_comm()
@@ -72,7 +73,6 @@ if backend.__name__ == "dolfin":
             dm.setCreateSubDM(create_subdm)
             dm.setCreateFieldDecomposition(create_field_decomp)
 
-        print "done creating dm"
         return dm
             
     # dolfin lacks a high-level snes frontend like Firedrake,
