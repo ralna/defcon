@@ -34,6 +34,11 @@ elif backend.__name__ == "firedrake":
 else:
     raise ImportError("Unknown backend")
 
+if hasattr(backend, 'ConvergenceError'):
+    from backend import ConvergenceError
+else:
+    class ConvergenceError(Exception):
+        pass
 
 class DeflatedKSP(object):
     def __init__(self, deflation, y, ksp):
@@ -55,6 +60,9 @@ class DeflatedKSP(object):
 
         ksp.setConvergedReason(self.ksp.getConvergedReason())
 
+    def setUp(self, ksp):
+        ksp.setOperators(*self.ksp.getOperators())
+
 def newton(F, y, bcs, problemclass, solverclass,
            teamno, deflation=None, prefix=""):
     comm = y.function_space().mesh().mpi_comm()
@@ -74,12 +82,14 @@ def newton(F, y, bcs, problemclass, solverclass,
     defksp = DeflatedKSP(deflation, y, oldksp)
     snes.ksp = PETSc.KSP().createPython(defksp, comm)
     snes.ksp.pc.setType('none')
-    snes.ksp.setOperators(*oldksp.getOperators())
-    snes.ksp.setUp()
 
     try:
         solver.solve()
+    except ConvergenceError:
+        pass
     except:
+        import traceback
+        traceback.print_exc()
         pass
 
     success = snes.getConvergedReason() > 0
