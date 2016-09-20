@@ -30,7 +30,7 @@ class DeflatedContinuation(object):
     This class is the main driver that implements deflated continuation.
     """
 
-    def __init__(self, problem, deflation=None, teamsize=1, verbose=False, logfiles=False, strict=False):
+    def __init__(self, problem, deflation=None, teamsize=1, verbose=False, logfiles=False):
         """
         Constructor.
 
@@ -45,13 +45,8 @@ class DeflatedContinuation(object):
             Activate verbose output.
           logfiles (:py:class:`bool`)
             Whether defcon should remap stdout/stderr to logfiles (useful for many processes).
-          strict (:py:class:`bool`)
-            Whether defcon should only run deflation processes when there's no change of finding 
-            the same solution as a continuation task. 
         """
         self.problem = problem
-
-        self.strict = strict
 
         self.teamsize = teamsize
         self.verbose = verbose
@@ -294,12 +289,15 @@ class DeflatedContinuation(object):
 
         # Next, seed the list of tasks to perform with the initial search
         newtasks = []  # tasks yet to be sent out
-        deferredtasks = [] # tasks that we've been forced to defer as we don't have enough information to ensure they're necessary; only used in strict mode
+        deferredtasks = [] # tasks that we've been forced to defer as we don't have enough information to ensure they're necessary
         waittasks = {} # tasks sent out, waiting to hear back about
 
         # A dictionary of parameters -> branches to ensure they exist,
         # to avoid race conditions
         ensure_branches = dict()
+
+        # A set of tasks that have been invalidated by previous discoveries.
+        invalidated_tasks = set()
 
         # If we're going downwards in continuation parameter, we need to change
         # signs in a few places
@@ -424,15 +422,14 @@ class DeflatedContinuation(object):
                         self.log("Master not dispatching %s because we have enough solutions" % task, master=True)
                         continue
 
-                    # Strict mode: If either there's still a task looking for solutions on earlier
-                    # parameters, we want to not send this task out now and look at it again later.
-                    # This is because the currently running task might find a branch that we will
+                    # If there's a continuation task that hasn't reached us,
+                    # we want to not send this task out now and look at it again later.
+                    # This is because the currently running task might find a branch that we will need
                     # to deflate here.
-                    if self.strict:
-                        for (t, r) in waittasks.values():
-                            if (sign*t.newparams[freeindex]<=sign*task.newparams[freeindex]):
-                                send = False
-                                break
+                    for (t, r) in waittasks.values():
+                        if isinstance(t, ContinuationTask) and sign*t.newparams[freeindex]<=sign*task.newparams[freeindex]:
+                            send = False
+                            break
 
                 if send:
                     # OK, we're happy to send it out. Let's tell it any new information
@@ -518,56 +515,84 @@ class DeflatedContinuation(object):
 
                 elif isinstance(task, DeflationTask):
                     if response.success:
-                        # In this case, we want the master to
-                        # 1. Allocate a new branch id for the discovered branch.
-                        # FIXME: We might want to make this more sophisticated
-                        # to catch duplicates --- in that event, send None. But
-                        # for now we'll just accept it.
-                        self.send_branchid(branchid_counter, team)
 
-                        # Record this new solution in the journal
-                        journal.entry(team, task.oldparams, branchid_counter, task.newparams, response.functionals, False)
+                        # Before processing the success, we want to make sure that we really
+                        # want to keep this solution. After all, we might have been running
+                        # five deflations in parallel; if they discover the same branch,
+                        # we don't want them all to track it and continue it.
+                        # So we check to see if this task has been invalidated
+                        # by an earlier discovery.
 
-                        # 2. Insert a new deflation task, to seek again with the same settings.
-                        newtask = DeflationTask(taskid=taskid_counter,
-                                                oldparams=task.oldparams,
-                                                branchid=task.branchid,
-                                                newparams=task.newparams)
-                        if task.oldparams is not None:
-                            newpriority = sign*newtask.newparams[freeindex]
+                        if task in invalidated_tasks:
+                            # * Send the worker the bad news.
+                            self.send_branchid(None, team)
+
+                            # * Remove the task from the invalidated list.
+                            invalidated_tasks.remove(task)
+
+                            # * Insert a new task --- this *might* be a dupe, or it might not
+                            #   be! We need to try it again to make sure. If it is a dupe, it
+                            #   won't discover anything; if it isn't, hopefully it will discover
+                            #   the same (distinct) solution again.
+                            if task.oldparams is not None:
+                                priority = sign*task.newparams[freeindex]
+                            else:
+                                priority = -1
+                            heappush(newtasks, (priority, task))
                         else:
-                            newpriority = -1
+                            # OK, we're good! The search succeeded and nothing has invalidated it.
+                            # In this case, we want the master to
+                            # * Record any currently ongoing searches that this discovery
+                            #   invalidates.
+                            for (othertask, _) in waittasks.values():
+                                if isinstance(othertask, DeflationTask):
+                                    invalidated_tasks.add(othertask)
 
-                        heappush(newtasks, (newpriority, newtask))
-                        taskid_counter += 1
+                            # * Allocate a new branch id for the discovered branch.
+                            self.send_branchid(branchid_counter, team)
 
-                        # 3. Record that the worker team is now continuing that branch,
-                        # if there's continuation to be done.
-                        newparams = nextparameters(values, freeindex, task.newparams)
-                        if newparams is not None:
-                            conttask = ContinuationTask(taskid=task.taskid,
-                                                        oldparams=task.newparams,
-                                                        branchid=branchid_counter,
-                                                        newparams=newparams)
-                            waittasks[task.taskid] = ((conttask, team))
-                            self.log("Waiting on response for %s" % conttask, master=True)
+                            # * Record this new solution in the journal
+                            journal.entry(team, task.oldparams, branchid_counter, task.newparams, response.functionals, False)
 
-                            # Write to the journal, saying that this team is now doing continuation.
-                            journal.team_job(team, "c", task.newparams, task.branchid)
-                        else:
-                            # It's at the end of the continuation, there's no more continuation
-                            # to do. Mark the team as idle.
-                            idleteams.append(team)
-                            journal.team_job(team, "i")
+                            # * Insert a new deflation task, to seek again with the same settings.
+                            newtask = DeflationTask(taskid=taskid_counter,
+                                                    oldparams=task.oldparams,
+                                                    branchid=task.branchid,
+                                                    newparams=task.newparams)
+                            if task.oldparams is not None:
+                                newpriority = sign*newtask.newparams[freeindex]
+                            else:
+                                newpriority = -1
 
-                        # We'll also make sure that any other DeflationTasks in the queue
-                        # that have these parameters know about the existence of this branch.
-                        if task.newparams not in ensure_branches:
-                            ensure_branches[task.newparams] = set()
-                        ensure_branches[task.newparams].add(branchid_counter)
+                            heappush(newtasks, (newpriority, newtask))
+                            taskid_counter += 1
 
-                        branchid_counter += 1
+                            # * Record that the worker team is now continuing that branch,
+                            # if there's continuation to be done.
+                            newparams = nextparameters(values, freeindex, task.newparams)
+                            if newparams is not None:
+                                conttask = ContinuationTask(taskid=task.taskid,
+                                                            oldparams=task.newparams,
+                                                            branchid=branchid_counter,
+                                                            newparams=newparams)
+                                waittasks[task.taskid] = ((conttask, team))
+                                self.log("Waiting on response for %s" % conttask, master=True)
 
+                                # Write to the journal, saying that this team is now doing continuation.
+                                journal.team_job(team, "c", task.newparams, task.branchid)
+                            else:
+                                # It's at the end of the continuation, there's no more continuation
+                                # to do. Mark the team as idle.
+                                idleteams.append(team)
+                                journal.team_job(team, "i")
+
+                            # We'll also make sure that any other DeflationTasks in the queue
+                            # that have these parameters know about the existence of this branch.
+                            if task.newparams not in ensure_branches:
+                                ensure_branches[task.newparams] = set()
+                            ensure_branches[task.newparams].add(branchid_counter)
+
+                            branchid_counter += 1
                     else:
                         # As expected, deflation found nothing interesting. The team is now idle.
                         idleteams.append(team)
