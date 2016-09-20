@@ -75,7 +75,6 @@ def newton(F, y, bcs, problemclass, solverclass,
     # into the (general-purpose) SNUFLSolver.
     snes.incrementTabLevel(teamno*2)
     setSnesMonitor(prefix)
-    snes.setFromOptions()
 
     oldksp = snes.ksp
     oldksp.incrementTabLevel(teamno*2)
