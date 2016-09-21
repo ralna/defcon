@@ -69,22 +69,32 @@ class ElasticaProblem(BifurcationProblem):
                 (max, "max", r"$\max{\theta}$"),
                 (min, "min", r"$\min{\theta}$")]
 
+    def trivial_solutions(self, V, params, freeindex):
+        # check we're continuing in lambda:
+        if freeindex == 0:
+            # check if mu is 0
+            if params[1] == 0.0:
+                # return the trivial solution
+                return [Function(V)]
+        return []
+
     def number_initial_guesses(self, params):
         return 1
 
     def initial_guess(self, V, params, n):
-        return Function(V)
+        return interpolate(Constant(1), V)
 
     def number_solutions(self, params):
         # Here I know the number of solutions for each value of lambda.
         # This cheating allows me to calculate the bifurcation diagram
         # much more quickly. This can be disabled without changing the
         # correctness of the calculations.
-        if params[0] < 3.37: return 1
 
         (lmbda, mu) = params
-        n = int(floor((lmbda/pi)))*2
-        return n + 1
+        n = int(floor((lmbda/pi)))*2 # this is the exact formula for mu = 0, but works for mu = 0.5 also
+
+        if mu == 0: return max(n, 1) # don't want the trivial solution
+        else:       return n + 1
 
     def squared_norm(self, a, b, params):
         return inner(a - b, a - b)*dx + inner(grad(a - b), grad(a - b))*dx

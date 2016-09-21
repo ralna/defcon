@@ -598,6 +598,20 @@ class DeflatedContinuation(object):
                         idleteams.append(team)
                         journal.team_job(team, "i")
 
+                        # One more check. If this was an initial guess, and it failed, it might be
+                        # because the user doesn't know when a problem begins to have a nontrivial
+                        # branch. In this case keep trying.
+                        if task.oldparams is None and branchid_counter == 0:
+                            newparams = nextparameters(values, freeindex, task.newparams)
+                            if newparams is not None:
+                                newtask = DeflationTask(taskid=taskid_counter,
+                                                        oldparams=task.oldparams,
+                                                        branchid=task.branchid,
+                                                        newparams=newparams)
+                                newpriority = -1
+                                heappush(newtasks, (newpriority, newtask))
+                                taskid_counter += 1
+
             # Maybe we deferred some deflation tasks because we didn't have enough information to judge if they were worthwhile. Now we must reschedule.
             if len(deferredtasks) > 0:
                 # Take as many as there are idle teams. This makes things run much smoother than taking them all. 
