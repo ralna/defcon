@@ -47,3 +47,7 @@ from bifurcationproblem   import BifurcationProblem
 from defcon               import DeflatedContinuation
 from iomodule             import IO, SolutionIO, BranchIO
 from operatordeflation    import ShiftedDeflation
+
+import backend
+if backend.__name__ == "dolfin":
+    from nonlinearsolver import SNUFLSolver

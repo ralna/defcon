@@ -21,7 +21,7 @@ args = [sys.argv[0]] + """
                        --petsc.ksp_monitor_cancel
                        --petsc.ksp_converged_reason
                        --petsc.ksp_max_it 2000
-                       --petsc.pc_type lu
+                       --petsc.pc_type gamg
                        --petsc.pc_factor_mat_solver_package mumps
                        """.split()
 parameters.parse(args)
@@ -120,8 +120,12 @@ class HyperelasticityProblem(BifurcationProblem):
     def squared_norm(self, a, b, params):
         return inner(a - b, a - b)*dx + inner(grad(a - b), grad(a - b))*dx
 
-    def configure_snes(self, snes):
+    def solver(self, problem, prefix=""):
         # Set the rigid body modes for use in AMG
+
+        s = SNUFLSolver(problem, prefix=prefix)
+        snes = s.snes
+        snes.setFromOptions()
 
         if snes.ksp.pc.type != "preonly":
             # Convert rigid body modes (computed in self.function_space above) to PETSc Vec
@@ -134,6 +138,8 @@ class HyperelasticityProblem(BifurcationProblem):
             (A, P) = snes.ksp.getOperators()
             A.setNearNullSpace(nullsp)
             P.setNearNullSpace(nullsp)
+
+        return s
 
 if __name__ == "__main__":
     dc = DeflatedContinuation(problem=HyperelasticityProblem(), teamsize=1, verbose=True)
