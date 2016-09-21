@@ -15,18 +15,20 @@ args = [sys.argv[0]] + """
                        --petsc.snes_rtol 1.0e-10
                        --petsc.snes_max_linear_solve_fail 100
                        --petsc.snes_monitor
+                       --petsc.snes_converged_reason
 
                        --petsc.ksp_type gmres
                        --petsc.ksp_monitor_cancel
                        --petsc.ksp_converged_reason
                        --petsc.ksp_max_it 2000
-                       --petsc.pc_type gamg
+                       --petsc.pc_type lu
+                       --petsc.pc_factor_mat_solver_package mumps
                        """.split()
 parameters.parse(args)
 
 class HyperelasticityProblem(BifurcationProblem):
     def mesh(self, comm):
-        return RectangleMesh(comm, Point(0, 0), Point(1, 0.1), 50, 50)
+        return RectangleMesh(comm, Point(0, 0), Point(1, 0.1), 40, 40)
 
     def function_space(self, mesh):
         V = VectorFunctionSpace(mesh, "CG", 1)
