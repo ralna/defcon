@@ -226,10 +226,59 @@ class BifurcationProblem(object):
         The class used to solve the nonlinear problem.
 
         Users might want to override this if they want to customize
-        how the nonlinear solver is set up.
+        how the nonlinear solver is set up. For example, look at the
+        hyperelasticity demo to see how this is used to pass a near-nullspace
+        into an algebraic multigrid preconditioner.
         """
         if backend.__name__ == "dolfin":
             return nonlinearsolver.SNUFLSolver(problem, prefix=prefix)
         else:
             return backend.NonlinearVariationalSolver(problem, options_prefix=prefix)
 
+    def compute_stability(self, params, branchid, solution, hint=None):
+        """
+        This method allows the user to compute whether a solution on a given branch is
+        stable.
+
+        Stability means different things to different problems. For example, in an unconstrained
+        energy minimisation problem, investigating stability involves checking the positive
+        definiteness of the Hessian at a critical point; in constrained minimisation, one needs
+        to check the inertia of the Hessian and verify that the number of negative eigenvalues
+        is as expected, given the constraints.
+
+        With this in mind, defcon does not attempt to compute the stability of solutions;
+        it just provides a hook for you to calculate whatever test you wish.
+
+        It is often the case that some results from one stability analysis can be used
+        to accelerate the calculation of the next. For example, in SLEPc one can
+        set an initial guess for the eigenspace, and if it is a good guess the algorithms
+        converge much faster. This is the purpose of the hint input. For the first
+        calculation on a given branch, it is None, but on subsequent calculations it
+        is passed along from the outputs of one calculation to the inputs of the next.
+
+        This routine should return the following: a dictionary like
+
+        d = {"stable": is_stable,
+             "eigenvalues":    [list of eigenvalues],
+             "eigenfunctions": [list of eigenfunctions],
+             "hint": hint}
+
+        is_stable can be anything that can be evaluated with literal_eval in Python.
+        Its value has meaning only to you. The reason why this is not True/False
+        is because stability is more subtle than that -- for example, one could
+        pass None to indicate that the computation failed. In other problems
+        (such as the Gross-Pitaevskii equation in quantum mechanics) there are
+        different ways a problem can be unstable; these could be distinguished
+        by returning "exponential" or "oscillatory".
+
+        eigenvalues is a list of real or complex numbers. These will be saved
+        by the I/O object. The list can be empty.
+
+        eigenfunctions is a list of Functions. These will also be saved by
+        the I/O object. Again, the list can be empty.
+
+        hint is any data that you wish to pass on to the next calculation.
+
+        For an example of this in action, see the elastica demo.
+        """
+        pass

@@ -15,8 +15,20 @@ args = [sys.argv[0]] + """
 
                        --petsc.ksp_type preonly
                        --petsc.pc_type lu
+
+                       --petsc.eps_type krylovschur
+                       --petsc.eps_target -1
+                       --petsc.eps_monitor_all
+                       --petsc.eps_converged_reason
+                       --petsc.eps_nev 1
+                       --petsc.st_type sinvert
+                       --petsc.st_ksp_type preonly
+                       --petsc.st_pc_type lu
                        """.split()
 parameters.parse(args)
+
+from petsc4py import PETSc
+from slepc4py import SLEPc # for stability calculations
 
 class ElasticaProblem(BifurcationProblem):
     def __init__(self):
@@ -98,6 +110,67 @@ class ElasticaProblem(BifurcationProblem):
 
     def squared_norm(self, a, b, params):
         return inner(a - b, a - b)*dx + inner(grad(a - b), grad(a - b))*dx
+
+    def compute_stability(self, params, branchid, theta, hint=None):
+        V = theta.function_space()
+        trial = TrialFunction(V)
+        test  = TestFunction(V)
+
+        bcs = self.boundary_conditions(V, params)
+        comm = V.mesh().mpi_comm()
+
+        F = self.residual(theta, map(Constant, params), test)
+        J = derivative(F, theta, trial)
+        b = inner(Constant(1), test)*dx # a dummy linear form, needed to construct the SystemAssembler
+
+        # Build the LHS matrix
+        A = PETScMatrix(comm)
+        asm = SystemAssembler(J, b, bcs)
+        asm.assemble(A)
+
+        # Build the mass matrix for the RHS of the generalised eigenproblem
+        B = PETScMatrix(comm)
+        asm = SystemAssembler(inner(test, trial)*dx, b, bcs)
+        asm.assemble(B)
+        [bc.zero(B) for bc in bcs]
+
+        # Create the SLEPc eigensolver
+        eps = SLEPc.EPS.create(comm=comm)
+        eps.setOperators(A.mat(), B.mat())
+        eps.setWhichEigenpairs(eps.Which.SMALLEST_MAGNITUDE)
+        eps.setProblemType(eps.ProblemType.GHEP)
+        eps.setFromOptions()
+
+        # If we have a hint, use it - it's the eigenfunctions from the previous solve
+        if hint is not None:
+            initial_space = [vec(x) for x in hint]
+            eps.setInitialSpace(initial_space)
+
+        # Solve the eigenproblem
+        eps.solve()
+
+        eigenvalues = []
+        eigenfunctions = []
+        eigenfunction = Function(V, name="Eigenfunction")
+
+        for i in range(eps.getConverged()):
+            lmbda = eps.getEigenvalue(i)
+            eigenvalues.append(lmbda)
+
+            eps.getEigenvector(i, vec(eigenfunction))
+            eigenfunctions.append(eigenfunction.copy(deepcopy=True))
+
+        if min(eigenvalues) < 0:
+            is_stable = False
+        else:
+            is_stable = True
+
+        d = {"stable": is_stable,
+             "eigenvalues": eigenvalues,
+             "eigenfunctions": eigenfunctions,
+             "hint": eigenfunctions}
+
+        return d
 
 if __name__ == "__main__":
     dc = DeflatedContinuation(problem=ElasticaProblem(), teamsize=1, verbose=True)

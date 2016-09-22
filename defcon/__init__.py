@@ -51,3 +51,11 @@ from operatordeflation    import ShiftedDeflation
 import backend
 if backend.__name__ == "dolfin":
     from nonlinearsolver import SNUFLSolver
+
+    def vec(x):
+        if isinstance(x, backend.Function):
+            x = x.vector()
+        return backend.as_backend_type(x).vec()
+
+    def mat(x):
+        return backend.as_backend_type(x).mat()
