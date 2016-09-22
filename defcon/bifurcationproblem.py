@@ -229,7 +229,25 @@ class BifurcationProblem(object):
         how the nonlinear solver is set up.
         """
         if backend.__name__ == "dolfin":
-            return nonlinearsolver.SNUFLSolver(problem, prefix=prefix)
+            return nonlinearsolver.SNUFLSolver(
+                problem, prefix=prefix, **self.solver_kwargs(problem)
+            )
         else:
-            return backend.NonlinearVariationalSolver(problem, options_prefix=prefix)
+            return backend.NonlinearVariationalSolver(
+                problem, options_prefix=prefix,
+                **self.solver_kwargs(problem)
+            )
 
+    def solver_kwargs(self, problem):
+        """
+        This allows users to override to pass keyword arguments into either
+        the DOLFIN or Firedrake backend solvers.  For example, Firedrake
+        allows the user to set nullspaces for matrices or special
+        context for preconditioning matrix-free matrices.
+
+        Note: we use the 'problem' to instantiate this since it's
+        known to the solver and it already has particular meshes
+        and function spaces instantiated in it.
+        """
+        return {}
+        
