@@ -6,7 +6,7 @@ class Task(object):
 
 class QuitTask(Task):
     """
-    A task indicating the slave should quit.
+    A task indicating the worker should quit.
     """
     def __str__(self):
         return "QuitTask"
@@ -18,11 +18,11 @@ class ContinuationTask(Task):
     *Arguments*
       taskid (int)
         Global identifier for this task
-      oldparams (dict)
+      oldparams (tuple)
         Parameter values to continue from
       branchid (int)
         Which branch to continue (int)
-      newparams (dict)
+      newparams (tuple)
         Parameter values to continue to
     """
     def __init__(self, taskid, oldparams, branchid, newparams, ensure_branches=None):
@@ -49,12 +49,12 @@ class DeflationTask(Task):
     *Arguments*
       taskid (int)
         Global identifier for this task
-      oldparams (dict)
+      oldparams (tuple)
         Parameter values to continue from. If None, this means use the initial guesses
       branchid (int)
         Which branch to search from (int). If oldparams is None, this is the number of the initial guess
         to use
-      newparams (dict)
+      newparams (tuple)
         Parameter values to continue to
       ensure_branches (set):
         Branches that *must* be deflated; if they are not present yet, wait for them
@@ -75,14 +75,37 @@ class DeflationTask(Task):
     def __str__(self):
         return "DeflationTask(taskid=%s, oldparams=%s, branchid=%s, newparams=%s)" % (self.taskid, self.oldparams, self.branchid, self.newparams)
 
+class StabilityTask(Task):
+    """
+    A task that computes the stability of solutions we have found.
+
+    *Arguments*
+      taskid (int)
+        Global identifier for this task
+      params (tuple)
+        Parameter values to investigate.
+      branchid (int)
+        Which branch to investigate.
+      hint (anything)
+        A hint to pass to the stability calculation.
+    """
+    def __init__(self, taskid, params, branchid, hint):
+        self.taskid = taskid
+        self.params = params
+        self.branchid = branchid
+        self.hint = hint
+
+    def __str__(self):
+        return "StabilityTask(taskid=%s, params=%s, branchid=%s)" % (self.taskid, self.params, self.branchid)
+
 class Response(object):
     """
     A class that encapsulates whether a given task was successful or not."
     """
-    def __init__(self, taskid, success, functionals=None):
+    def __init__(self, taskid, success, data=None):
         self.taskid = taskid
         self.success = success
-        self.functionals = functionals
+        self.data = data
 
     def __str__(self):
         return "Response(taskid=%s, success=%s)" % (self.taskid, self.success)

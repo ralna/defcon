@@ -222,12 +222,12 @@ class DeflatedContinuation(object):
             while len(self.zerobranchid) == 0:
                 time.sleep(0.01)
             branchid = self.zerobranchid.pop(0)
-            self.log("Got branchid %d" % branchid)
+            self.log("Got branchid %s" % branchid)
             return branchid
 
         else:
             branchid = self.mastercomm.bcast(None)
-            self.log("Got branchid %d" % branchid)
+            self.log("Got branchid %s" % branchid)
             return branchid
 
     def compute_functionals(self, solution, params):
@@ -483,7 +483,7 @@ class DeflatedContinuation(object):
                     if response.success:
 
                         # Record this entry in the journal. 
-                        journal.entry(team, task.oldparams, task.branchid, task.newparams, response.functionals, True)
+                        journal.entry(team, task.oldparams, task.branchid, task.newparams, response.data['functionals'], True)
 
                         # The worker will keep continuing, record that fact
                         newparams = nextparameters(values, freeindex, task.newparams)
@@ -552,7 +552,7 @@ class DeflatedContinuation(object):
                             self.send_branchid(branchid_counter, team)
 
                             # * Record this new solution in the journal
-                            journal.entry(team, task.oldparams, branchid_counter, task.newparams, response.functionals, False)
+                            journal.entry(team, task.oldparams, branchid_counter, task.newparams, response.data['functionals'], False)
 
                             # * Insert a new deflation task, to seek again with the same settings.
                             newtask = DeflationTask(taskid=taskid_counter,
@@ -682,7 +682,7 @@ class DeflatedContinuation(object):
                 if success: functionals = self.compute_functionals(self.state, task.newparams)
                 else: functionals = None
 
-                response = Response(task.taskid, success=success, functionals=functionals)
+                response = Response(task.taskid, success=success, data={"functionals": functionals})
                 if self.teamrank == 0:
                     self.log("Sending response %s to master" % response)
                     self.worldcomm.send(response, dest=0, tag=self.responsetag)
@@ -749,7 +749,7 @@ class DeflatedContinuation(object):
                     functionals = None
                     self.state_id = (None, None)
 
-                response = Response(task.taskid, success=success, functionals=functionals)
+                response = Response(task.taskid, success=success, data={"functionals": functionals})
                 if self.teamrank == 0:
                     self.log("Sending response %s to master" % response)
                     self.worldcomm.send(response, dest=0, tag=self.responsetag)
