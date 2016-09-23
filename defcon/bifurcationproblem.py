@@ -228,26 +228,46 @@ class BifurcationProblem(object):
         Users might want to override this if they want to customize
         how the nonlinear solver is set up.
         """
+        solver_params, solver_kwargs = self.solver_args(problem)
+        
         if backend.__name__ == "dolfin":
             return nonlinearsolver.SNUFLSolver(
-                problem, prefix=prefix, **self.solver_kwargs(problem)
+                problem, prefix=prefix,
+                solver_parameters=solver_params,
+                **self.solver_kwargs(problem)
             )
         else:
             return backend.NonlinearVariationalSolver(
                 problem, options_prefix=prefix,
+                solver_parameters=solver_params,
                 **self.solver_kwargs(problem)
             )
 
-    def solver_kwargs(self, problem):
+    def solver_args(self, problem):
         """
-        This allows users to override to pass keyword arguments into either
-        the DOLFIN or Firedrake backend solvers.  For example, Firedrake
-        allows the user to set nullspaces for matrices or special
-        context for preconditioning matrix-free matrices.
+        This function returns two dictionaries, one that contains the
+        particular petsc solver parameters, and the other that
+        contains any other keyword arguments to be passed to the
+        backend solvers.
+
+        Users will typically not override this method, but one of the
+        two methods it calls.
 
         Note: we use the 'problem' to instantiate this since it's
         known to the solver and it already has particular meshes
         and function spaces instantiated in it.
         """
+        return (self.solver_parameters(), self.solver_kwargs(problem))
+
+    def solver_parameters(self):
+        """Returns a dictionary with the PETSc options to configure
+        the backend nonlinear solver.  Users should
+        override this method in their own subclasses to set
+        solver/preconditioner preferences."""
         return {}
-        
+
+    def solver_kwargs(self, problem):
+        """Users can override this class to provide additional
+        back-end information to the solver, such as nullspaces in
+        Firedrake."""
+        return {}
