@@ -84,7 +84,8 @@ if backend.__name__ == "dolfin":
     # so we're going to put one here and build up what we need
     # to make things happen.
     class SNUFLSolver(object):
-        def __init__(self, problem, prefix="", **kwargs):
+        def __init__(self, problem, prefix="",
+                     solver_parameters={}, **kwargs):
             self.problem = problem
             u = problem.u
             self.u_dvec = as_backend_type(u.vector())
@@ -100,6 +101,10 @@ if backend.__name__ == "dolfin":
             if (prefix + "snes_linesearch_type") not in opts:
                 opts[prefix + "snes_linesearch_type"] = "basic"
 
+            # set the petsc options from the solver_parameters
+            for k in solver_parameters:
+                opts[prefix + k] = solver_parameters[k]
+                
             J, F, bcs, P = problem.J, problem.F, problem.bcs, problem.P
 
             self.ass = SystemAssembler(J, F, bcs)

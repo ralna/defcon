@@ -7,19 +7,6 @@ from dolfin import *
 
 import matplotlib.pyplot as plt
 
-args = [sys.argv[0]] + """
-                       --petsc.snes_max_it 100
-                       --petsc.snes_atol 1.0e-9
-                       --petsc.snes_rtol 0.0
-                       --petsc.snes_monitor
-                       --petsc.snes_converged_reason
-
-                       --petsc.ksp_type preonly
-                       --petsc.pc_type lu
-                       --petsc.pc_factor_mat_solver_package mumps
-                       """.split()
-parameters.parse(args)
-
 class RayleighBenardProblem(BifurcationProblem):
     def mesh(self, comm):
         mesh = RectangleMesh(comm, Point(0, 0), Point(5, 1), 50, 50)
@@ -109,6 +96,17 @@ class RayleighBenardProblem(BifurcationProblem):
         T.rename("Temperature", "Temperature")
         pvd << u
 
+    def solver_parameters(self):
+        return {"snes_max_it": 100,
+                "snes_atol": 1.0e-9,
+                "snes_rtol": 0.0,
+                "snes_monitor": None,
+                "snes_converged_reason": None,
+                "ksp_type": "preonly",
+                "pc_type": "lu",
+                "pc_factor_mat_solver_package": "mumps"}
+
+        
 if __name__ == "__main__":
     dc = DeflatedContinuation(problem=RayleighBenardProblem(), teamsize=1, verbose=True)
     dc.run(free={"Ra": range(1701, 1720, +1)}, fixed={"Pr": 6.8})
