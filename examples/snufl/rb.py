@@ -44,7 +44,7 @@ args = [sys.argv[0]] + """
                       """.split()
 parameters.parse(args)
 
-mesh = RectangleMesh(Point(0, 0), Point(5, 1), 50, 50)
+mesh = RectangleMesh(Point(0, 0), Point(5, 1), 100, 100)
 
 Ve = VectorElement("CG", triangle, 2)
 Qe = FiniteElement("CG", triangle, 1)
