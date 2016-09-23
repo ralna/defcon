@@ -65,7 +65,7 @@ class RayleighBenardProblem(BifurcationProblem):
         (u, p, T) = split(z)
         (v, q, S) = split(w)
 
-        g = as_vector([0, 1])
+        g = as_vector([0, -1])
 
         F = (
             inner(grad(u), grad(v))*dx
