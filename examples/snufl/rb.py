@@ -28,13 +28,12 @@ args = [sys.argv[0]] + """
                       --petsc.snes_rtol 0.0
                       --petsc.snes_monitor
                       --petsc.snes_converged_reason
-
                       --petsc.ksp_type fgmres
                       --petsc.ksp_converged_reason
                       --petsc.ksp_monitor
                       --petsc.ksp_gmres_restart 200
                       --petsc.pc_type fieldsplit
-                      --petsc.pc_fieldsplit_type schur
+                      --petsc.pc_fieldsplit_type multiplicative
                       --petsc.pc_fieldsplit_0_fields 0,1
                       --petsc.pc_fieldsplit_1_fields 2
                       --petsc.fieldsplit_0_ksp_type preonly
