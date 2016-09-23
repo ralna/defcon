@@ -1,7 +1,7 @@
 import backend
 if backend.__name__ == "dolfin":
 
-    from backend import derivative, SystemAssembler, as_backend_type, Function, PETScMatrix, Form
+    from backend import derivative, as_backend_type, Function, PETScMatrix, Form
     class GeneralProblem(object):
         def __init__(self, F, y, bcs, J=None, P=None):
             # Firedrake already calls the current Newton state u,
@@ -19,31 +19,5 @@ if backend.__name__ == "dolfin":
             else:
                 self.P = P
 
-            self.ass = SystemAssembler(self.J, F, bcs)
-            if self.P is not None:
-                self.Pass = SystemAssembler(self.P, F, bcs)
-
-        def init_jacobian(self):
-            A = PETScMatrix(self.comm)
-            self.ass.init_global_tensor(A, Form(self.J))
-            return A
-
-        def init_residual(self):
-            b = as_backend_type(Function(self.u.function_space()).vector())
-            return b
-
-        def init_preconditioner(self, A):
-            if self.P is None: return A
-            P = PETscMatrix(self.comm)
-            self.Pass.init_global_tensor(P, Form(self.P))
-            return P
-
-        def assemble_residual(self, b, x):
-            self.ass.assemble(b, x)
-
-        def assemble_jacobian(self, A):
-            self.ass.assemble(A)
-
-        def assemble_preconditioner(self, A, P):
-            if self.P is None: return A
-            self.Pass.assemble(P)
+            self.F = F
+            self.bcs = bcs
