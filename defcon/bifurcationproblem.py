@@ -209,7 +209,7 @@ class BifurcationProblem(object):
         """
         pvd << y
 
-    def assembler(self, F, y, bcs):
+    def nonlinear_problem(self, F, y, bcs):
         """
         The class used to assemble the nonlinear problem.
 

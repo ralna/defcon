@@ -633,7 +633,7 @@ class DeflatedContinuation(object):
 
                 self.deflation.deflate(other_solutions + self.trivial_solutions)
                 success = newton(self.residual, self.state, bcs,
-                                 self.problem.assembler,
+                                 self.problem.nonlinear_problem,
                                  self.problem.solver,
                                  self.teamno, self.deflation)
 
@@ -694,7 +694,7 @@ class DeflatedContinuation(object):
                 # Try to solve it
                 self.deflation.deflate(other_solutions + self.trivial_solutions)
                 success = newton(self.residual, self.state, bcs,
-                                 self.problem.assembler,
+                                 self.problem.nonlinear_problem,
                                  self.problem.solver,
                                  self.teamno, self.deflation)
 
