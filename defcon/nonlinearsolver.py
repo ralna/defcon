@@ -2,7 +2,8 @@ import backend
 from petsc4py import PETSc
 if backend.__name__ == "dolfin":
     from backend import as_backend_type, PETScVector, PETScMatrix, \
-        MixedElement, VectorElement, Function, FunctionSpace
+        MixedElement, VectorElement, Function, FunctionSpace, \
+        SystemAssembler, Form
     import numpy, weakref
 
     def funcspace2ises(fs):
@@ -14,7 +15,8 @@ if backend.__name__ == "dolfin":
             return tuple(ises)
         else:
             return (PETSc.IS().createGeneral(fs.dofmap().dofs()),)
-    
+
+
     def create_subdm(dm, fields, *args, **kwargs):
         W = dm.getAttr('__fs__')
         if len(fields) == 1:
@@ -38,7 +40,8 @@ if backend.__name__ == "dolfin":
             iset = PETSc.IS().createGeneral(sorted(alldofs))
             
         return iset, subdm 
-        
+
+
     def create_field_decomp(dm, *args, **kwargs):
         W = dm.getAttr('__fs__')
         Wsubs = [Wsub.collapse() for Wsub in W.split()]
@@ -74,7 +77,8 @@ if backend.__name__ == "dolfin":
             dm.setCreateFieldDecomposition(create_field_decomp)
 
         return dm
-            
+
+
     # dolfin lacks a high-level snes frontend like Firedrake,
     # so we're going to put one here and build up what we need
     # to make things happen.
@@ -86,6 +90,7 @@ if backend.__name__ == "dolfin":
             self.u_pvec = self.u_dvec.vec()
 
             comm = u.function_space().mesh().mpi_comm()
+            self.comm = comm
             snes = PETSc.SNES().create(comm=comm)
             snes.setOptionsPrefix(prefix)
 
@@ -94,10 +99,16 @@ if backend.__name__ == "dolfin":
             if (prefix + "snes_linesearch_type") not in opts:
                 opts[prefix + "snes_linesearch_type"] = "basic"
 
-            self.b = problem.init_residual()
+            J, F, bcs, P = problem.J, problem.F, problem.bcs, problem.P
+
+            self.ass = SystemAssembler(J, F, bcs)
+            if P is not None:
+                self.Pass = SystemAssembler(P, F, bcs)
+                
+            self.b = self.init_residual()
             snes.setFunction(self.residual, self.b.vec())
-            self.A = problem.init_jacobian()
-            self.P = problem.init_preconditioner(self.A)
+            self.A = self.init_jacobian()
+            self.P = self.init_preconditioner(self.A)
             snes.setJacobian(self.jacobian, self.A.mat(), self.P.mat())
             snes.ksp.setOperators(self.A.mat(), self.P.mat()) # why isn't this done in setJacobian?
 
@@ -107,9 +118,21 @@ if backend.__name__ == "dolfin":
 
             self.snes = snes
 
-            
+        def init_jacobian(self):
+            A = PETScMatrix(self.comm)
+            self.ass.init_global_tensor(A, Form(self.problem.J))
+            return A
 
-            
+        def init_residual(self):
+            b = as_backend_type(Function(self.problem.u.function_space()).vector())
+            return b
+
+        def init_preconditioner(self, A):
+            if self.problem.P is None: return A
+            P = PETscMatrix(self.comm)
+            self.Pass.init_global_tensor(P, Form(self.P))
+            return P
+
         def update_x(self, x):
             """Given a PETSc Vec x, update the storage of our
                solution function u."""
@@ -120,14 +143,15 @@ if backend.__name__ == "dolfin":
         def residual(self, snes, x, b):
             self.update_x(x)
             b_wrap = PETScVector(b)
-            self.problem.assemble_residual(b_wrap, self.u_dvec)
+            self.ass.assemble(b_wrap, self.u_dvec)
 
         def jacobian(self, snes, x, A, P):
             self.update_x(x)
             A_wrap = PETScMatrix(A)
             P_wrap = PETScMatrix(P)
-            self.problem.assemble_jacobian(A_wrap)
-            self.problem.assemble_preconditioner(A_wrap, P_wrap)
+            self.ass.assemble(A_wrap)
+            if self.problem.P is not None:
+                self.Pass.assemble(P_wrap)
 
         def solve(self):
             # Need a copy for line searches etc. to work correctly.
