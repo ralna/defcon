@@ -63,3 +63,5 @@ if backend.__name__ == "dolfin":
 # in defcon, for both the master and workers.
 import gc
 gc.disable()
+
+from Probe import Probe # borrowed from Mikael Mortensen's excellent fenicstools
