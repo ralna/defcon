@@ -27,6 +27,7 @@ The easiest way to run defcon is inside the docker images supplied by the FEniCS
 If you're compiling things yourself, defcon depends on
 
 * mpi4py (http://pythonhosted.org/mpi4py/)
+* petsc4py (https://bitbucket.org/petsc/petsc4py)
 * FEniCS, compiled with PETSc and petsc4py support (http://fenicsproject.org)
 
 DOLFIN 2016.1.0 has a critical bug that causes defcon to hang. You need to use
@@ -37,6 +38,7 @@ Defcon recommends (and some of the examples depend on)
 
 * matplotlib (http://matplotlib.org)
 * mshr (https://bitbucket.org/fenics-project/mshr)
+* slepc4py (https://bitbucket.org/slepc/slepc4py)
 
 ## Current status
 
