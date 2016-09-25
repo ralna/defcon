@@ -5,7 +5,6 @@ from   math import floor
 from defcon import *
 from dolfin import *
 
-from Probe import Probe # borrowed from Mikael Mortensen's fenicstools
 from numpy import array
 from petsc4py import PETSc
 

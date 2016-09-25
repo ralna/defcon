@@ -17,6 +17,7 @@ import math
 import time
 import sys
 import signal
+import gc
 
 try:
     import ipdb as pdb
@@ -471,6 +472,9 @@ class DeflatedContinuation(object):
                         # Write to the journal saying where we've completed our sweep up to.
                         journal.sweep(minwait)
 
+                # Take this opportunity to call the garbage collector.
+                gc.collect()
+
                 response = self.worldcomm.recv(status=stat, source=MPI.ANY_SOURCE, tag=self.responsetag)
 
                 (task, team) = waittasks[response.taskid]
@@ -643,7 +647,9 @@ class DeflatedContinuation(object):
 
         task = self.fetch_task()
         while True:
+            # If you add a new task, make sure to add a call to gc.collect()
             if isinstance(task, QuitTask):
+                self.log("Quitting gracefully.")
                 return
             elif isinstance(task, DeflationTask):
                 self.log("Executing task %s" % task)
@@ -686,6 +692,9 @@ class DeflatedContinuation(object):
                 if self.teamrank == 0:
                     self.log("Sending response %s to master" % response)
                     self.worldcomm.send(response, dest=0, tag=self.responsetag)
+
+                # Take this opportunity to call the garbage collector.
+                gc.collect()
 
                 if success:
                     branchid = self.fetch_branchid()
@@ -753,6 +762,9 @@ class DeflatedContinuation(object):
                 if self.teamrank == 0:
                     self.log("Sending response %s to master" % response)
                     self.worldcomm.send(response, dest=0, tag=self.responsetag)
+
+                # Take this opportunity to call the garbage collector.
+                gc.collect()
 
                 newparams = nextparameters(values, freeindex, task.newparams)
                 if success and newparams is not None:
