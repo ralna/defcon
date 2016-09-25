@@ -7,6 +7,7 @@ from dolfin import *
 
 from numpy import array
 from petsc4py import PETSc
+from slepc4py import SLEPc
 
 args = [sys.argv[0]] + """
                        --petsc.snes_max_it 100
@@ -22,6 +23,16 @@ args = [sys.argv[0]] + """
                        --petsc.ksp_max_it 2000
                        --petsc.pc_type gamg
                        --petsc.pc_factor_mat_solver_package mumps
+
+                       --petsc.eps_type krylovschur
+                       --petsc.eps_target -1
+                       --petsc.eps_monitor_all
+                       --petsc.eps_converged_reason
+                       --petsc.eps_nev 1
+                       --petsc.st_type sinvert
+                       --petsc.st_ksp_type gmres
+                       --petsc.st_ksp_converged_reason
+                       --petsc.st_pc_type ml
                        """.split()
 parameters.parse(args)
 
@@ -126,9 +137,8 @@ class HyperelasticityProblem(BifurcationProblem):
         snes = s.snes
         snes.setFromOptions()
 
-        if snes.ksp.pc.type != "preonly":
+        if snes.ksp.type != "preonly":
             # Convert rigid body modes (computed in self.function_space above) to PETSc Vec
-            vec = lambda x: as_backend_type(x.vector()).vec()
             rbms = map(vec, self.rbms)
 
             # Create the PETSc nullspace
@@ -139,6 +149,81 @@ class HyperelasticityProblem(BifurcationProblem):
             P.setNearNullSpace(nullsp)
 
         return s
+
+    # The stabiltiy computation is disabled because it's expensive.
+    # To enable it, remove '_disabled' from the function name below
+    def compute_stability_disabled(self, params, branchid, u, hint=None):
+        V = u.function_space()
+        trial = TrialFunction(V)
+        test  = TestFunction(V)
+
+        bcs = self.boundary_conditions(V, params)
+        comm = V.mesh().mpi_comm()
+
+        F = self.residual(u, map(Constant, params), test)
+        J = derivative(F, u, trial)
+        b = inner(Constant((1, 0)), test)*dx # a dummy linear form, needed to construct the SystemAssembler
+
+        # Build the LHS matrix
+        A = PETScMatrix(comm)
+        asm = SystemAssembler(J, b, bcs)
+        asm.assemble(A)
+
+        # Build the mass matrix for the RHS of the generalised eigenproblem
+        B = PETScMatrix(comm)
+        asm = SystemAssembler(inner(test, trial)*dx, b, bcs)
+        asm.assemble(B)
+        [bc.zero(B) for bc in bcs]
+
+        # Create the SLEPc eigensolver
+        eps = SLEPc.EPS().create(comm=comm)
+        eps.setOperators(A.mat(), B.mat())
+        eps.setWhichEigenpairs(eps.Which.SMALLEST_MAGNITUDE)
+        eps.setProblemType(eps.ProblemType.GHEP)
+        eps.setFromOptions()
+
+        # If we have a hint, use it - it's the eigenfunctions from the previous solve
+        if hint is not None:
+            initial_space = [vec(x) for x in hint]
+            eps.setInitialSpace(initial_space)
+
+        if eps.st.ksp.type != "preonly":
+            # Convert rigid body modes (computed in self.function_space above) to PETSc Vec
+            rbms = map(vec, self.rbms)
+
+            # Create the PETSc nullspace
+            nullsp = PETSc.NullSpace().create(vectors=rbms, constant=False, comm=comm)
+
+            (A, P) = eps.st.ksp.getOperators()
+            A.setNearNullSpace(nullsp)
+            P.setNearNullSpace(nullsp)
+
+        # Solve the eigenproblem
+        eps.solve()
+
+        eigenvalues = []
+        eigenfunctions = []
+        eigenfunction = Function(V, name="Eigenfunction")
+
+        for i in range(eps.getConverged()):
+            lmbda = eps.getEigenvalue(i)
+            assert lmbda.imag == 0
+            eigenvalues.append(lmbda.real)
+
+            eps.getEigenvector(i, vec(eigenfunction))
+            eigenfunctions.append(eigenfunction.copy(deepcopy=True))
+
+        if min(eigenvalues) < 0:
+            is_stable = False
+        else:
+            is_stable = True
+
+        d = {"stable": is_stable,
+             "eigenvalues": eigenvalues,
+             "eigenfunctions": eigenfunctions,
+             "hint": eigenfunctions}
+
+        return d
 
 if __name__ == "__main__":
     dc = DeflatedContinuation(problem=HyperelasticityProblem(), teamsize=1, verbose=True)
