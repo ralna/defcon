@@ -4,7 +4,7 @@ from operatordeflation import ShiftedDeflation
 from parallellayout import ranktoteamno, teamnotoranks
 from parametertools import parameterstofloats, parameterstoconstants, nextparameters, prevparameters
 from newton import newton
-from tasks import QuitTask, ContinuationTask, DeflationTask, Response
+from tasks import QuitTask, ContinuationTask, DeflationTask, StabilityTask, Response
 from journal import Journal, FileJournal
 
 import backend
@@ -293,6 +293,13 @@ class DeflatedContinuation(object):
         deferredtasks = [] # tasks that we've been forced to defer as we don't have enough information to ensure they're necessary
         waittasks = {} # tasks sent out, waiting to hear back about
 
+        # A heap of stability tasks. We keep these separately because we want
+        # to process them with a lower priority than deflation and continuation
+        # tasks.
+        stabilitytasks = []
+        # Decide if the user has overridden the compute_stability method or not
+        compute_stability = "compute_stability" in self.problem.__class__.__dict__
+
         # A dictionary of parameters -> branches to ensure they exist,
         # to avoid race conditions
         ensure_branches = dict()
@@ -407,7 +414,7 @@ class DeflatedContinuation(object):
                     taskid_counter += 1
 
         # Here comes the main master loop.
-        while len(newtasks) + len(waittasks) + len(deferredtasks) > 0:
+        while len(newtasks) + len(waittasks) + len(deferredtasks) + len(stabilitytasks) > 0:
             # If there are any tasks to send out, send them.
             while len(newtasks) > 0 and len(idleteams) > 0:
                 (priority, task) = heappop(newtasks)
@@ -448,6 +455,15 @@ class DeflatedContinuation(object):
                     self.log("Deferring task %s." % task, master=True)
                     heappush(deferredtasks, (priority, task))
 
+            # And the same thing for stability tasks.
+            while len(stabilitytasks) > 0 and len(idleteams) > 0:
+                (priority, task) = heappop(stabilitytasks)
+                idleteam = idleteams.pop(0)
+                self.send_task(task, idleteam)
+                waittasks[task.taskid] = (task, idleteam)
+
+                # Write to the journal, saying that this team is now performing stability analysis.
+                journal.team_job(idleteam, "s", task.oldparams, task.branchid)
 
             # We can't send out any more tasks, either because we have no
             # tasks to send out or we have no free processors.
@@ -543,6 +559,10 @@ class DeflatedContinuation(object):
                             else:
                                 priority = -1
                             heappush(newtasks, (priority, task))
+
+                            # The worker is now idle.
+                            idleteams.append(team)
+                            journal.team_job(team, "i")
                         else:
                             # OK, we're good! The search succeeded and nothing has invalidated it.
                             # In this case, we want the master to
@@ -596,7 +616,21 @@ class DeflatedContinuation(object):
                                 ensure_branches[task.newparams] = set()
                             ensure_branches[task.newparams].add(branchid_counter)
 
+                            # If the user wants us to compute stabilities, then let's
+                            # do that.
+                            if compute_stability:
+                                stabtask = StabilityTask(taskid=taskid_counter,
+                                                         oldparams=task.newparams,
+                                                         branchid=branchid_counter,
+                                                         hint=None)
+                                newpriority = sign*stabtask.oldparams[freeindex]
+
+                                heappush(stabilitytasks, (newpriority, stabtask))
+                                taskid_counter += 1
+
+                            # Lastly, increment the branch counter.
                             branchid_counter += 1
+
                     else:
                         # As expected, deflation found nothing interesting. The team is now idle.
                         idleteams.append(team)
@@ -615,6 +649,29 @@ class DeflatedContinuation(object):
                                 newpriority = -1
                                 heappush(newtasks, (newpriority, newtask))
                                 taskid_counter += 1
+
+                elif isinstance(task, StabilityTask):
+                    if response.success:
+
+                        # Record this in the journal: TODO
+
+                        # The worker will keep continuing, record that fact
+                        newparams = nextparameters(values, freeindex, task.oldparams)
+                        if newparams is not None:
+                            nexttask = StabilityTask(taskid=task.taskid,
+                                                     branchid=task.branchid,
+                                                     oldparams=newparams,
+                                                     hint=None)
+                            waittasks[task.taskid] = ((nexttask, team))
+                            self.log("Waiting on response for %s" % nexttask, master=True)
+                            journal.team_job(team, "s", nexttask.oldparams, task.branchid)
+                        else:
+                            idleteams.append(team)
+                            journal.team_job(team, "i")
+
+                    else:
+                        idleteams.append(team)
+                        journal.team_job(team, "i")
 
             # Maybe we deferred some deflation tasks because we didn't have enough information to judge if they were worthwhile. Now we must reschedule.
             if len(deferredtasks) > 0:
@@ -772,6 +829,41 @@ class DeflatedContinuation(object):
                                             oldparams=task.newparams,
                                             branchid=task.branchid,
                                             newparams=newparams)
+                else:
+                    task = self.fetch_task()
+
+            elif isinstance(task, StabilityTask):
+                self.log("Executing task %s" % task)
+
+                try:
+                    self.load_solution(task.oldparams, task.branchid, -1)
+                    self.load_parameters(task.oldparams)
+
+                    d = self.problem.compute_stability(task.oldparams, task.branchid, self.state, hint=task.hint)
+                    success = True
+                    response = Response(task.taskid, success=success, data={"stable": d["stable"]})
+                except:
+                    import traceback; traceback.print_exc()
+                    success = False
+                    response = Response(task.taskid, success=success)
+
+                if success:
+                    # Save the data to disk with the I/O module
+                    self.io.save_stability(d["stable"], d["eigenvalues"], d["eigenfunctions"], task.oldparams, task.branchid)
+
+                if self.teamrank == 0:
+                    self.log("Sending response %s to master" % response)
+                    self.worldcomm.send(response, dest=0, tag=self.responsetag)
+
+                # Take this opportunity to call the garbage collector.
+                gc.collect()
+
+                newparams = nextparameters(values, freeindex, task.oldparams)
+                if success and newparams is not None:
+                    task = StabilityTask(taskid=task.taskid,
+                                         oldparams=newparams,
+                                         branchid=task.branchid,
+                                         hint=d.get("hint", None))
                 else:
                     task = self.fetch_task()
 

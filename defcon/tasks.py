@@ -82,21 +82,21 @@ class StabilityTask(Task):
     *Arguments*
       taskid (int)
         Global identifier for this task
-      params (tuple)
+      oldparams (tuple)
         Parameter values to investigate.
       branchid (int)
         Which branch to investigate.
       hint (anything)
         A hint to pass to the stability calculation.
     """
-    def __init__(self, taskid, params, branchid, hint):
+    def __init__(self, taskid, oldparams, branchid, hint):
         self.taskid = taskid
-        self.params = params
+        self.oldparams = oldparams
         self.branchid = branchid
         self.hint = hint
 
     def __str__(self):
-        return "StabilityTask(taskid=%s, params=%s, branchid=%s)" % (self.taskid, self.params, self.branchid)
+        return "StabilityTask(taskid=%s, params=%s, branchid=%s)" % (self.taskid, self.oldparams, self.branchid)
 
 class Response(object):
     """

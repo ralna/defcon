@@ -135,7 +135,7 @@ class ElasticaProblem(BifurcationProblem):
         [bc.zero(B) for bc in bcs]
 
         # Create the SLEPc eigensolver
-        eps = SLEPc.EPS.create(comm=comm)
+        eps = SLEPc.EPS().create(comm=comm)
         eps.setOperators(A.mat(), B.mat())
         eps.setWhichEigenpairs(eps.Which.SMALLEST_MAGNITUDE)
         eps.setProblemType(eps.ProblemType.GHEP)
@@ -155,7 +155,8 @@ class ElasticaProblem(BifurcationProblem):
 
         for i in range(eps.getConverged()):
             lmbda = eps.getEigenvalue(i)
-            eigenvalues.append(lmbda)
+            assert lmbda.imag == 0
+            eigenvalues.append(lmbda.real)
 
             eps.getEigenvector(i, vec(eigenfunction))
             eigenfunctions.append(eigenfunction.copy(deepcopy=True))

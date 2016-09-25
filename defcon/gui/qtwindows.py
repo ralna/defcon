@@ -60,6 +60,7 @@ def teamtext(job, params, branchid):
     """ Utility function for converting a team's job into a colour and a label. """
     if job == "d": colour, label = blue, 'Deflating from branch %s at params %s' % (branchid, params)
     if job == "c": colour, label = green, 'Continuing branch %s to params %s' % (branchid, params)
+    if job == "s": colour, label = purple, 'Computing stability of branch %s at params %s' % (branchid, params)
     if job == "i": colour, label = yellow, 'Idle'
     if job == "q": colour, label = red, 'Quit'
     return colour, label  

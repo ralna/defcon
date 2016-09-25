@@ -379,10 +379,9 @@ class SolutionIO(IO):
                     break
                 except Exception:
                     print "Loading file %s failed. Sleeping for a second and trying again." % filename
-                    import traceback; traceback.print_exc()
                     failcount += 1
-                    if failcount == 5:
-                        print "Tried 5 times to load file %s. Raising exception." % filename
+                    if failcount == 10:
+                        print "Tried 10 times to load file %s. Raising exception." % filename
                         raise
                     time.sleep(1)
 
@@ -440,22 +439,24 @@ class SolutionIO(IO):
     def save_stability(self, stable, eigenvalues, eigenfunctions, params, branchid):
         assert len(eigenvalues) == len(eigenfunctions)
 
-        with HDF5File(self.function_space.mesh().mpi_comm(), self.dir(params) + "eigenfunctions-%d.h5" % branchid, 'w') as f:
-            f.attributes('/')['number_eigenvalues'] = len(eigenvalues)
-            for (i, (eigval, eigfun)) in enumerate(zip(eigenvalues, eigenfunctions)):
-                f.write(eigfun, "/eigenfunction-%d" % i)
-                f.attributes("/eigenfunction-%d" % i)['eigenvalue'] = eigval
+        if len(eigenvalues) > 0:
+            with HDF5File(self.function_space.mesh().mpi_comm(), self.dir(params) + "eigenfunctions-%d.h5" % branchid, 'w') as f:
+                for (i, (eigval, eigfun)) in enumerate(zip(eigenvalues, eigenfunctions)):
+                    f.write(eigfun, "/eigenfunction-%d" % i)
+                    f.attributes("/eigenfunction-%d" % i)['eigenvalue'] = eigval
 
-        # wait for the file to be written
-        size = 0
-        while True:
-            try:
-                size = os.stat(self.dir(params) + "eigenfunctions-%d.h5" % branchid).st_size
-            except OSError:
-                pass
-            if size > 0: break
-            #print "Waiting for %s to have nonzero size" % (self.dir(params) + "solution-%d.xml.gz" % branchid)
-            time.sleep(0.1)
+                f.attributes('/eigenfunction-0')['number_eigenvalues'] = len(eigenvalues)
+
+            # wait for the file to be written
+            size = 0
+            while True:
+                try:
+                    size = os.stat(self.dir(params) + "eigenfunctions-%d.h5" % branchid).st_size
+                except OSError:
+                    pass
+                if size > 0: break
+                #print "Waiting for %s to have nonzero size" % (self.dir(params) + "solution-%d.xml.gz" % branchid)
+                time.sleep(0.1)
 
         f = file(self.dir(params) + "stability-%d.txt" % branchid, "w")
         s = str(stable)
