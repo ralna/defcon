@@ -849,7 +849,7 @@ class DeflatedContinuation(object):
 
                 if success:
                     # Save the data to disk with the I/O module
-                    self.io.save_stability(d["stable"], d["eigenvalues"], d["eigenfunctions"], task.oldparams, task.branchid)
+                    self.io.save_stability(d["stable"], d.get("eigenvalues", []), d.get("eigenfunctions", []), task.oldparams, task.branchid)
 
                 if self.teamrank == 0:
                     self.log("Sending response %s to master" % response)
