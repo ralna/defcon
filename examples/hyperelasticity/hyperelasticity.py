@@ -30,9 +30,9 @@ args = [sys.argv[0]] + """
                        --petsc.eps_converged_reason
                        --petsc.eps_nev 1
                        --petsc.st_type sinvert
-                       --petsc.st_ksp_type gmres
-                       --petsc.st_ksp_converged_reason
-                       --petsc.st_pc_type ml
+                       --petsc.st_ksp_type preonly
+                       --petsc.st_pc_type lu
+                       --petsc.st_pc_factor_mat_solver_package mumps
                        """.split()
 parameters.parse(args)
 
@@ -150,9 +150,7 @@ class HyperelasticityProblem(BifurcationProblem):
 
         return s
 
-    # The stabiltiy computation is disabled because it's expensive.
-    # To enable it, remove '_disabled' from the function name below
-    def compute_stability_disabled(self, params, branchid, u, hint=None):
+    def compute_stability(self, params, branchid, u, hint=None):
         V = u.function_space()
         trial = TrialFunction(V)
         test  = TestFunction(V)
