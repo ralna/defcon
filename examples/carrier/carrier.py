@@ -24,7 +24,7 @@ class CarrierProblem(BifurcationProblem):
 
         # Awesome asymptotic formulae from Jon Chapman
         self.pitchbfs = [(0.472537/n)**2 for n in range(1,100)]
-        self.foldbfs  = [0.08135344292708906, 0.029539186823838406, 0.015428615600424057, 0.00947979, 0.00647056, 0.00470338, 0.00357559, 0.00281121] + [(0.472537/(n + 0.04305/n))**2 for n in range(10, 100)]
+        self.foldbfs  = [(0.472537/(n - 0.8344/n))**2 for n in range(2, 100)]
 
     def mesh(self, comm):
         return IntervalMesh(comm, 10000, -1, 1)
