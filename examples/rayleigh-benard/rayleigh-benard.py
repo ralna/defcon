@@ -81,11 +81,14 @@ class RayleighBenardProblem(BifurcationProblem):
         return 1
 
     def initial_guess(self, Z, params, n):
-        return Function(Z)
+        comm = Z.mesh().mpi_comm()
+        guess = Expression(("0.09*+sin(4*pi*x[0])*sin(3*pi*x[1])", "0.17*-sin(5.5*pi*x[0])*sin(2*pi*x[1])", "5800*x[1]", "1 - x[1]"), degree=5, mpi_comm=comm)
+        out = interpolate(guess, Z)
+        return out
 
     def number_solutions(self, params):
         (Ra, Pr) = params
-        if Ra < 1705:
+        if Ra < 1700:
             return 1
         if Ra < 1720:
             return 3
@@ -108,4 +111,4 @@ class RayleighBenardProblem(BifurcationProblem):
 
 if __name__ == "__main__":
     dc = DeflatedContinuation(problem=RayleighBenardProblem(), teamsize=1, verbose=True)
-    dc.run(free={"Ra": range(1705, 1721)}, fixed={"Pr": 6.8})
+    dc.run(free={"Ra": range(1701, 1720, +1)}, fixed={"Pr": 6.8})
