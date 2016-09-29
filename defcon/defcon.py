@@ -421,10 +421,16 @@ class DeflatedContinuation(object):
 
             if self.debug:
                 self.log("DEBUG: newtasks = %s" % [(priority, str(x)) for (priority, x) in newtasks], master=True)
-                self.log("DEBUG: waittasks = %s" % [(key, str(waittasks[key][0])) for key in waittasks], master=True)
+                self.log("DEBUG: waittasks = %s" % [(key, str(waittasks[key][0]), waittasks[key][1]) for key in waittasks], master=True)
                 self.log("DEBUG: deferredtasks = %s" % [(priority, str(x)) for (priority, x) in deferredtasks], master=True)
                 self.log("DEBUG: stabilitytasks = %s" % [(priority, str(x)) for (priority, x) in stabilitytasks], master=True)
                 self.log("DEBUG: idleteams = %s" % idleteams, master=True)
+
+            # Sanity check
+            if len(set(idleteams).intersection(set([waittasks[key][1] for key in waittasks]))):
+                self.log("ALERT: intersection of idleteams and waittasks: \n%s\n%s" % (idleteams, [(key, str(waittasks[key][0])) for key in waittasks]), master=True, warning=True)
+            if set(idleteams).union(set([waittasks[key][1] for key in waittasks])) != set(range(self.nteams)):
+                self.log("ALERT: team lost! idleteams and waitasks: \n%s\n%s" % (idleteams, [(key, str(waittasks[key][0])) for key in waittasks]), master=True, warning=True)
 
             # If there are any tasks to send out, send them.
             while len(newtasks) > 0 and len(idleteams) > 0:
