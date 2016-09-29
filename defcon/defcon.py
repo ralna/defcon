@@ -52,8 +52,8 @@ class DeflatedContinuation(object):
         self.problem = problem
 
         self.teamsize = teamsize
-        self.verbose = verbose
-        self.debug   = True
+        self.verbose  = verbose
+        self.debug    = debug
 
         # Create a unique context, so as not to confuse my messages with other
         # libraries
