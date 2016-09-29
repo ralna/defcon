@@ -31,7 +31,7 @@ class DeflatedContinuation(object):
     This class is the main driver that implements deflated continuation.
     """
 
-    def __init__(self, problem, deflation=None, teamsize=1, verbose=False, logfiles=False):
+    def __init__(self, problem, deflation=None, teamsize=1, verbose=False, logfiles=False, debug=False):
         """
         Constructor.
 
@@ -44,6 +44,8 @@ class DeflatedContinuation(object):
             How many processors should coordinate to solve any individual PDE.
           verbose (:py:class:`bool`)
             Activate verbose output.
+          debug (:py:class:`bool`)
+            Activate debugging output.
           logfiles (:py:class:`bool`)
             Whether defcon should remap stdout/stderr to logfiles (useful for many processes).
         """
@@ -51,6 +53,7 @@ class DeflatedContinuation(object):
 
         self.teamsize = teamsize
         self.verbose = verbose
+        self.debug   = True
 
         # Create a unique context, so as not to confuse my messages with other
         # libraries
@@ -415,6 +418,14 @@ class DeflatedContinuation(object):
 
         # Here comes the main master loop.
         while len(newtasks) + len(waittasks) + len(deferredtasks) + len(stabilitytasks) > 0:
+
+            if self.debug:
+                self.log("DEBUG: newtasks = %s" % [(priority, str(x)) for (priority, x) in newtasks], master=True)
+                self.log("DEBUG: waittasks = %s" % [(key, str(waittasks[key][0])) for key in waittasks], master=True)
+                self.log("DEBUG: deferredtasks = %s" % [(priority, str(x)) for (priority, x) in deferredtasks], master=True)
+                self.log("DEBUG: stabilitytasks = %s" % [(priority, str(x)) for (priority, x) in stabilitytasks], master=True)
+                self.log("DEBUG: idleteams = %s" % idleteams, master=True)
+
             # If there are any tasks to send out, send them.
             while len(newtasks) > 0 and len(idleteams) > 0:
                 (priority, task) = heappop(newtasks)
@@ -502,7 +513,7 @@ class DeflatedContinuation(object):
                 if isinstance(task, ContinuationTask):
                     if response.success:
 
-                        # Record this entry in the journal. 
+                        # Record this entry in the journal.
                         journal.entry(team, task.oldparams, task.branchid, task.newparams, response.data['functionals'], True)
 
                         # The worker will keep continuing, record that fact
@@ -728,6 +739,8 @@ class DeflatedContinuation(object):
                         self.log("Waiting until branches %s are available for %s. Known branches: %s" % (task.ensure_branches, task.newparams, knownbranches))
                         time.sleep(1)
                         knownbranches = self.io.known_branches(task.newparams)
+                if len(task.ensure_branches) > 0:
+                    self.log("Found all necessary branches.")
 
                 other_solutions = self.io.fetch_solutions(task.newparams, knownbranches)
                 self.log("Deflating other branches %s" % knownbranches)
@@ -778,7 +791,6 @@ class DeflatedContinuation(object):
                         # Branch id is None, ignore the solution and move on
                         task = self.fetch_task()
                 else:
-
                     # Deflation failed, move on
                     task = self.fetch_task()
 
