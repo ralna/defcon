@@ -1,11 +1,12 @@
 # -*- coding: utf-8 -*-
-import sys
-from   math import floor
-
-from defcon import *
-from dolfin import *
-
+from defcon import BifurcationProblem, DeflatedContinuation
+from dolfin import (
+    RectangleMesh, VectorElement, FiniteElement, MixedElement,
+    FunctionSpace, Constant, split, as_vector, Point, triangle,
+    inner, grad, div, dx, DirichletBC, dot, Function, assemble
+    )
 import matplotlib.pyplot as plt
+
 
 class RayleighBenardProblem(BifurcationProblem):
     def mesh(self, comm):
@@ -17,7 +18,7 @@ class RayleighBenardProblem(BifurcationProblem):
         Qe = FiniteElement("CG", triangle, 1)
         Te = FiniteElement("CG", triangle, 1)
         Ze = MixedElement([Ve, Qe, Te])
-        Z  = FunctionSpace(mesh, Ze)
+        Z = FunctionSpace(mesh, Ze)
         return Z
 
     def parameters(self):
@@ -29,7 +30,7 @@ class RayleighBenardProblem(BifurcationProblem):
                ]
 
     def residual(self, z, params, w):
-        (Ra, Pr)  = params
+        (Ra, Pr) = params
         (u, p, T) = split(z)
         (v, q, S) = split(w)
 
@@ -37,12 +38,12 @@ class RayleighBenardProblem(BifurcationProblem):
 
         F = (
               inner(grad(u), grad(v))*dx
-            + inner(dot(grad(u), u), v)*dx
-            - inner(p, div(v))*dx
-            - Ra*Pr*inner(T*g, v)*dx
-            + inner(div(u), q)*dx
-            + inner(dot(grad(T), u), S)*dx
-            + 1/Pr * inner(grad(T), grad(S))*dx
+              + inner(dot(grad(u), u), v)*dx
+              - inner(p, div(v))*dx
+              - Ra*Pr*inner(T*g, v)*dx
+              + inner(div(u), q)*dx
+              + inner(dot(grad(T), u), S)*dx
+              + 1/Pr * inner(grad(T), grad(S))*dx
             )
 
         return F
@@ -52,7 +53,8 @@ class RayleighBenardProblem(BifurcationProblem):
                DirichletBC(Z.sub(0), (0, 0), "on_boundary"),
                DirichletBC(Z.sub(2), 1, "near(x[1], 0.0)"),
                DirichletBC(Z.sub(2), 0, "near(x[1], 1.0)"),
-               DirichletBC(Z.sub(1), 0, "x[0] == 0.0 && x[1] == 0.0", "pointwise")
+               DirichletBC(Z.sub(1), 0,
+                           "x[0] == 0.0 && x[1] == 0.0", "pointwise")
               ]
         return bcs
 
@@ -87,7 +89,10 @@ class RayleighBenardProblem(BifurcationProblem):
         diffu = zu - wu
         diffp = zp - wp
         diffT = zT - wT
-        return inner(diffu, diffu)*dx + inner(grad(diffu), grad(diffu))*dx + inner(diffp, diffp)*dx + inner(diffT, diffT)*dx
+        return (
+            inner(diffu, diffu)*dx + inner(grad(diffu), grad(diffu))*dx
+            + inner(diffp, diffp)*dx + inner(diffT, diffT)*dx
+            )
 
     def save_pvd(self, z, pvd):
         (u, p, T) = z.split()
@@ -97,16 +102,24 @@ class RayleighBenardProblem(BifurcationProblem):
         pvd << u
 
     def solver_parameters(self):
-        return {"snes_max_it": 100,
-                "snes_atol": 1.0e-9,
-                "snes_rtol": 0.0,
-                "snes_monitor": None,
-                "snes_converged_reason": None,
-                "ksp_type": "preonly",
-                "pc_type": "lu",
-                "pc_factor_mat_solver_package": "mumps"}
+        params = {
+            "snes_max_it": 100,
+            "snes_atol": 1.0e-9,
+            "snes_rtol": 0.0,
+            "snes_monitor": None,
+            "snes_converged_reason": None,
+            "ksp_type": "preonly",
+            "pc_type": "lu",
+            "pc_factor_mat_solver_package": "mumps",
+        }
+        return params
 
-        
+
 if __name__ == "__main__":
-    dc = DeflatedContinuation(problem=RayleighBenardProblem(), teamsize=1, verbose=True)
-    dc.run(free={"Ra": range(1701, 1720, +1)}, fixed={"Pr": 6.8})
+    dc = DeflatedContinuation(
+        problem=RayleighBenardProblem(), teamsize=1, verbose=True)
+    dc.run(free={"Ra": range(1705, 1721, +1)}, fixed={"Pr": 6.8})
+    dc.bifurcation_diagram("sqL2", fixed={"Pr": 6.8})
+    plt.title(r"Rayleigh-Benard convection, Pr=6.8")
+    plt.savefig("bifurcation.pdf")
+
