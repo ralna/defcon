@@ -3,7 +3,8 @@ from defcon import BifurcationProblem, DeflatedContinuation
 from dolfin import (
     RectangleMesh, VectorElement, FiniteElement, MixedElement,
     FunctionSpace, Constant, split, as_vector, Point, triangle,
-    inner, grad, div, dx, DirichletBC, dot, Function, assemble
+    inner, grad, div, dx, DirichletBC, dot, assemble,
+    Expression, interpolate
     )
 import matplotlib.pyplot as plt
 
@@ -108,9 +109,19 @@ class RayleighBenardProblem(BifurcationProblem):
             "snes_rtol": 0.0,
             "snes_monitor": None,
             "snes_converged_reason": None,
-            "ksp_type": "preonly",
-            "pc_type": "lu",
-            "pc_factor_mat_solver_package": "mumps",
+            "ksp_type": "fgmres",
+            "ksp_atol": 0,
+            "ksp_rtol": 1.e-13,
+            "pc_type": "fieldsplit",
+            "pc_fieldsplit_type": "multiplicative",
+            "pc_fieldsplit_0_fields": "0,1",
+            "pc_fieldsplit_1_fields": "2",
+            "fieldsplit_0_ksp_type": "preonly",
+            "fieldsplit_0_pc_type": "lu",
+            "fieldsplit_0_pc_factor_mat_solver_package": "mumps",
+            "fieldsplit_0_ksp_type": "preonly",
+            "fieldsplit_0_pc_type": "lu",
+            "fieldsplit_0_pc_factor_mat_solver_package": "mumps"
         }
         return params
 

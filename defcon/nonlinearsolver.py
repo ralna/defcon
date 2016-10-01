@@ -4,27 +4,29 @@ if backend.__name__ == "dolfin":
     from backend import as_backend_type, PETScVector, PETScMatrix, \
         MixedElement, VectorElement, Function, FunctionSpace, \
         SystemAssembler, Form
-    import numpy, weakref
+    import numpy
 
     def funcspace2ises(fs):
         uflel = fs.ufl_element()
+        comm = fs.mesh().mpi_comm()
         if isinstance(uflel, MixedElement) \
            and not isinstance(uflel, VectorElement):
             splitdofs = [V.dofmap().dofs() for V in fs.split()]
-            ises = [PETSc.IS().createGeneral(sd) for sd in splitdofs]
+            ises = [PETSc.IS().createGeneral(sd, comm=comm)
+                    for sd in splitdofs]
             return tuple(ises)
         else:
-            return (PETSc.IS().createGeneral(fs.dofmap().dofs()),)
-
+            return (PETSc.IS().createGeneral(fs.dofmap().dofs(), comm=comm),)
 
     def create_subdm(dm, fields, *args, **kwargs):
         W = dm.getAttr('__fs__')
+        comm = W.mesh().mpi_comm()
         if len(fields) == 1:
             f = int(fields[0])
             subel = W.sub(f).ufl_element()
             subspace = FunctionSpace(W.mesh(), subel)
             subdm = funcspace2dm(subspace)
-            iset = PETSc.IS().createGeneral(W.sub(f).dofmap().dofs())
+            iset = PETSc.IS().createGeneral(W.sub(f).dofmap().dofs(), comm)
             return iset, subdm
         else:
             sub_el = MixedElement(
@@ -33,24 +35,19 @@ if backend.__name__ == "dolfin":
             subspace = FunctionSpace(W.mesh(), sub_el)
             subdm = funcspace2dm(subspace)
 
-            bigises = funcspace2ises(W)
-
             alldofs = numpy.concatenate(
                 [W.sub(int(f)).dofmap().dofs() for f in fields])
-            iset = PETSc.IS().createGeneral(sorted(alldofs))
-            
-        return iset, subdm 
+            iset = PETSc.IS().createGeneral(sorted(alldofs), comm=comm)
 
+        return iset, subdm
 
     def create_field_decomp(dm, *args, **kwargs):
         W = dm.getAttr('__fs__')
         Wsubs = [Wsub.collapse() for Wsub in W.split()]
         names = [None for Wsub in Wsubs]
-        #names = [str(i) for i, _ in enumerate(Wsubs)]
         dms = [funcspace2dm(Wsub) for Wsub in Wsubs]
         return names, funcspace2ises(W), dms
 
-        
     # This code is needed to set up shell dm's that hold the index
     # sets and allow nice field-splitting to happen
     def funcspace2dm(func_space):
@@ -63,7 +60,7 @@ if backend.__name__ == "dolfin":
         dm.setAttr('__fs__', func_space)
 
         # this gives the dm a template to create vectors inside snes
-        
+
         dm.setGlobalVector(
             as_backend_type(Function(func_space).vector()).vec()
         )
@@ -78,7 +75,6 @@ if backend.__name__ == "dolfin":
             dm.setCreateFieldDecomposition(create_field_decomp)
 
         return dm
-
 
     # dolfin lacks a high-level snes frontend like Firedrake,
     # so we're going to put one here and build up what we need
@@ -104,19 +100,20 @@ if backend.__name__ == "dolfin":
             # set the petsc options from the solver_parameters
             for k in solver_parameters:
                 opts[prefix + k] = solver_parameters[k]
-                
+
             J, F, bcs, P = problem.J, problem.F, problem.bcs, problem.P
 
             self.ass = SystemAssembler(J, F, bcs)
             if P is not None:
                 self.Pass = SystemAssembler(P, F, bcs)
-                
+
             self.b = self.init_residual()
             snes.setFunction(self.residual, self.b.vec())
             self.A = self.init_jacobian()
             self.P = self.init_preconditioner(self.A)
             snes.setJacobian(self.jacobian, self.A.mat(), self.P.mat())
-            snes.ksp.setOperators(self.A.mat(), self.P.mat()) # why isn't this done in setJacobian?
+            # why isn't this done in setJacobian?
+            snes.ksp.setOperators(self.A.mat(), self.P.mat())
 
             snes.setDM(funcspace2dm(u.function_space()))
 
@@ -130,12 +127,15 @@ if backend.__name__ == "dolfin":
             return A
 
         def init_residual(self):
-            b = as_backend_type(Function(self.problem.u.function_space()).vector())
+            b = as_backend_type(
+                Function(self.problem.u.function_space()).vector()
+            )
             return b
 
         def init_preconditioner(self, A):
-            if self.problem.P is None: return A
-            P = PETscMatrix(self.comm)
+            if self.problem.P is None:
+                return A
+            P = PETScMatrix(self.comm)
             self.Pass.init_global_tensor(P, Form(self.P))
             return P
 
