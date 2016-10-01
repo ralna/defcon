@@ -3,7 +3,8 @@ from defcon import BifurcationProblem, DeflatedContinuation
 from dolfin import (
     RectangleMesh, VectorElement, FiniteElement, MixedElement,
     FunctionSpace, Constant, split, as_vector, Point, triangle,
-    inner, grad, div, dx, DirichletBC, dot, Function, assemble
+    inner, grad, div, dx, DirichletBC, dot, assemble,
+    Expression, interpolate
     )
 import matplotlib.pyplot as plt
 
@@ -70,7 +71,10 @@ class RayleighBenardProblem(BifurcationProblem):
         return 1
 
     def initial_guess(self, Z, params, n):
-        return Function(Z)
+        comm = Z.mesh().mpi_comm()
+        guess = Expression(("0.09*+sin(4*pi*x[0])*sin(3*pi*x[1])", "0.17*-sin(5.5*pi*x[0])*sin(2*pi*x[1])", "5800*x[1]", "1 - x[1]"), degree=5, mpi_comm=comm)
+        out = interpolate(guess, Z)
+        return out
 
     def number_solutions(self, params):
         (Ra, Pr) = params
@@ -105,9 +109,19 @@ class RayleighBenardProblem(BifurcationProblem):
             "snes_rtol": 0.0,
             "snes_monitor": None,
             "snes_converged_reason": None,
-            "ksp_type": "preonly",
-            "pc_type": "lu",
-            "pc_factor_mat_solver_package": "mumps",
+            "ksp_type": "fgmres",
+            "ksp_atol": 0,
+            "ksp_rtol": 1.e-13,
+            "pc_type": "fieldsplit",
+            "pc_fieldsplit_type": "multiplicative",
+            "pc_fieldsplit_0_fields": "0,1",
+            "pc_fieldsplit_1_fields": "2",
+            "fieldsplit_0_ksp_type": "preonly",
+            "fieldsplit_0_pc_type": "lu",
+            "fieldsplit_0_pc_factor_mat_solver_package": "mumps",
+            "fieldsplit_0_ksp_type": "preonly",
+            "fieldsplit_0_pc_type": "lu",
+            "fieldsplit_0_pc_factor_mat_solver_package": "mumps"
         }
         return params
 
