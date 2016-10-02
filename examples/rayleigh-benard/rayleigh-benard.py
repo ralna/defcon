@@ -35,7 +35,7 @@ class RayleighBenardProblem(BifurcationProblem):
         (u, p, T) = split(z)
         (v, q, S) = split(w)
 
-        g = as_vector([0, -1])
+        g = as_vector([0, 1])
 
         F = (
               inner(grad(u), grad(v))*dx
@@ -78,7 +78,7 @@ class RayleighBenardProblem(BifurcationProblem):
 
     def number_solutions(self, params):
         (Ra, Pr) = params
-        if Ra < 1705:
+        if Ra < 1700:
             return 1
         if Ra < 1720:
             return 3
@@ -112,7 +112,8 @@ class RayleighBenardProblem(BifurcationProblem):
             "ksp_type": "fgmres",
             "ksp_atol": 0,
             "ksp_rtol": 1.e-13,
-            "pc_type": "fieldsplit",
+            "pc_type": "lu",
+            "pc_factor_mat_solver_package": "mumps",
             "pc_fieldsplit_type": "multiplicative",
             "pc_fieldsplit_0_fields": "0,1",
             "pc_fieldsplit_1_fields": "2",
@@ -127,9 +128,6 @@ class RayleighBenardProblem(BifurcationProblem):
 
 
 if __name__ == "__main__":
-    dc = DeflatedContinuation(
-        problem=RayleighBenardProblem(), teamsize=1, verbose=True)
-    dc.run(free={"Ra": range(1705, 1721)}, fixed={"Pr": 6.8})
-    dc.bifurcation_diagram("sqL2", fixed={"Pr": 6.8})
-    plt.title(r"Rayleigh-Benard convection, Pr=6.8")
-    plt.savefig("bifurcation.pdf")
+    dc = DeflatedContinuation(problem=RayleighBenardProblem(), teamsize=1, verbose=True)
+    #dc.run(free={"Ra": range(1701, 1720, +1)}, fixed={"Pr": 6.8})
+    dc.run(free={"Ra": [1701]}, fixed={"Pr": 6.8})
