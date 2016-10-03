@@ -919,7 +919,7 @@ class DeflatedContinuation(object):
                 func = funcs[i]
                 xs.append(param[freeindex])
                 ys.append(func[funcindex])
-            plt.plot(xs, ys, 'ok', label="Branch %d" % branchid, linewidth=2, linestyle='-', markersize=1)
+            plt.plot(xs, ys, 'ok', label="Branch %d" % branchid, linewidth=2, markersize=1)
 
         plt.grid()
         plt.xlabel(self.parameters[freeindex][2])
