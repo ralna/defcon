@@ -6,6 +6,10 @@ if backend.__name__ == "dolfin":
         SystemAssembler, Form
     import numpy
 
+    # For a non-mixed function space, this converts the array of dofs
+    # into a PETSc IS.
+    # For a mixed (but not vector) function space, it returns a tuple
+    # of the PETSc IS'es for each field.
     def funcspace2ises(fs):
         uflel = fs.ufl_element()
         comm = fs.mesh().mpi_comm()
@@ -18,6 +22,9 @@ if backend.__name__ == "dolfin":
         else:
             return (PETSc.IS().createGeneral(fs.dofmap().dofs(), comm=comm),)
 
+    # since field splitting occurs by having DM shells indicate
+    # which dofs belong to which field, we need to create DMs for
+    # the relevant subspaces in order to have recursive field splitting.
     def create_subdm(dm, fields, *args, **kwargs):
         W = dm.getAttr('__fs__')
         comm = W.mesh().mpi_comm()
@@ -41,6 +48,10 @@ if backend.__name__ == "dolfin":
 
         return iset, subdm
 
+    # This provides PETSc the information needed to decompose
+    # the field -- the set of names (currently blank, allowing petsc
+    # to simply enumerate them), the tuple of index sets, and the
+    # dms for the resulting subspaces.
     def create_field_decomp(dm, *args, **kwargs):
         W = dm.getAttr('__fs__')
         Wsubs = [Wsub.collapse() for Wsub in W.split()]

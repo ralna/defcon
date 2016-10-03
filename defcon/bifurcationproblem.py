@@ -231,7 +231,7 @@ class BifurcationProblem(object):
         into an algebraic multigrid preconditioner.
         """
         solver_params, solver_kwargs = self.solver_args(problem)
-        
+
         if backend.__name__ == "dolfin":
             return nonlinearsolver.SNUFLSolver(
                 problem, prefix=prefix,
