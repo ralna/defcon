@@ -19,6 +19,7 @@ import glob
 import backend
 import defcon.parametertools
 import defcon.newton
+import gc
 
 mesh = problem.mesh(backend.comm_world)
 Z = problem.function_space(mesh)
@@ -56,6 +57,7 @@ for dirname in dirnames:
     for outputdir in outputdirs:
         solutions = glob.glob(outputdir + "/" + dirname + "/*h5")
         for solution in solutions:
+            gc.collect()
 
             # Load from disk
             with backend.HDF5File(backend.comm_world, solution, "r") as h5:
