@@ -112,25 +112,13 @@ class RayleighBenardProblem(BifurcationProblem):
             "ksp_type": "fgmres",
             "ksp_atol": 0,
             "ksp_rtol": 1.e-13,
-            "pc_type": "fieldsplit",
-            "pc_fieldsplit_type": "multiplicative",
-            "pc_fieldsplit_0_fields": "0,1",
-            "pc_fieldsplit_1_fields": "2",
-            "fieldsplit_0_ksp_type": "preonly",
-            "fieldsplit_0_pc_type": "lu",
-            "fieldsplit_0_pc_factor_mat_solver_package": "mumps",
-            "fieldsplit_0_ksp_type": "preonly",
-            "fieldsplit_0_pc_type": "lu",
-            "fieldsplit_0_pc_factor_mat_solver_package": "mumps"
+            "pc_type": "lu",
+            "pc_factor_mat_solver_package": "mumps",
         }
         return params
 
 
 if __name__ == "__main__":
-    dc = DeflatedContinuation(
-        problem=RayleighBenardProblem(), teamsize=1, verbose=True)
-    dc.run(free={"Ra": range(1705, 1721, +1)}, fixed={"Pr": 6.8})
-    dc.bifurcation_diagram("sqL2", fixed={"Pr": 6.8})
-    plt.title(r"Rayleigh-Benard convection, Pr=6.8")
-    plt.savefig("bifurcation.pdf")
-
+    dc = DeflatedContinuation(problem=RayleighBenardProblem(), teamsize=1, verbose=True)
+    #dc.run(free={"Ra": range(1701, 1720, +1)}, fixed={"Pr": 6.8})
+    dc.run(free={"Ra": [1701]}, fixed={"Pr": 6.8})
