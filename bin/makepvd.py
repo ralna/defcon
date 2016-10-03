@@ -1,8 +1,5 @@
 #!/usr/bin/env python
 
-# If the user is using the XMLIO class, this converts
-# the saved solutions in the directory to PVD.
-
 # A script that converts saved data to PVD.
 # Use like
 # python makepvd.py /path/to/my/problem.py /path/to/output/directory
