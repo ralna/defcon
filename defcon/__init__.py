@@ -19,6 +19,7 @@ from operatordeflation    import ShiftedDeflation
 if backend.__name__ == "dolfin":
     from nonlinearsolver import SNUFLSolver
     from Probe import Probe # borrowed from Mikael Mortensen's excellent fenicstools
+    backend.comm_world = backend.mpi_comm_world()
 
     def vec(x):
         if isinstance(x, backend.Function):
@@ -27,6 +28,9 @@ if backend.__name__ == "dolfin":
 
     def mat(x):
         return backend.as_backend_type(x).mat()
+
+elif backend.__name__ == "firedrake":
+    backend.comm_world = MPI.COMM_WORLD
 
 # We have to disable the GC (this is a general thing with running DOLFIN in parallel).
 # By default, each Python process decides completely by itself whether to do a

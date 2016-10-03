@@ -202,6 +202,8 @@ elif backend.__name__ == "firedrake":
                 free_comm(self.comm)
                 del self.comm
 
+    backend.HDF5File = HDF5File
+
 from parametertools import parameterstostring
 
 import os
