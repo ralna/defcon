@@ -41,7 +41,7 @@ for outputdir in outputdirs:
     if outputdir.endswith("/"): outputdir = outputdir[:-1]
     assert outputdir != io.directory
 
-    thisdirs = glob.glob(outputdir + "/*")
+    thisdirs = glob.glob(outputdir + "/*=*")
     uniques  = [x.replace(outputdir + "/", "") for x in thisdirs]
     dirnames = dirnames.union(uniques)
 dirnames = sorted(list(dirnames))

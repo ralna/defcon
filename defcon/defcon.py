@@ -353,7 +353,7 @@ class DeflatedContinuation(object):
                                             branchid=int(branchid),
                                             newparams=newparams)
                     self.log("Scheduling task: %s" % task, master=True)
-                    heappush(newtasks, (-1, task))
+                    heappush(newtasks, (float("-inf"), task))
                     taskid_counter += 1
 
 
@@ -402,7 +402,7 @@ class DeflatedContinuation(object):
                                             oldparams=oldparams,
                                             branchid=taskid_counter,
                                             newparams=initialparams)
-                    heappush(newtasks, (-1, task))
+                    heappush(newtasks, (float("-inf"), task))
                     taskid_counter += 1
             else:
                 self.log("Using user-supplied initial guesses at %s" % (initialparams,), master=True)
@@ -413,7 +413,7 @@ class DeflatedContinuation(object):
                                          oldparams=oldparams,
                                          branchid=taskid_counter,
                                          newparams=initialparams)
-                    heappush(newtasks, (-1, task))
+                    heappush(newtasks, (float("-inf"), task))
                     taskid_counter += 1
 
         # Here comes the main master loop.
@@ -491,8 +491,9 @@ class DeflatedContinuation(object):
 
                 waiting_values = [wtask[0].oldparams for wtask in waittasks.values() if wtask[0].oldparams is not None]
                 newtask_values = [ntask[1].oldparams for ntask in newtasks if ntask[1].oldparams is not None]
-                if len(waiting_values + newtask_values) > 0:
-                    minparams = minvals(waiting_values + newtask_values, key = lambda x: x[freeindex])
+                deferred_values = [dtask[1].oldparams for dtask in deferredtasks if dtask[1].oldparams is not None]
+                if len(waiting_values + newtask_values + deferred_values) > 0:
+                    minparams = sign*minvals(waiting_values + newtask_values + deferred_values, key = lambda x: sign*x[freeindex])
                     prevparams = prevparameters(values, freeindex, minparams)
                     if prevparams is not None:
                         minwait = prevparams[freeindex]
@@ -574,7 +575,7 @@ class DeflatedContinuation(object):
                             if task.oldparams is not None:
                                 priority = sign*task.newparams[freeindex]
                             else:
-                                priority = -1
+                                priority = float("-inf")
                             heappush(newtasks, (priority, task))
 
                             # The worker is now idle.
@@ -603,7 +604,7 @@ class DeflatedContinuation(object):
                             if task.oldparams is not None:
                                 newpriority = sign*newtask.newparams[freeindex]
                             else:
-                                newpriority = -1
+                                newpriority = float("-inf")
 
                             heappush(newtasks, (newpriority, newtask))
                             taskid_counter += 1
@@ -663,7 +664,7 @@ class DeflatedContinuation(object):
                                                         oldparams=task.oldparams,
                                                         branchid=task.branchid,
                                                         newparams=newparams)
-                                newpriority = -1
+                                newpriority = float("-inf")
                                 heappush(newtasks, (newpriority, newtask))
                                 taskid_counter += 1
 
