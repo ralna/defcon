@@ -473,7 +473,6 @@ class SolutionIO(IO):
         if not os.path.exists(self.directory + os.path.sep + "arclength"):
             os.makedirs(self.directory + os.path.sep + "arclength")
 
-        with open(self.directory + os.path.sep + "arclength/params-%s-freeindex-%s-branchid-%s-ds-%.14e.json" % (params, freeindex, branchid, ds), "w") as f:
+        with open(self.directory + os.path.sep + "arclength/params-%s-freeindex-%s-branchid-%s-ds-%.14e.json" % (params, freeindex, branchid, ds), "w", 0) as f:
             json.dump(data, f, indent=4)
-            f.flush()
 

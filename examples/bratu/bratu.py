@@ -15,12 +15,13 @@ args = [sys.argv[0]] + """
 
                        --petsc.ksp_type preonly
                        --petsc.pc_type lu
+                       --petsc.pc_factor_mat_solver_package umfpack
                        """.split()
 parameters.parse(args)
 
 class BratuProblem(BifurcationProblem):
     def mesh(self, comm):
-        return IntervalMesh(comm, 1000, 0, 1)
+        return IntervalMesh(comm, 400, 0, 1)
 
     def function_space(self, mesh):
         V = FunctionSpace(mesh, "CG", 2)
@@ -64,7 +65,7 @@ class BratuProblem(BifurcationProblem):
 
 if __name__ == "__main__":
     dc = DeflatedContinuation(problem=BratuProblem(), teamsize=1, verbose=True)
-    dc.run(free={"lambda": linspace(0, 3.6, 201)})
+    dc.run(free={"lambda": list(arange(0.0, 3.6, 0.01)) + [3.6]})
 
     dc.bifurcation_diagram("eval")
     plt.title(r"The Bratu problem")

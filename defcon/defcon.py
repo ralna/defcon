@@ -140,13 +140,13 @@ class DeflatedContinuation(object):
         if not self.verbose: return
         if self.teamrank != 0: return
 
-        if master:
-            if not warning:
+        if warning:
+            fmt = RED = "\033[1;37;31m%s\033[0m"
+        else:
+            if master:
                 fmt = BLUE = "\033[1;37;34m%s\033[0m"
             else:
-                fmt = RED = "\033[1;37;31m%s\033[0m"
-        else:
-            fmt = GREEN = "\033[1;37;32m%s\033[0m"
+                fmt = GREEN = "\033[1;37;32m%s\033[0m"
 
         if master:
             header = "MASTER:   "
