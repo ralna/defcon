@@ -94,7 +94,7 @@ class ArclengthContinuation(defcon.DeflatedContinuation):
 
         self.state_residual_derivative = backend.derivative(self.state_residual, self.state, self.tangent)
 
-    def run(self, params, free, ds, sign, bounds):
+    def run(self, params, free, ds, sign, bounds, branchids=None):
         """
         The main execution routine.
 
@@ -110,6 +110,8 @@ class ArclengthContinuation(defcon.DeflatedContinuation):
             The initial direction of travel for the parameter (must be +1 or -1)
           bounds (:py:class:`tuple`)
             The bounds of interest (param_min, param_max)
+          branchids (:py:class:`list`)
+            The list of branchids to continue (or None for all of them)
         """
 
         assert len(self.parameters) == len(params)
@@ -134,12 +136,12 @@ class ArclengthContinuation(defcon.DeflatedContinuation):
         self.freeindex = freeindex
 
         if self.rank == 0:
-            self.master(params, ds, sign, bounds)
+            self.master(params, ds, sign, bounds, branchids)
         else:
             # join a worker team
             self.worker()
 
-    def master(self, params, ds, sign, bounds):
+    def master(self, params, ds, sign, bounds, branchids):
         # Initialise data structures.
         stat = MPI.Status()
 
@@ -158,7 +160,9 @@ class ArclengthContinuation(defcon.DeflatedContinuation):
             import sys; sys.exit(1)
 
         # Seed the list of tasks.
-        for branchid in self.io.known_branches(params):
+        if branchids is None:
+            branchids = self.io.known_branches(params)
+        for branchid in branchids:
             task = ArclengthTask(taskid=taskid_counter,
                                  params=params,
                                  branchid=branchid,
@@ -342,6 +346,7 @@ class ArclengthContinuation(defcon.DeflatedContinuation):
 
         for branchid in branchids:
             for jsonfile in glob.glob(self.io.directory + "/arclength/*freeindex-%s-branchid-%s*.json" % (paramindex, branchid)):
+                self.log("Reading JSON file %s" % jsonfile)
                 data = json.load(open(jsonfile, "r"))
                 x = [entry[0] for entry in data]
                 y = [entry[1][funcindex] for entry in data]

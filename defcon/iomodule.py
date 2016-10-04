@@ -475,4 +475,5 @@ class SolutionIO(IO):
 
         with open(self.directory + os.path.sep + "arclength/params-%s-freeindex-%s-branchid-%s-ds-%.14e.json" % (params, freeindex, branchid, ds), "w") as f:
             json.dump(data, f, indent=4)
+            f.flush()
 
