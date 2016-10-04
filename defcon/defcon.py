@@ -193,8 +193,6 @@ class DeflatedContinuation(object):
         values = list(free[freeparam[1]])
 
         if self.rank == 0:
-            self.zerotask = []
-            self.zerobranchid = []
             self.master(freeindex, values)
         else:
             # join a worker team
@@ -202,50 +200,22 @@ class DeflatedContinuation(object):
 
     def send_task(self, task, team):
         self.log("Sending task %s to team %s" % (task, team), master=True)
-
-        # Special case for rank 0 communicating with itself
-        if team == 0:
-            self.zerotask.append(task)
-
         self.teamcomms[team].bcast(task)
 
     def fetch_task(self):
         self.log("Fetching task")
-
-        # Special case for rank 0 communicating with itself
-        if self.rank == 0:
-            while len(self.zerotask) == 0:
-                time.sleep(0.01)
-            task = self.zerotask.pop(0)
-            return task
-
-        else:
-            task = self.mastercomm.bcast(None)
-            return task
+        task = self.mastercomm.bcast(None)
+        return task
 
     def send_branchid(self, branchid, team):
         self.log("Sending branchid %s to team %s" % (branchid, team), master=True)
-
-        if team == 0:
-            self.zerobranchid.append(branchid)
-
         self.teamcomms[team].bcast(branchid)
 
     def fetch_branchid(self):
         self.log("Fetching branchid")
-
-        # Special case for rank 0 communicating with itself
-        if self.rank == 0:
-            while len(self.zerobranchid) == 0:
-                time.sleep(0.01)
-            branchid = self.zerobranchid.pop(0)
-            self.log("Got branchid %s" % branchid)
-            return branchid
-
-        else:
-            branchid = self.mastercomm.bcast(None)
-            self.log("Got branchid %s" % branchid)
-            return branchid
+        branchid = self.mastercomm.bcast(None)
+        self.log("Got branchid %s" % branchid)
+        return branchid
 
     def compute_functionals(self, solution, params):
         funcs = []
