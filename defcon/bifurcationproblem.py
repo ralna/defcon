@@ -3,6 +3,7 @@ import backend
 import iomodule
 import nonlinearproblem, nonlinearsolver
 
+
 class BifurcationProblem(object):
     """
     A base class for bifurcation problems.
@@ -221,7 +222,7 @@ class BifurcationProblem(object):
         else:
             return backend.NonlinearVariationalProblem(F, y, bcs)
 
-    def solver(self, problem, prefix=""):
+    def solver(self, problem, solver_params, prefix=""):
         """
         The class used to solve the nonlinear problem.
 
@@ -230,13 +231,11 @@ class BifurcationProblem(object):
         hyperelasticity demo to see how this is used to pass a near-nullspace
         into an algebraic multigrid preconditioner.
         """
-        solver_params, solver_kwargs = self.solver_args(problem)
 
         if backend.__name__ == "dolfin":
             return nonlinearsolver.SNUFLSolver(
                 problem, prefix=prefix,
-                solver_parameters=solver_params,
-                **self.solver_kwargs(problem)
+                solver_parameters=solver_params
             )
         else:
             return backend.NonlinearVariationalSolver(
@@ -293,31 +292,9 @@ class BifurcationProblem(object):
         """
         pass
 
-    def solver_args(self, problem):
-        """
-        This function returns two dictionaries, one that contains the
-        particular petsc solver parameters, and the other that
-        contains any other keyword arguments to be passed to the
-        backend solvers.
-
-        Users will typically not override this method, but one of the
-        two methods it calls.
-
-        Note: we use the 'problem' to instantiate this since it's
-        known to the solver and it already has particular meshes
-        and function spaces instantiated in it.
-        """
-        return (self.solver_parameters(), self.solver_kwargs(problem))
-
     def solver_parameters(self):
         """Returns a dictionary with the PETSc options to configure
         the backend nonlinear solver.  Users should
         override this method in their own subclasses to set
         solver/preconditioner preferences."""
-        return {}
-
-    def solver_kwargs(self, problem):
-        """Users can override this class to provide additional
-        back-end information to the solver, such as nullspaces in
-        Firedrake."""
         return {}

@@ -66,12 +66,14 @@ class DeflatedKSP(object):
     def view(self, ksp, viewer):
         self.ksp.view(viewer)
 
-def newton(F, y, bcs, problemclass, solverclass,
+def newton(F, y, bcs, problemclass, solverclass, solver_params,
            teamno, deflation=None, prefix=""):
     comm = y.function_space().mesh().mpi_comm()
     problem = problemclass(F, y, bcs)
 
-    solver = solverclass(problem, prefix=prefix)
+    params = solver_params()
+    
+    solver = solverclass(problem, params, prefix=prefix)
     snes = solver.snes
 
     # all of this is likely defcon-specific and so shouldn't go
