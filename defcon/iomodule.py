@@ -469,10 +469,10 @@ class SolutionIO(IO):
         s = str(stable)
         f.write(s)
 
-    def save_arclength(self, params, branchid, ds, data):
+    def save_arclength(self, params, freeindex, branchid, ds, data):
         if not os.path.exists(self.directory + os.path.sep + "arclength"):
             os.makedirs(self.directory + os.path.sep + "arclength")
 
-        with open(self.directory + os.path.sep + "arclength/params-%s-branchid-%s-ds-%.14e.json" % (params, branchid, ds), "w") as f:
+        with open(self.directory + os.path.sep + "arclength/params-%s-freeindex-%s-branchid-%s-ds-%.14e.json" % (params, freeindex, branchid, ds), "w") as f:
             json.dump(data, f, indent=4)
 

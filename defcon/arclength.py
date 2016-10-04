@@ -1,8 +1,11 @@
 
 import gc
+import json
+
 import defcon
 import newton
 import backend
+
 from   mpi4py   import MPI
 from   petsc4py import PETSc
 from   parametertools import parameterstoconstants
@@ -308,6 +311,43 @@ class ArclengthContinuation(defcon.DeflatedContinuation):
                 if self.teamrank == 0:
                     self.log("Sending response %s to master" % response)
                     self.worldcomm.send(response, dest=0, tag=self.responsetag)
-                    self.io.save_arclength(params, branchid, ds, data)
+                    self.io.save_arclength(params, self.freeindex, branchid, ds, data)
 
                 task = self.fetch_task()
+
+    def bifurcation_diagram(self, functional, parameter, branchids=None):
+        if self.rank != 0:
+            return
+
+        if branchids is None:
+            branchids = [""] # find all
+
+        import matplotlib.pyplot as plt
+        import glob
+
+        # Find the functional index.
+        funcindex = None
+        for (i, functionaldata) in enumerate(self.functionals):
+            if functionaldata[1] == functional:
+                funcindex = i
+                break
+        assert funcindex is not None
+
+        # And find the variable index.
+        paramindex = None
+        for (i, param) in enumerate(self.parameters):
+            if param[1] == parameter:
+                paramindex = i
+                break
+
+        for branchid in branchids:
+            for jsonfile in glob.glob(self.io.directory + "/arclength/*freeindex-%s-branchid-%s*.json" % (paramindex, branchid)):
+                data = json.load(open(jsonfile, "r"))
+                x = [entry[0] for entry in data]
+                y = [entry[1][funcindex] for entry in data]
+
+                plt.plot(x, y, 'o-k', linewidth=2, markersize=1)
+
+        plt.grid()
+        plt.xlabel(self.parameters[paramindex][2])
+        plt.ylabel(self.functionals[funcindex][2])
