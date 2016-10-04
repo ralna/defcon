@@ -19,7 +19,7 @@ class RayleighBenardProblem(BifurcationProblem):
         Qe = FiniteElement("CG", triangle, 1)
         Te = FiniteElement("CG", triangle, 1)
         Ze = MixedElement([Ve, Qe, Te])
-        Z = FunctionSpace(mesh, Ze)
+        Z  = FunctionSpace(mesh, Ze)
         return Z
 
     def parameters(self):
@@ -31,7 +31,7 @@ class RayleighBenardProblem(BifurcationProblem):
                ]
 
     def residual(self, z, params, w):
-        (Ra, Pr) = params
+        (Ra, Pr)  = params
         (u, p, T) = split(z)
         (v, q, S) = split(w)
 
@@ -39,12 +39,12 @@ class RayleighBenardProblem(BifurcationProblem):
 
         F = (
               inner(grad(u), grad(v))*dx
-              + inner(dot(grad(u), u), v)*dx
-              - inner(p, div(v))*dx
-              - Ra*Pr*inner(T*g, v)*dx
-              + inner(div(u), q)*dx
-              + inner(dot(grad(T), u), S)*dx
-              + 1/Pr * inner(grad(T), grad(S))*dx
+            + inner(dot(grad(u), u), v)*dx
+            - inner(p, div(v))*dx
+            - Ra*Pr*inner(T*g, v)*dx
+            + inner(div(u), q)*dx
+            + inner(dot(grad(T), u), S)*dx
+            + 1/Pr * inner(grad(T), grad(S))*dx
             )
 
         return F
@@ -54,8 +54,7 @@ class RayleighBenardProblem(BifurcationProblem):
                DirichletBC(Z.sub(0), (0, 0), "on_boundary"),
                DirichletBC(Z.sub(2), 1, "near(x[1], 0.0)"),
                DirichletBC(Z.sub(2), 0, "near(x[1], 1.0)"),
-               DirichletBC(Z.sub(1), 0,
-                           "x[0] == 0.0 && x[1] == 0.0", "pointwise")
+               DirichletBC(Z.sub(1), 0, "x[0] == 0.0 && x[1] == 0.0", "pointwise")
               ]
         return bcs
 
