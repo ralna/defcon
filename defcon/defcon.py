@@ -54,14 +54,27 @@ class DeflatedContinuation(object):
         self.teamsize = teamsize
         self.verbose  = verbose
         self.debug    = debug
+        self.logfiles = logfiles
+        self.deflation = deflation
 
+        self.configure_comms()
+        self.fetch_data()
+        self.configure_logs()
+        self.construct_deflation()
+        self.configure_io()
+
+        # We keep track of what solution we actually have in memory in self.state
+        # for efficiency
+        self.state_id = (None, None)
+
+    def configure_comms(self):
         # Create a unique context, so as not to confuse my messages with other
         # libraries
         self.worldcomm = MPI.COMM_WORLD.Dup()
         self.rank = self.worldcomm.rank
 
         # Assert even divisibility of team sizes
-        assert (self.worldcomm.size-1) % teamsize == 0
+        assert (self.worldcomm.size-1) % self.teamsize == 0
         self.nteams = (self.worldcomm.size-1) / self.teamsize
 
         # Create local communicator for the team I will join
@@ -91,7 +104,9 @@ class DeflatedContinuation(object):
                 else:
                     self.worldcomm.Split(MPI.UNDEFINED, key=0)
 
+    def fetch_data(self):
         # Take some data from the problem
+        problem = self.problem
         self.mesh = problem.mesh(PETSc.Comm(self.teamcomm))
         self.function_space = problem.function_space(self.mesh)
         self.parameters = problem.parameters()
@@ -100,16 +115,14 @@ class DeflatedContinuation(object):
         self.residual = problem.residual(self.state, parameterstoconstants(self.parameters), backend.TestFunction(self.function_space))
         self.trivial_solutions = None # computed by the worker on initialisation later
 
+    def configure_io(self):
         io = self.problem.io()
         io.setup(self.parameters, self.functionals, self.function_space)
         self.io = io
 
-        # We keep track of what solution we actually have in memory in self.state
-        # for efficiency
-        self.state_id = (None, None)
-
+    def configure_logs(self):
         # If instructed, create logfiles for each team
-        if logfiles:
+        if self.logfiles:
             if self.teamrank == 0:
                 sys.stdout = open("defcon.log.%d" % self.teamno, "w")
                 sys.stderr = open("defcon.err.%d" % self.teamno, "w")
@@ -117,11 +130,11 @@ class DeflatedContinuation(object):
                 sys.stdout = open(os.devnull, "w")
                 sys.stderr = open(os.devnull, "w")
 
-        if deflation is None:
-            deflation = ShiftedDeflation(problem, power=2, shift=1)
+    def construct_deflation(self):
+        if self.deflation is None:
+            self.deflation = ShiftedDeflation(self.problem, power=2, shift=1)
         params = [x[0] for x in self.parameters]
-        deflation.set_parameters(params)
-        self.deflation = deflation
+        self.deflation.set_parameters(params)
 
     def log(self, msg, master=False, warning=False):
         if not self.verbose: return
