@@ -98,6 +98,35 @@ class StabilityTask(Task):
     def __str__(self):
         return "StabilityTask(taskid=%s, params=%s, branchid=%s)" % (self.taskid, self.oldparams, self.branchid)
 
+class ArclengthTask(Task):
+    """
+    A task that computes the arclength continuation of a solution.
+
+    *Arguments*
+      taskid (int)
+        Global identifier for this task
+      params (tuple)
+        Parameter values to start from
+      branchid (int)
+        Which branch to continue
+      bounds (tuple of floats)
+        Upper and lower bounds of interest
+      sign (+1 or -1)
+        Whether to initially continue forwards or backwards in parameter
+      ds (float)
+        Size of step in arclength
+    """
+    def __init__(self, taskid, params, branchid, bounds, sign, ds):
+        self.taskid = taskid
+        self.params = params
+        self.branchid = branchid
+        self.bounds = bounds
+        self.sign = sign
+        self.ds = ds
+
+    def __str__(self):
+        return "ArclengthTask(taskid=%s, params=%s, branchid=%s, sign=%s, ds=%s, bounds=%s)" % (self.taskid, self.params, self.branchid, self.sign, self.ds, self.bounds)
+
 class Response(object):
     """
     A class that encapsulates whether a given task was successful or not."

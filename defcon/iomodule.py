@@ -6,6 +6,8 @@ implement more efficient/scalable backends at a later time.
 """
 
 import backend
+import json
+
 if backend.__name__ == "dolfin":
     from backend import HDF5File, Function, File
 elif backend.__name__ == "firedrake":
@@ -243,6 +245,9 @@ class IO(object):
     def max_branch(self):
         raise NotImplementedError
 
+    def save_arclength(self, params, branchid, ds, data):
+        raise NotImplementedError
+
 class BranchIO(IO):
     """ 
     I/O module that uses one HDF5File per branch.
@@ -463,3 +468,11 @@ class SolutionIO(IO):
         f = file(self.dir(params) + "stability-%d.txt" % branchid, "w")
         s = str(stable)
         f.write(s)
+
+    def save_arclength(self, params, branchid, ds, data):
+        if not os.path.exists(self.directory + os.path.sep + "arclength"):
+            os.makedirs(self.directory + os.path.sep + "arclength")
+
+        with open(self.directory + os.path.sep + "arclength/params-%s-branchid-%s-ds-%.14e.json" % (params, branchid, ds), "w") as f:
+            json.dump(data, f, indent=4)
+
