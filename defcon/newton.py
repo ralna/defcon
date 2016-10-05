@@ -71,8 +71,8 @@ def newton(F, y, bcs, problemclass, solverclass, solver_params,
     comm = y.function_space().mesh().mpi_comm()
     problem = problemclass(F, y, bcs)
 
-    params = solver_params()
-    
+    params = solver_params
+
     solver = solverclass(problem, params, prefix=prefix)
     snes = solver.snes
 

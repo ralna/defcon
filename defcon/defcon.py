@@ -755,7 +755,8 @@ class DeflatedContinuation(object):
                 self.deflation.deflate(other_solutions + self.trivial_solutions)
                 success = newton(self.residual, self.state, bcs,
                                  self.problem.nonlinear_problem,
-                                 self.problem.solver, self.problem.solver_parameters,
+                                 self.problem.solver,
+                                 self.problem.solver_parameters(task.newparams),
                                  self.teamno, self.deflation)
 
                 self.state_id = (None, None) # not sure if it is a solution we care about yet
@@ -819,6 +820,7 @@ class DeflatedContinuation(object):
                 success = newton(self.residual, self.state, bcs,
                                  self.problem.nonlinear_problem,
                                  self.problem.solver,
+                                 self.problem.solver_parameters(task.newparams),
                                  self.teamno, self.deflation)
 
                 if success:
