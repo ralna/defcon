@@ -284,7 +284,7 @@ class ArclengthContinuation(defcon.DeflatedContinuation):
 
                     # Step 2. Update the state guess with the tangent
                     self.prev.assign(self.state)
-                    nrm = sqrt(backend.assemble(self.problem.squared_norm(z_tlm, self.zero_like(z_tlm), self.consts) + backend.inner(lmbda_tlm, lmbda_tlm)*backend.dx))
+                    nrm = sqrt(backend.assemble(self.problem.squared_norm(z_tlm, backend.zero(*z_tlm.ufl_shape), self.consts) + backend.inner(lmbda_tlm, lmbda_tlm)*backend.dx))
                     self.state.assign(self.state + (ds/nrm) * self.tangent)
 
                     # Step 3. Solve the arclength system
@@ -318,14 +318,6 @@ class ArclengthContinuation(defcon.DeflatedContinuation):
                     self.io.save_arclength(params, self.freeindex, branchid, ds, data)
 
                 task = self.fetch_task()
-
-    def zero_like(self, arg):
-        if len(arg.ufl_shape) == 0:
-            return backend.Constant(0)
-        elif len(arg.ufl_shape) == 1:
-            return backend.Constant([0]*arg.ufl_shape[0])
-        else:
-            raise NotImplementedError
 
     def bifurcation_diagram(self, functional, parameter, branchids=None):
         if self.rank != 0:
