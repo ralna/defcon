@@ -292,9 +292,13 @@ class BifurcationProblem(object):
         """
         pass
 
-    def solver_parameters(self):
+    def solver_parameters(self, params):
         """Returns a dictionary with the PETSc options to configure
         the backend nonlinear solver.  Users should
         override this method in their own subclasses to set
-        solver/preconditioner preferences."""
+        solver/preconditioner preferences.
+
+        params is the set of continuation parameters, which is present
+        so that users could adapt the solver strategy depending on the
+        parameter regime if needed"""
         return {}

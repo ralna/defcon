@@ -4,6 +4,9 @@ from   math import floor
 
 from firedrake import *
 
+# solves a simple system of two coupled diffusion problems in firedrake
+# with a simple fieldsplit preconditioner.
+
 params = {"snes_type": "ksponly",
           "ksp_type": "gmres",
           "ksp_monitor": None,
@@ -16,7 +19,7 @@ params = {"snes_type": "ksponly",
           "fieldsplit_0_pc_type": "lu",
           "fieldsplit_1_ksp_type": "preonly",
           "fieldsplit_1_pc_type": "lu"}
-          
+
 mesh = UnitSquareMesh(2, 2)
 
 E1 = FunctionSpace(mesh, "CG", 1)
