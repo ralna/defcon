@@ -25,7 +25,7 @@ params = {"snes_max_it": 100,
           "fieldsplit_0_pc_factor_mat_solver_package": "mumps",
           "fieldsplit_1_ksp_type": "preonly",
           "fieldsplit_1_pc_type": "lu",
-          "ksp_view"
+          "ksp_view": None,
 }
 
 class PointwiseBC(DirichletBC):

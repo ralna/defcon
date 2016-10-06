@@ -13,8 +13,7 @@ if backend.__name__ == "dolfin":
     def funcspace2ises(fs):
         uflel = fs.ufl_element()
         comm = fs.mesh().mpi_comm()
-        if isinstance(uflel, MixedElement) \
-           and not isinstance(uflel, VectorElement):
+        if isinstance(uflel, MixedElement) and not isinstance(uflel, VectorElement):
             splitdofs = [V.dofmap().dofs() for V in fs.split()]
             ises = [PETSc.IS().createGeneral(sd, comm=comm)
                     for sd in splitdofs]
@@ -36,17 +35,15 @@ if backend.__name__ == "dolfin":
             iset = PETSc.IS().createGeneral(W.sub(f).dofmap().dofs(), comm)
             return iset, subdm
         else:
-            sub_el = MixedElement(
-                [W.sub(int(f)).ufl_element() for f in fields]
-            )
-            subspace = FunctionSpace(W.mesh(), sub_el)
+            subel = MixedElement([W.sub(int(f)).ufl_element() for f in fields])
+            subspace = FunctionSpace(W.mesh(), subel)
             subdm = funcspace2dm(subspace)
 
             alldofs = numpy.concatenate(
                 [W.sub(int(f)).dofmap().dofs() for f in fields])
             iset = PETSc.IS().createGeneral(sorted(alldofs), comm=comm)
 
-        return iset, subdm
+        return (iset, subdm)
 
     # This provides PETSc the information needed to decompose
     # the field -- the set of names (currently blank, allowing petsc
@@ -57,7 +54,7 @@ if backend.__name__ == "dolfin":
         Wsubs = [Wsub.collapse() for Wsub in W.split()]
         names = [None for Wsub in Wsubs]
         dms = [funcspace2dm(Wsub) for Wsub in Wsubs]
-        return names, funcspace2ises(W), dms
+        return (names, funcspace2ises(W), dms)
 
     # This code is needed to set up shell dm's that hold the index
     # sets and allow nice field-splitting to happen
@@ -72,16 +69,13 @@ if backend.__name__ == "dolfin":
 
         # this gives the dm a template to create vectors inside snes
 
-        dm.setGlobalVector(
-            as_backend_type(Function(func_space).vector()).vec()
-        )
+        dm.setGlobalVector(as_backend_type(Function(func_space).vector()).vec())
 
         # if we have a mixed function space, then we need to tell PETSc
         # how to divvy up the different parts of the function space.
         # This is not needed for non-mixed elements.
         ufl_el = func_space.ufl_element()
-        if isinstance(ufl_el, MixedElement) \
-           and not isinstance(ufl_el, VectorElement):
+        if isinstance(ufl_el, MixedElement) and not isinstance(ufl_el, VectorElement):
             dm.setCreateSubDM(create_subdm)
             dm.setCreateFieldDecomposition(create_field_decomp)
 
@@ -91,8 +85,7 @@ if backend.__name__ == "dolfin":
     # so we're going to put one here and build up what we need
     # to make things happen.
     class SNUFLSolver(object):
-        def __init__(self, problem, prefix="",
-                     solver_parameters={}, **kwargs):
+        def __init__(self, problem, prefix="", solver_parameters={}, **kwargs):
             self.problem = problem
             u = problem.u
             self.u_dvec = as_backend_type(u.vector())
@@ -112,7 +105,7 @@ if backend.__name__ == "dolfin":
             for k in solver_parameters:
                 opts[prefix + k] = solver_parameters[k]
 
-            J, F, bcs, P = problem.J, problem.F, problem.bcs, problem.P
+            (J, F, bcs, P) = (problem.J, problem.F, problem.bcs, problem.P)
 
             self.ass = SystemAssembler(J, F, bcs)
             if P is not None:

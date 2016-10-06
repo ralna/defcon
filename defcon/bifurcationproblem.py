@@ -3,7 +3,6 @@ import backend
 import iomodule
 import nonlinearproblem, nonlinearsolver
 
-
 class BifurcationProblem(object):
     """
     A base class for bifurcation problems.
@@ -240,8 +239,7 @@ class BifurcationProblem(object):
         else:
             return backend.NonlinearVariationalSolver(
                 problem, options_prefix=prefix,
-                solver_parameters=solver_params,
-                **self.solver_kwargs(problem)
+                solver_parameters=solver_params
             )
 
     def compute_stability(self, params, branchid, solution, hint=None):

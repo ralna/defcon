@@ -260,6 +260,9 @@ class ArclengthContinuation(defcon.DeflatedContinuation):
                 while bounds[0] <= param <= bounds[1]:
                     gc.collect()
 
+                    current_params = list(params)
+                    current_params[self.freeindex] = param
+
                     # Step 1. Compute the tangent linearisation at self.state
                     (z, lmbda) = backend.split(self.state)
                     (w, mu)    = backend.split(self.test)
@@ -275,8 +278,9 @@ class ArclengthContinuation(defcon.DeflatedContinuation):
 
                     F = self.state_residual_derivative + mu*normalisation_condition*backend.dx
                     success = newton.newton(F, self.tangent, self.hbcs,
-                                            self.problem.assembler,
+                                            self.problem.nonlinear_problem,
                                             self.problem.solver,
+                                            self.problem.solver_parameters(current_params),
                                             self.teamno)
                     if not success:
                         self.log("Warning: failed to compute tangent", warning=True)
@@ -289,8 +293,9 @@ class ArclengthContinuation(defcon.DeflatedContinuation):
 
                     # Step 3. Solve the arclength system
                     success = newton.newton(self.residual, self.state, self.bcs,
-                                            self.problem.assembler,
+                                            self.problem.nonlinear_problem,
                                             self.problem.solver,
+                                            self.problem.solver_parameters(current_params),
                                             self.teamno)
                     if not success:
                         self.log("Warning: failed to solve arclength system", warning=True)
