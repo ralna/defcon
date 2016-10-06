@@ -6,6 +6,9 @@ implement more efficient/scalable backends at a later time.
 """
 
 import backend
+import json
+import tempfile
+
 if backend.__name__ == "dolfin":
     from backend import HDF5File, Function, File
 elif backend.__name__ == "firedrake":
@@ -202,6 +205,8 @@ elif backend.__name__ == "firedrake":
                 free_comm(self.comm)
                 del self.comm
 
+    backend.HDF5File = HDF5File
+
 from parametertools import parameterstostring
 
 import os
@@ -239,6 +244,9 @@ class IO(object):
         raise NotImplementedError
 
     def max_branch(self):
+        raise NotImplementedError
+
+    def save_arclength(self, params, branchid, ds, data):
         raise NotImplementedError
 
 class BranchIO(IO):
@@ -461,3 +469,12 @@ class SolutionIO(IO):
         f = file(self.dir(params) + "stability-%d.txt" % branchid, "w")
         s = str(stable)
         f.write(s)
+
+    def save_arclength(self, params, freeindex, branchid, ds, data):
+        if not os.path.exists(self.directory + os.path.sep + "arclength"):
+            os.makedirs(self.directory + os.path.sep + "arclength")
+
+        # Trick from Lawrence Mitchell: POSIX guarantees that mv is atomic
+        f = tempfile.NamedTemporaryFile("w", delete=False)
+        json.dump(data, f.file, indent=4)
+        os.rename(f.name, self.directory + os.path.sep + "arclength/params-%s-freeindex-%s-branchid-%s-ds-%.14e.json" % (params, freeindex, branchid, ds))

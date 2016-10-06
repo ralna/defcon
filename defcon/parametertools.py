@@ -52,3 +52,11 @@ def parameterstostring(parameters, values):
     for (param, value) in zip(parameters, values):
         s += "%s=%.15e@" % (param[1], value)
     return s[:-1]
+
+def parametersfromstring(parameters, s):
+    subs = s.split('@')
+    assert len(subs) == len(parameters)
+
+    for (sub, param) in zip(subs, parameters):
+        val = float(sub.split('=')[1])
+        param.assign(val)

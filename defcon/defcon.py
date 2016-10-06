@@ -54,14 +54,27 @@ class DeflatedContinuation(object):
         self.teamsize = teamsize
         self.verbose  = verbose
         self.debug    = debug
+        self.logfiles = logfiles
+        self.deflation = deflation
 
+        self.configure_comms()
+        self.fetch_data()
+        self.configure_logs()
+        self.construct_deflation()
+        self.configure_io()
+
+        # We keep track of what solution we actually have in memory in self.state
+        # for efficiency
+        self.state_id = (None, None)
+
+    def configure_comms(self):
         # Create a unique context, so as not to confuse my messages with other
         # libraries
         self.worldcomm = MPI.COMM_WORLD.Dup()
         self.rank = self.worldcomm.rank
 
         # Assert even divisibility of team sizes
-        assert (self.worldcomm.size-1) % teamsize == 0
+        assert (self.worldcomm.size-1) % self.teamsize == 0
         self.nteams = (self.worldcomm.size-1) / self.teamsize
 
         # Create local communicator for the team I will join
@@ -91,7 +104,9 @@ class DeflatedContinuation(object):
                 else:
                     self.worldcomm.Split(MPI.UNDEFINED, key=0)
 
+    def fetch_data(self):
         # Take some data from the problem
+        problem = self.problem
         self.mesh = problem.mesh(PETSc.Comm(self.teamcomm))
         self.function_space = problem.function_space(self.mesh)
         self.parameters = problem.parameters()
@@ -100,16 +115,14 @@ class DeflatedContinuation(object):
         self.residual = problem.residual(self.state, parameterstoconstants(self.parameters), backend.TestFunction(self.function_space))
         self.trivial_solutions = None # computed by the worker on initialisation later
 
+    def configure_io(self):
         io = self.problem.io()
         io.setup(self.parameters, self.functionals, self.function_space)
         self.io = io
 
-        # We keep track of what solution we actually have in memory in self.state
-        # for efficiency
-        self.state_id = (None, None)
-
+    def configure_logs(self):
         # If instructed, create logfiles for each team
-        if logfiles:
+        if self.logfiles:
             if self.teamrank == 0:
                 sys.stdout = open("defcon.log.%d" % self.teamno, "w")
                 sys.stderr = open("defcon.err.%d" % self.teamno, "w")
@@ -117,23 +130,23 @@ class DeflatedContinuation(object):
                 sys.stdout = open(os.devnull, "w")
                 sys.stderr = open(os.devnull, "w")
 
-        if deflation is None:
-            deflation = ShiftedDeflation(problem, power=2, shift=1)
+    def construct_deflation(self):
+        if self.deflation is None:
+            self.deflation = ShiftedDeflation(self.problem, power=2, shift=1)
         params = [x[0] for x in self.parameters]
-        deflation.set_parameters(params)
-        self.deflation = deflation
+        self.deflation.set_parameters(params)
 
     def log(self, msg, master=False, warning=False):
         if not self.verbose: return
         if self.teamrank != 0: return
 
-        if master:
-            if not warning:
+        if warning:
+            fmt = RED = "\033[1;37;31m%s\033[0m"
+        else:
+            if master:
                 fmt = BLUE = "\033[1;37;34m%s\033[0m"
             else:
-                fmt = RED = "\033[1;37;31m%s\033[0m"
-        else:
-            fmt = GREEN = "\033[1;37;32m%s\033[0m"
+                fmt = GREEN = "\033[1;37;32m%s\033[0m"
 
         if master:
             header = "MASTER:   "
@@ -180,8 +193,6 @@ class DeflatedContinuation(object):
         values = list(free[freeparam[1]])
 
         if self.rank == 0:
-            self.zerotask = []
-            self.zerobranchid = []
             self.master(freeindex, values)
         else:
             # join a worker team
@@ -189,50 +200,22 @@ class DeflatedContinuation(object):
 
     def send_task(self, task, team):
         self.log("Sending task %s to team %s" % (task, team), master=True)
-
-        # Special case for rank 0 communicating with itself
-        if team == 0:
-            self.zerotask.append(task)
-
         self.teamcomms[team].bcast(task)
 
     def fetch_task(self):
         self.log("Fetching task")
-
-        # Special case for rank 0 communicating with itself
-        if self.rank == 0:
-            while len(self.zerotask) == 0:
-                time.sleep(0.01)
-            task = self.zerotask.pop(0)
-            return task
-
-        else:
-            task = self.mastercomm.bcast(None)
-            return task
+        task = self.mastercomm.bcast(None)
+        return task
 
     def send_branchid(self, branchid, team):
         self.log("Sending branchid %s to team %s" % (branchid, team), master=True)
-
-        if team == 0:
-            self.zerobranchid.append(branchid)
-
         self.teamcomms[team].bcast(branchid)
 
     def fetch_branchid(self):
         self.log("Fetching branchid")
-
-        # Special case for rank 0 communicating with itself
-        if self.rank == 0:
-            while len(self.zerobranchid) == 0:
-                time.sleep(0.01)
-            branchid = self.zerobranchid.pop(0)
-            self.log("Got branchid %s" % branchid)
-            return branchid
-
-        else:
-            branchid = self.mastercomm.bcast(None)
-            self.log("Got branchid %s" % branchid)
-            return branchid
+        branchid = self.mastercomm.bcast(None)
+        self.log("Got branchid %s" % branchid)
+        return branchid
 
     def compute_functionals(self, solution, params):
         funcs = []
@@ -353,7 +336,7 @@ class DeflatedContinuation(object):
                                             branchid=int(branchid),
                                             newparams=newparams)
                     self.log("Scheduling task: %s" % task, master=True)
-                    heappush(newtasks, (-1, task))
+                    heappush(newtasks, (float("-inf"), task))
                     taskid_counter += 1
 
 
@@ -402,7 +385,7 @@ class DeflatedContinuation(object):
                                             oldparams=oldparams,
                                             branchid=taskid_counter,
                                             newparams=initialparams)
-                    heappush(newtasks, (-1, task))
+                    heappush(newtasks, (float("-inf"), task))
                     taskid_counter += 1
             else:
                 self.log("Using user-supplied initial guesses at %s" % (initialparams,), master=True)
@@ -413,7 +396,7 @@ class DeflatedContinuation(object):
                                          oldparams=oldparams,
                                          branchid=taskid_counter,
                                          newparams=initialparams)
-                    heappush(newtasks, (-1, task))
+                    heappush(newtasks, (float("-inf"), task))
                     taskid_counter += 1
 
         # Here comes the main master loop.
@@ -491,8 +474,9 @@ class DeflatedContinuation(object):
 
                 waiting_values = [wtask[0].oldparams for wtask in waittasks.values() if wtask[0].oldparams is not None]
                 newtask_values = [ntask[1].oldparams for ntask in newtasks if ntask[1].oldparams is not None]
-                if len(waiting_values + newtask_values) > 0:
-                    minparams = minvals(waiting_values + newtask_values, key = lambda x: x[freeindex])
+                deferred_values = [dtask[1].oldparams for dtask in deferredtasks if dtask[1].oldparams is not None]
+                if len(waiting_values + newtask_values + deferred_values) > 0:
+                    minparams = sign*minvals(waiting_values + newtask_values + deferred_values, key = lambda x: sign*x[freeindex])
                     prevparams = prevparameters(values, freeindex, minparams)
                     if prevparams is not None:
                         minwait = prevparams[freeindex]
@@ -574,7 +558,7 @@ class DeflatedContinuation(object):
                             if task.oldparams is not None:
                                 priority = sign*task.newparams[freeindex]
                             else:
-                                priority = -1
+                                priority = float("-inf")
                             heappush(newtasks, (priority, task))
 
                             # The worker is now idle.
@@ -603,7 +587,7 @@ class DeflatedContinuation(object):
                             if task.oldparams is not None:
                                 newpriority = sign*newtask.newparams[freeindex]
                             else:
-                                newpriority = -1
+                                newpriority = float("-inf")
 
                             heappush(newtasks, (newpriority, newtask))
                             taskid_counter += 1
@@ -663,7 +647,7 @@ class DeflatedContinuation(object):
                                                         oldparams=task.oldparams,
                                                         branchid=task.branchid,
                                                         newparams=newparams)
-                                newpriority = -1
+                                newpriority = float("-inf")
                                 heappush(newtasks, (newpriority, newtask))
                                 taskid_counter += 1
 
@@ -920,7 +904,7 @@ class DeflatedContinuation(object):
                 func = funcs[i]
                 xs.append(param[freeindex])
                 ys.append(func[funcindex])
-            plt.plot(xs, ys, 'ok', label="Branch %d" % branchid, linewidth=2, linestyle='-', markersize=1)
+            plt.plot(xs, ys, 'ok', label="Branch %d" % branchid, linewidth=2, markersize=1)
 
         plt.grid()
         plt.xlabel(self.parameters[freeindex][2])
