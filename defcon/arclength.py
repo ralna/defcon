@@ -303,10 +303,7 @@ class ArclengthContinuation(defcon.DeflatedContinuation):
 
                     # Step 4. Compute functionals and save information
                     functionals = self.compute_functionals(z, self.consts)
-                    if backend.__name__ == "dolfin":
-                        param = self.state.split(deepcopy=True)[1].vector().array()[0]
-                    else:
-                        raise NotImplementedError("Don't know how to do this in firedrake")
+                    param = self.fetch_R(self.state.split(deepcopy=True)[1])
 
                     data.append((param, functionals))
                     self.log("Continued arclength to %s = %.15e with functionals %s" % (self.parameters[self.freeindex][1], param, functionals))
@@ -323,6 +320,21 @@ class ArclengthContinuation(defcon.DeflatedContinuation):
                     self.io.save_arclength(params, self.freeindex, branchid, ds, data)
 
                 task = self.fetch_task()
+
+    def fetch_R(self, r):
+        """
+        Given a Function in FunctionSpace(mesh, "R", 0), return its value as a float.
+        """
+        if backend.__name__ == "dolfin":
+            rval = r.vector().array()
+            if len(rval) == 0:
+                rval = 0.0
+            else:
+                rval = rval[0]
+            rval = backend.MPI.sum(r.function_space().mesh().mpi_comm(), rval)
+            return rval
+        else:
+            raise NotImplementedError("Don't know how to do this in firedrake")
 
     def bifurcation_diagram(self, functional, parameter, branchids=None):
         if self.rank != 0:
