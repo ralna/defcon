@@ -209,7 +209,7 @@ class BifurcationProblem(object):
         """
         pvd << y
 
-    def assembler(self, F, y, bcs):
+    def nonlinear_problem(self, F, y, bcs):
         """
         The class used to assemble the nonlinear problem.
 
@@ -221,7 +221,7 @@ class BifurcationProblem(object):
         else:
             return backend.NonlinearVariationalProblem(F, y, bcs)
 
-    def solver(self, problem, prefix=""):
+    def solver(self, problem, solver_params, prefix=""):
         """
         The class used to solve the nonlinear problem.
 
@@ -230,10 +230,17 @@ class BifurcationProblem(object):
         hyperelasticity demo to see how this is used to pass a near-nullspace
         into an algebraic multigrid preconditioner.
         """
+
         if backend.__name__ == "dolfin":
-            return nonlinearsolver.SNUFLSolver(problem, prefix=prefix)
+            return nonlinearsolver.SNUFLSolver(
+                problem, prefix=prefix,
+                solver_parameters=solver_params
+            )
         else:
-            return backend.NonlinearVariationalSolver(problem, options_prefix=prefix)
+            return backend.NonlinearVariationalSolver(
+                problem, options_prefix=prefix,
+                solver_parameters=solver_params
+            )
 
     def compute_stability(self, params, branchid, solution, hint=None):
         """
@@ -282,3 +289,14 @@ class BifurcationProblem(object):
         For an example of this in action, see the elastica demo.
         """
         pass
+
+    def solver_parameters(self, params):
+        """Returns a dictionary with the PETSc options to configure
+        the backend nonlinear solver.  Users should
+        override this method in their own subclasses to set
+        solver/preconditioner preferences.
+
+        params is the set of continuation parameters, which is present
+        so that users could adapt the solver strategy depending on the
+        parameter regime if needed"""
+        return {}

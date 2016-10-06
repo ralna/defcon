@@ -8,19 +8,6 @@ from defcon import *
 
 import matplotlib.pyplot as plt
 
-params = {
-          "snes_max_it": 100,
-          "snes_atol": 1.0e-9,
-          "snes_rtol": 0.0,
-          "snes_monitor": None,
-          "snes_linesearch_type": "basic",
-          "ksp_type": "preonly",
-          "pc_type": "lu"
-         }
-options = PETSc.Options()
-for k in params:
-    options[k] = params[k]
-
 class ElasticaProblem(BifurcationProblem):
     def __init__(self):
         self.bcs = None
@@ -85,6 +72,17 @@ class ElasticaProblem(BifurcationProblem):
     def squared_norm(self, a, b, params):
         return inner(a - b, a - b)*dx + inner(grad(a - b), grad(a - b))*dx
 
+    def solver_parameters(self, params):
+        return {
+            "snes_max_it": 100,
+            "snes_atol": 1.0e-9,
+            "snes_rtol": 0.0,
+            "snes_monitor": None,
+            "snes_linesearch_type": "basic",
+            "ksp_type": "preonly",
+            "pc_type": "lu"
+         }
+    
 if __name__ == "__main__":
     dc = DeflatedContinuation(problem=ElasticaProblem(), teamsize=1, verbose=True)
     dc.run(free={"lambda": linspace(0, 3.9*pi, 200)}, fixed={"mu": 0.5})

@@ -1,20 +1,23 @@
 import backend
 if backend.__name__ == "dolfin":
 
-    from backend import NonlinearProblem, derivative, SystemAssembler
-    # I can't believe this isn't in DOLFIN.
-    class GeneralProblem(NonlinearProblem):
-        def __init__(self, F, y, bcs):
+    from backend import derivative, as_backend_type, Function, PETScMatrix, Form
+    class GeneralProblem(object):
+        def __init__(self, F, y, bcs, J=None, P=None):
             # Firedrake already calls the current Newton state u,
-            # so let's keep track of it
+            # so let's mimic this for unity of interface
             self.u = y
-            NonlinearProblem.__init__(self)
-            J = derivative(F, y)
-            self.ass = SystemAssembler(J, F, bcs)
+            self.comm = y.function_space().mesh().mpi_comm()
 
-        def F(self, b, x):
-            self.ass.assemble(b, x)
+            if J is None:
+                self.J = derivative(F, y)
+            else:
+                self.J = J
 
-        def J(self, A, x):
-            self.ass.assemble(A)
+            if P is None:
+                self.P = None
+            else:
+                self.P = P
 
+            self.F = F
+            self.bcs = bcs

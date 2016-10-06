@@ -1,24 +1,13 @@
 # -*- coding: utf-8 -*-
-import sys
-from   math import floor
-
-from defcon import *
-from dolfin import *
-
+from defcon import BifurcationProblem, DeflatedContinuation
+from dolfin import (
+    RectangleMesh, VectorElement, FiniteElement, MixedElement,
+    FunctionSpace, Constant, split, as_vector, Point, triangle,
+    inner, grad, div, dx, DirichletBC, dot, assemble,
+    Expression, interpolate
+    )
 import matplotlib.pyplot as plt
 
-args = [sys.argv[0]] + """
-                       --petsc.snes_max_it 100
-                       --petsc.snes_atol 1.0e-9
-                       --petsc.snes_rtol 0.0
-                       --petsc.snes_monitor
-                       --petsc.snes_converged_reason
-
-                       --petsc.ksp_type preonly
-                       --petsc.pc_type lu
-                       --petsc.pc_factor_mat_solver_package mumps
-                       """.split()
-parameters.parse(args)
 
 class RayleighBenardProblem(BifurcationProblem):
     def mesh(self, comm):
@@ -100,7 +89,10 @@ class RayleighBenardProblem(BifurcationProblem):
         diffu = zu - wu
         diffp = zp - wp
         diffT = zT - wT
-        return inner(diffu, diffu)*dx + inner(grad(diffu), grad(diffu))*dx + inner(diffp, diffp)*dx + inner(diffT, diffT)*dx
+        return (
+            inner(diffu, diffu)*dx + inner(grad(diffu), grad(diffu))*dx
+            + inner(diffp, diffp)*dx + inner(diffT, diffT)*dx
+            )
 
     def save_pvd(self, z, pvd):
         (u, p, T) = z.split()
@@ -109,6 +101,53 @@ class RayleighBenardProblem(BifurcationProblem):
         T.rename("Temperature", "Temperature")
         pvd << u
 
+    def solver_parameters_fieldsplit(self, params):
+        solver_params = {
+            "snes_max_it": 100,
+            "snes_atol": 1.0e-9,
+            "snes_rtol": 0.0,
+            "snes_monitor": None,
+            "snes_converged_reason": None,
+            "ksp_type": "fgmres",
+            "ksp_gmres_restart": 100,
+            "ksp_converged_reason": None,
+            "ksp_monitor": None,
+            "pc_type": "fieldsplit",
+            "pc_fieldsplit_type": "multiplicative",
+            "pc_fieldsplit_0_fields": "0,1",
+            "pc_fieldsplit_1_fields": "2",
+            "fieldsplit_0_ksp_type": "fgmres",
+            "fieldsplit_0_ksp_gmres_modifiedgramschmidt": True,
+            "fieldsplit_0_ksp_rtol": 1e-4,
+            "fieldsplit_0_pc_type": "fieldsplit",
+            "fieldsplit_0_pc_fieldsplit_type": "schur",
+            "fieldsplit_0_pc_fieldsplit_schur_fact_type": "lower",
+            "fieldsplit_0_fieldsplit_0_ksp_type": "preonly",
+            "fieldsplit_0_fieldsplit_0_pc_type": "lu",
+            "fieldsplit_0_fieldsplit_1_ksp_type": "preonly",
+            "fieldsplit_0_fieldsplit_1_pc_type": "none",
+            "fieldsplit_1_ksp_type": "gmres",
+            "fieldsplit_1_ksp_rtol": "1e-4",
+            "fieldsplit_1_pc_type": "hypre"
+        }
+        return solver_params
+
+    def solver_parameters(self, params):
+        solver_params = {
+            "snes_max_it": 100,
+            "snes_atol": 1.0e-9,
+            "snes_rtol": 0.0,
+            "snes_monitor": None,
+            "snes_converged_reason": None,
+            "ksp_type": "preonly",
+            "pc_type": "lu",
+            "pc_factor_mat_solver_package": "mumps"
+        }
+        return solver_params
+
+
+
 if __name__ == "__main__":
     dc = DeflatedContinuation(problem=RayleighBenardProblem(), teamsize=1, verbose=True)
-    dc.run(free={"Ra": range(1701, 1720, +1)}, fixed={"Pr": 6.8})
+    #dc.run(free={"Ra": range(1701, 1720, +1)}, fixed={"Pr": 6.8})
+    dc.run(free={"Ra": [1701]}, fixed={"Pr": 6.8})
