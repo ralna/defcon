@@ -298,7 +298,11 @@ class ArclengthContinuation(defcon.DeflatedContinuation):
                     # Step 2. Update the state guess with the tangent
                     self.prevprev.assign(self.prev)
                     self.prev.assign(self.state)
-                    nrm = sqrt(backend.assemble(self.problem.squared_norm(z_tlm, backend.zero(*z_tlm.ufl_shape), self.consts) + backend.inner(lmbda_tlm, lmbda_tlm)*backend.dx))
+                    # FIXME: this SHOULD use
+                    # nrm = sqrt(backend.assemble(self.problem.squared_norm(z_tlm, backend.zero(*z_tlm.ufl_shape), self.consts) + backend.inner(lmbda_tlm, lmbda_tlm)*backend.dx))
+                    # and the arclength system above SHOULD use squared_norm too.
+                    # But we can't because of a bug in UFL. So we do this instead:
+                    nrm = sqrt(backend.assemble(backend.inner(z_tlm, z_tlm)*backend.dx + backend.inner(lmbda_tlm, lmbda_tlm)*backend.dx))
 
                     # Step 3. Solve the arclength system
                     # I will employ an adaptive loop: if the continuation doesn't
