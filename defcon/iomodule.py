@@ -8,6 +8,7 @@ implement more efficient/scalable backends at a later time.
 import backend
 import json
 import tempfile
+import shutil
 
 if backend.__name__ == "dolfin":
     from backend import HDF5File, Function, File
@@ -477,7 +478,7 @@ class SolutionIO(IO):
         # Trick from Lawrence Mitchell: POSIX guarantees that mv is atomic
         f = tempfile.NamedTemporaryFile("w", delete=False)
         json.dump(data, f.file, indent=4)
-        os.rename(f.name, self.directory + os.path.sep + "arclength/params-%s-freeindex-%s-branchid-%s-ds-%.14e.json" % (params, freeindex, branchid, ds))
+        shutil.move(f.name, self.directory + os.path.sep + "arclength/params-%s-freeindex-%s-branchid-%s-ds-%.14e.json" % (params, freeindex, branchid, ds))
 
 # Some code to remap C- and Python-level stdout/stderr
 def remap_c_streams(stdout_filename, stderr_filename):
