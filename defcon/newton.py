@@ -95,4 +95,5 @@ def newton(F, y, bcs, problemclass, solverclass, solver_params,
         pass
 
     success = snes.getConvergedReason() > 0
-    return success
+    iters   = snes.getIterationNumber()
+    return (success, iters)

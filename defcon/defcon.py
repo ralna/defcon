@@ -737,7 +737,7 @@ class DeflatedContinuation(object):
                 bcs = self.problem.boundary_conditions(self.function_space, task.newparams)
 
                 self.deflation.deflate(other_solutions + self.trivial_solutions)
-                success = newton(self.residual, self.state, bcs,
+                (success, iters) = newton(self.residual, self.state, bcs,
                                  self.problem.nonlinear_problem,
                                  self.problem.solver,
                                  self.problem.solver_parameters(task.newparams),
@@ -801,7 +801,7 @@ class DeflatedContinuation(object):
 
                 # Try to solve it
                 self.deflation.deflate(other_solutions + self.trivial_solutions)
-                success = newton(self.residual, self.state, bcs,
+                (success, iters) = newton(self.residual, self.state, bcs,
                                  self.problem.nonlinear_problem,
                                  self.problem.solver,
                                  self.problem.solver_parameters(task.newparams),

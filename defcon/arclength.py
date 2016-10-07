@@ -18,7 +18,7 @@ class ArclengthContinuation(defcon.DeflatedContinuation):
     This class is the main driver for arclength continuation.
     """
 
-    def __init__(self, problem, teamsize=1, verbose=False, logfiles=False, debug=False):
+    def __init__(self, problem, deflation=None, teamsize=1, verbose=False, logfiles=False, debug=False):
         """
         Constructor.
 
@@ -36,10 +36,11 @@ class ArclengthContinuation(defcon.DeflatedContinuation):
         """
         self.problem = problem
 
-        self.teamsize = teamsize
-        self.verbose  = verbose
-        self.logfiles = logfiles
-        self.debug    = debug
+        self.teamsize  = teamsize
+        self.verbose   = verbose
+        self.logfiles  = logfiles
+        self.debug     = debug
+        self.deflation = deflation
 
         self.configure_comms()
         self.configure_logs()
@@ -50,6 +51,7 @@ class ArclengthContinuation(defcon.DeflatedContinuation):
         self.function_space = problem.function_space(self.mesh)
 
         self.configure_io()
+        self.construct_deflation()
 
     def fetch_data(self):
         problem = self.problem
@@ -61,10 +63,14 @@ class ArclengthContinuation(defcon.DeflatedContinuation):
 
         self.consts = list(parameterstoconstants(self.parameters))
 
-        self.state = backend.Function(self.mixed_space)
-        self.prev  = backend.Function(self.mixed_space)
-        self.test  = backend.TestFunction(self.mixed_space)
-        self.ds    = backend.Constant(0)
+        self.state    = backend.Function(self.mixed_space)
+        self.prev     = backend.Function(self.mixed_space)
+        # Keep one previous history to deflate, to make sure we don't get stuck in a loop
+        self.prevprev = backend.Function(self.mixed_space)
+        self.firsttime = True
+
+        self.test     = backend.TestFunction(self.mixed_space)
+        self.ds       = backend.Constant(0)
 
         (z, lmbda) = backend.split(self.state)
         (z_prev, lmbda_prev) = backend.split(self.prev)
@@ -228,11 +234,11 @@ class ArclengthContinuation(defcon.DeflatedContinuation):
                 params    = task.params
                 branchid  = task.branchid
                 bounds    = task.bounds
-                ds        = task.ds
+                ds_       = task.ds
                 sign      = task.sign
 
                 param = params[self.freeindex]
-                self.ds.assign(ds)
+                self.ds.assign(ds_)
 
                 # Configure the parameters
                 for (const, value) in zip(self.consts, params):
@@ -256,6 +262,9 @@ class ArclengthContinuation(defcon.DeflatedContinuation):
                 data = [(param, functionals)]
                 self.log("Initialising arclength at %s = %.15e with functionals %s" % (self.parameters[self.freeindex][1], param, functionals))
 
+                # Data for step halving for robustness
+                num_halvings = 0
+
                 # And begin the main loop
                 while bounds[0] <= param <= bounds[1]:
                     gc.collect()
@@ -277,7 +286,7 @@ class ArclengthContinuation(defcon.DeflatedContinuation):
                         normalisation_condition = lmbda_tlm - backend.Constant(copysign(1.0, sign))
 
                     F = self.state_residual_derivative + mu*normalisation_condition*backend.dx
-                    success = newton.newton(F, self.tangent, self.hbcs,
+                    (success, iters) = newton.newton(F, self.tangent, self.hbcs,
                                             self.problem.nonlinear_problem,
                                             self.problem.solver,
                                             self.problem.solver_parameters(current_params),
@@ -287,18 +296,43 @@ class ArclengthContinuation(defcon.DeflatedContinuation):
                         break
 
                     # Step 2. Update the state guess with the tangent
+                    self.prevprev.assign(self.prev)
                     self.prev.assign(self.state)
                     nrm = sqrt(backend.assemble(self.problem.squared_norm(z_tlm, backend.zero(*z_tlm.ufl_shape), self.consts) + backend.inner(lmbda_tlm, lmbda_tlm)*backend.dx))
-                    self.state.assign(self.state + (ds/nrm) * self.tangent)
 
                     # Step 3. Solve the arclength system
-                    success = newton.newton(self.residual, self.state, self.bcs,
-                                            self.problem.nonlinear_problem,
-                                            self.problem.solver,
-                                            self.problem.solver_parameters(current_params),
-                                            self.teamno)
-                    if not success:
-                        self.log("Warning: failed to solve arclength system", warning=True)
+                    # I will employ an adaptive loop: if the continuation doesn't
+                    # converge, try halving ds, until we give up after 10 halvings
+                    for adaptive_loop in range(10):
+                        self.state.assign(self.prev + (float(self.ds)/nrm) * self.tangent)
+
+                        # Deflate the past solution, to make sure we don't converge to that again
+                        if self.firsttime:
+                            self.deflation.deflate([])
+                        else:
+                            self.deflation.deflate([self.prevprev])
+
+                        (success, iters) = newton.newton(self.residual, self.state, self.bcs,
+                                                self.problem.nonlinear_problem,
+                                                self.problem.solver,
+                                                self.problem.solver_parameters(current_params),
+                                                self.teamno, self.deflation)
+
+                        if success: # exit adaptive loop
+                            break
+                        else:
+                            self.log("Warning: failed to solve arclength system with step %s. Halving step" % float(self.ds), warning=True)
+                            self.ds.assign(0.5*float(self.ds))
+                            num_halvings += 1
+
+                    self.firsttime = False # start deflating prevprev
+
+                    if success:
+                        if num_halvings > 0 and adaptive_loop == 0 and iters <= 4: # we have halved the step before, and this worked
+                            self.ds.assign(2.0*float(self.ds))
+                            self.log("Doubling step to %s" % float(self.ds))
+                            num_halvings -= 1
+                    elif not success: # exit arclength loop
                         break
 
                     # Step 4. Compute functionals and save information
@@ -312,12 +346,12 @@ class ArclengthContinuation(defcon.DeflatedContinuation):
                     if self.tangent_prev is None:
                         self.tangent_prev = backend.Function(self.mixed_space)
                     self.tangent_prev.assign(self.tangent)
+                    self.io.save_arclength(params, self.freeindex, branchid, float(self.ds), data)
 
                 response = Response(task.taskid, success=success)
                 if self.teamrank == 0:
                     self.log("Sending response %s to master" % response)
                     self.worldcomm.send(response, dest=0, tag=self.responsetag)
-                    self.io.save_arclength(params, self.freeindex, branchid, ds, data)
 
                 task = self.fetch_task()
 
