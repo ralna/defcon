@@ -6,6 +6,7 @@ from parametertools import parameterstofloats, parameterstoconstants, nextparame
 from newton import newton
 from tasks import QuitTask, ContinuationTask, DeflationTask, StabilityTask, Response
 from journal import Journal, FileJournal
+from iomodule import remap_c_streams
 
 import backend
 
@@ -18,6 +19,7 @@ import time
 import sys
 import signal
 import gc
+import os
 
 try:
     import ipdb as pdb
@@ -123,12 +125,18 @@ class DeflatedContinuation(object):
     def configure_logs(self):
         # If instructed, create logfiles for each team
         if self.logfiles:
-            if self.teamrank == 0:
-                sys.stdout = open("defcon.log.%d" % self.teamno, "w")
-                sys.stderr = open("defcon.err.%d" % self.teamno, "w")
+            if self.rank == 0:
+                stdout_filename = "defcon.log.master"
+                stderr_filename = "defcon.err.master"
             else:
-                sys.stdout = open(os.devnull, "w")
-                sys.stderr = open(os.devnull, "w")
+                if self.teamrank == 0:
+                    stdout_filename = "defcon.log.%d" % self.teamno
+                    stderr_filename = "defcon.err.%d" % self.teamno
+                else:
+                    stdout_filename = os.devnull
+                    stderr_filename = os.devnull
+
+            remap_c_streams(stdout_filename, stderr_filename)
 
     def construct_deflation(self):
         if self.deflation is None:

@@ -478,3 +478,21 @@ class SolutionIO(IO):
         f = tempfile.NamedTemporaryFile("w", delete=False)
         json.dump(data, f.file, indent=4)
         os.rename(f.name, self.directory + os.path.sep + "arclength/params-%s-freeindex-%s-branchid-%s-ds-%.14e.json" % (params, freeindex, branchid, ds))
+
+# Some code to remap C- and Python-level stdout/stderr
+def remap_c_streams(stdout_filename, stderr_filename):
+    import sys
+    import ctypes
+
+    sys.stdout = open(stdout_filename, "a+")
+    sys.stderr = open(stderr_filename, "a+")
+
+    try:
+        libc = ctypes.CDLL("libc.so.6")
+    except:
+        return
+
+    stdout_c = libc.fdopen(1, "w")
+    libc.freopen(stdout_filename, "a+", stdout_c)
+    stderr_c = libc.fdopen(2, "w")
+    libc.freopen(stderr_filename, "a+", stderr_c)
