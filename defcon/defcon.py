@@ -871,12 +871,13 @@ class DeflatedContinuation(object):
                 else:
                     task = self.fetch_task()
 
-    def bifurcation_diagram(self, functional, fixed={}):
+    def bifurcation_diagram(self, functional, fixed={}, style="ok", **kwargs):
         if self.rank != 0:
             return
 
         import matplotlib.pyplot as plt
-
+        if "linewidth" not in kwargs: kwargs["linewidth"] = 2
+        if "markersize" not in kwargs: kwargs["linewidth"] = 1
 
         # Find the functional index.
         funcindex = None
@@ -904,7 +905,7 @@ class DeflatedContinuation(object):
                 func = funcs[i]
                 xs.append(param[freeindex])
                 ys.append(func[funcindex])
-            plt.plot(xs, ys, 'ok', label="Branch %d" % branchid, linewidth=2, markersize=1)
+            plt.plot(xs, ys, style, **kwargs)
 
         plt.grid()
         plt.xlabel(self.parameters[freeindex][2])

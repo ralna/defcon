@@ -336,7 +336,7 @@ class ArclengthContinuation(defcon.DeflatedContinuation):
         else:
             raise NotImplementedError("Don't know how to do this in firedrake")
 
-    def bifurcation_diagram(self, functional, parameter, branchids=None):
+    def bifurcation_diagram(self, functional, parameter, branchids=None, style="o-k", **kwargs):
         if self.rank != 0:
             return
 
@@ -345,6 +345,8 @@ class ArclengthContinuation(defcon.DeflatedContinuation):
 
         import matplotlib.pyplot as plt
         import glob
+        if "linewidth" not in kwargs: kwargs["linewidth"] = 2
+        if "markersize" not in kwargs: kwargs["linewidth"] = 1
 
         # Find the functional index.
         funcindex = None
@@ -362,13 +364,13 @@ class ArclengthContinuation(defcon.DeflatedContinuation):
                 break
 
         for branchid in branchids:
-            for jsonfile in glob.glob(self.io.directory + "/arclength/*freeindex-%s-branchid-%s*.json" % (paramindex, branchid)):
+            for jsonfile in glob.glob(self.io.directory + "/arclength/*freeindex-%s-branchid-%s-*.json" % (paramindex, branchid)):
                 self.log("Reading JSON file %s" % jsonfile)
                 data = json.load(open(jsonfile, "r"))
                 x = [entry[0] for entry in data]
                 y = [entry[1][funcindex] for entry in data]
 
-                plt.plot(x, y, 'o-k', linewidth=2, markersize=1)
+                plt.plot(x, y, style, **kwargs)
 
         plt.grid()
         plt.xlabel(self.parameters[paramindex][2])
