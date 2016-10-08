@@ -499,6 +499,11 @@ def remap_c_streams(stdout_filename, stderr_filename):
     import sys
     import ctypes
 
+    if os.path.isfile(stdout_filename):
+        os.remove(stdout_filename)
+    if os.path.isfile(stderr_filename):
+        os.remove(stderr_filename)
+
     sys.stdout = open(stdout_filename, "a+")
     sys.stderr = open(stderr_filename, "a+")
 
