@@ -391,10 +391,20 @@ class DeflatedContinuation(object):
                 for guess in range(nguesses):
                     task = ContinuationTask(taskid=taskid_counter,
                                             oldparams=oldparams,
-                                            branchid=taskid_counter,
+                                            branchid=guess,
                                             newparams=initialparams)
                     heappush(newtasks, (float("-inf"), task))
                     taskid_counter += 1
+
+                    if compute_stability:
+                        stabtask = StabilityTask(taskid=taskid_counter,
+                                                 oldparams=oldparams,
+                                                 branchid=guess,
+                                                 hint=None)
+                        newpriority = sign*stabtask.oldparams[freeindex]
+
+                        heappush(stabilitytasks, (newpriority, stabtask))
+                        taskid_counter += 1
             else:
                 self.log("Using user-supplied initial guesses at %s" % (initialparams,), master=True)
                 oldparams = None

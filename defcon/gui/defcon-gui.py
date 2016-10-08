@@ -120,7 +120,8 @@ for c in classes:
 os.chdir(working_dir)
 
 # Get the mesh.
-mesh = problem.mesh(mpi_comm_world())
+import backend
+mesh = problem.mesh(backend.comm_world)
 
 # If the mesh is 1D, we don't want to use paraview. 
 if mesh.geometry().dim() < 2: plot_with_mpl = True 
