@@ -350,7 +350,7 @@ class ArclengthContinuation(defcon.DeflatedContinuation):
                     if self.tangent_prev is None:
                         self.tangent_prev = backend.Function(self.mixed_space)
                     self.tangent_prev.assign(self.tangent)
-                    self.io.save_arclength(params, self.freeindex, branchid, float(self.ds), data)
+                    self.io.save_arclength(params, self.freeindex, branchid, task.ds, data)
 
                 response = Response(task.taskid, success=success)
                 if self.teamrank == 0:
