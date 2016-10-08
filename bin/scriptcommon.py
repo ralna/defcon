@@ -21,7 +21,6 @@ def fetch_bifurcation_problem(path):
     else:
         raise ValueError("Either specify the .py file or the directory containing it.")
 
-    print probpath
     prob = imp.load_source("prob", probpath)
 
     globals().update(vars(prob))

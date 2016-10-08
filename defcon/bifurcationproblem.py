@@ -190,14 +190,14 @@ class BifurcationProblem(object):
         """
         pass
 
-    def io(self, prefix=""):
+    def io(self, prefix="output"):
         """
         Return an IO object that defcon will use to save solutions and functionals.
 
         The default is usually a good choice.
         """
 
-        return iomodule.SolutionIO(prefix + "output")
+        return iomodule.SolutionIO(prefix)
 
     def save_pvd(self, y, pvd):
         """
