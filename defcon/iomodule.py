@@ -250,6 +250,12 @@ class IO(object):
     def save_arclength(self, params, branchid, ds, data):
         raise NotImplementedError
 
+    def save_stability(self, stable, eigenvalues, eigenfunctions, params, branchid):
+        raise NotImplementedError
+
+    def fetch_stability(self, params, branchids):
+        raise NotImplementedError
+
 class BranchIO(IO):
     """ 
     I/O module that uses one HDF5File per branch.
@@ -479,6 +485,14 @@ class SolutionIO(IO):
         f = tempfile.NamedTemporaryFile("w", delete=False)
         json.dump(data, f.file, indent=4)
         shutil.move(f.name, self.directory + os.path.sep + "arclength/params-%s-freeindex-%s-branchid-%s-ds-%.14e.json" % (params, freeindex, branchid, ds))
+
+    def fetch_stability(self, params, branchids):
+        stables = []
+        for branchid in branchids:
+            f = file(self.dir(params) + "stability-%d.txt" % branchid, "r")
+            stable = literal_eval(f.read())
+            stables.append(stable)
+        return stables
 
 # Some code to remap C- and Python-level stdout/stderr
 def remap_c_streams(stdout_filename, stderr_filename):
