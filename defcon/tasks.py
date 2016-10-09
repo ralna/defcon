@@ -24,12 +24,15 @@ class ContinuationTask(Task):
         Which branch to continue (int)
       newparams (tuple)
         Parameter values to continue to
+      direction (+1 or -1)
+        +1 means go increasing in parameter direction; -1 to go backwards
     """
-    def __init__(self, taskid, oldparams, branchid, newparams, ensure_branches=None):
+    def __init__(self, taskid, oldparams, branchid, newparams, direction, ensure_branches=None):
         self.taskid    = taskid
         self.oldparams = oldparams
         self.branchid  = branchid
         self.newparams = newparams
+        self.direction = direction
         assert isinstance(branchid, int)
 
         if ensure_branches is None: ensure_branches = set()
@@ -39,7 +42,7 @@ class ContinuationTask(Task):
         self.ensure_branches.update(branches)
 
     def __str__(self):
-        return "ContinuationTask(taskid=%s, oldparams=%s, branchid=%s, newparams=%s)" % (self.taskid, self.oldparams, self.branchid, self.newparams)
+        return "ContinuationTask(taskid=%s, oldparams=%s, branchid=%s, newparams=%s, direction=%s)" % (self.taskid, self.oldparams, self.branchid, self.newparams, self.direction)
 
 class DeflationTask(Task):
     """

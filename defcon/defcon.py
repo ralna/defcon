@@ -33,7 +33,7 @@ class DeflatedContinuation(object):
     This class is the main driver that implements deflated continuation.
     """
 
-    def __init__(self, problem, deflation=None, teamsize=1, verbose=False, logfiles=False, debug=False):
+    def __init__(self, problem, deflation=None, teamsize=1, **kwargs):
         """
         Constructor.
 
@@ -50,14 +50,18 @@ class DeflatedContinuation(object):
             Activate debugging output.
           logfiles (:py:class:`bool`)
             Whether defcon should remap stdout/stderr to logfiles (useful for many processes).
+          continue_backwards (+1 or -1)
+            Whether defcon should also continue backwards when it finds a new branch with deflation.
         """
-        self.problem = problem
 
-        self.teamsize = teamsize
-        self.verbose  = verbose
-        self.debug    = debug
-        self.logfiles = logfiles
+        self.problem = problem
         self.deflation = deflation
+        self.teamsize = teamsize
+
+        self.verbose  = kwargs.get("verbose", True)
+        self.debug    = kwargs.get("debug", False)
+        self.logfiles = kwargs.get("logfiles", False)
+        self.continue_backwards = kwargs.get("continue_backwards", True)
 
         self.configure_comms()
         self.fetch_data()
@@ -342,7 +346,8 @@ class DeflatedContinuation(object):
                     task = ContinuationTask(taskid=taskid_counter,
                                             oldparams=oldparams,
                                             branchid=int(branchid),
-                                            newparams=newparams)
+                                            newparams=newparams,
+                                            direction=+1)
                     self.log("Scheduling task: %s" % task, master=True)
                     heappush(newtasks, (float("-inf"), task))
                     taskid_counter += 1
@@ -392,7 +397,8 @@ class DeflatedContinuation(object):
                     task = ContinuationTask(taskid=taskid_counter,
                                             oldparams=oldparams,
                                             branchid=guess,
-                                            newparams=initialparams)
+                                            newparams=initialparams,
+                                            direction=+1)
                     heappush(newtasks, (float("-inf"), task))
                     taskid_counter += 1
 
@@ -525,12 +531,17 @@ class DeflatedContinuation(object):
                         journal.entry(team, task.oldparams, task.branchid, task.newparams, response.data['functionals'], True)
 
                         # The worker will keep continuing, record that fact
-                        newparams = nextparameters(values, freeindex, task.newparams)
+                        if task.direction > 0:
+                            newparams = nextparameters(values, freeindex, task.newparams)
+                        else:
+                            newparams = prevparameters(values, freeindex, task.newparams)
+
                         if newparams is not None:
                             conttask = ContinuationTask(taskid=task.taskid,
                                                         oldparams=task.newparams,
                                                         branchid=task.branchid,
-                                                        newparams=newparams)
+                                                        newparams=newparams,
+                                                        direction=task.direction)
                             waittasks[task.taskid] = ((conttask, team))
                             self.log("Waiting on response for %s" % conttask, master=True)
                             journal.team_job(team, "c", task.newparams, task.branchid)
@@ -617,7 +628,8 @@ class DeflatedContinuation(object):
                                 conttask = ContinuationTask(taskid=task.taskid,
                                                             oldparams=task.newparams,
                                                             branchid=branchid_counter,
-                                                            newparams=newparams)
+                                                            newparams=newparams,
+                                                            direction=+1)
                                 waittasks[task.taskid] = ((conttask, team))
                                 self.log("Waiting on response for %s" % conttask, master=True)
 
@@ -628,6 +640,19 @@ class DeflatedContinuation(object):
                                 # to do. Mark the team as idle.
                                 idleteams.append(team)
                                 journal.team_job(team, "i")
+
+                            # * If we want to continue backwards, well, let's add that task too
+                            if self.continue_backwards:
+                                newparams = prevparameters(values, freeindex, task.newparams)
+                                if newparams is not None:
+                                    bconttask = ContinuationTask(taskid=taskid_counter,
+                                                                oldparams=task.newparams,
+                                                                branchid=branchid_counter,
+                                                                newparams=newparams,
+                                                                direction=-1)
+                                    newpriority = sign*bconttask.newparams[freeindex]
+                                    heappush(newtasks, (newpriority, bconttask))
+                                    taskid_counter += 1
 
                             # We'll also make sure that any other DeflationTasks in the queue
                             # that have these parameters know about the existence of this branch.
@@ -794,7 +819,8 @@ class DeflatedContinuation(object):
                             task = ContinuationTask(taskid=task.taskid,
                                                     oldparams=task.newparams,
                                                     branchid=branchid,
-                                                    newparams=newparams)
+                                                    newparams=newparams,
+                                                    direction=+1)
                         else:
                             # Reached the end of the continuation, don't want to continue, move on
                             task = self.fetch_task()
@@ -847,12 +873,17 @@ class DeflatedContinuation(object):
                 # Take this opportunity to call the garbage collector.
                 gc.collect()
 
-                newparams = nextparameters(values, freeindex, task.newparams)
+                if task.direction > 0:
+                    newparams = nextparameters(values, freeindex, task.newparams)
+                else:
+                    newparams = prevparameters(values, freeindex, task.newparams)
+
                 if success and newparams is not None:
                     task = ContinuationTask(taskid=task.taskid,
                                             oldparams=task.newparams,
                                             branchid=task.branchid,
-                                            newparams=newparams)
+                                            newparams=newparams,
+                                            direction=task.direction)
                 else:
                     task = self.fetch_task()
 
