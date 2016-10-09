@@ -291,7 +291,8 @@ class BifurcationProblem(object):
         pass
 
     def solver_parameters(self, params):
-        """Returns a dictionary with the PETSc options to configure
+        """
+        Returns a dictionary with the PETSc options to configure
         the backend nonlinear solver.  Users should
         override this method in their own subclasses to set
         solver/preconditioner preferences.
@@ -300,3 +301,13 @@ class BifurcationProblem(object):
         so that users could adapt the solver strategy depending on the
         parameter regime if needed"""
         return {}
+
+    def transform_guess(self, oldparams, newparams, state):
+        """
+        When performing deflation, it's sometimes useful to modify the
+        initial guess in some way (e.g. Hermite promotion in the case
+        of a nonlinear Schroedinger equation, or perturbation in the case
+        of perfect Z_2 symmetry). This method provides exactly such a hook.
+        It should modify state in place, not return anything.
+        """
+        pass

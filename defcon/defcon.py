@@ -736,6 +736,8 @@ class DeflatedContinuation(object):
 
                 # Set up the problem
                 self.load_solution(task.oldparams, task.branchid, task.newparams)
+                out = self.problem.transform_guess(task.oldparams, task.newparams, self.state); assert out is None
+
                 self.load_parameters(task.newparams)
                 knownbranches = self.io.known_branches(task.newparams)
 
