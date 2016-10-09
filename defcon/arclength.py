@@ -67,7 +67,6 @@ class ArclengthContinuation(defcon.DeflatedContinuation):
         self.prev     = backend.Function(self.mixed_space)
         # Keep one previous history to deflate, to make sure we don't get stuck in a loop
         self.prevprev = backend.Function(self.mixed_space)
-        self.firsttime = True
 
         self.test     = backend.TestFunction(self.mixed_space)
         self.ds       = backend.Constant(0)
@@ -96,8 +95,6 @@ class ArclengthContinuation(defcon.DeflatedContinuation):
         [bc.homogenize() for bc in self.hbcs]
 
         self.tangent = backend.Function(self.mixed_space)
-        self.tangent_prev = None
-
         self.state_residual_derivative = backend.derivative(self.state_residual, self.state, self.tangent)
 
     def run(self, params, free, ds, sign, bounds, branchids=None):
@@ -239,6 +236,9 @@ class ArclengthContinuation(defcon.DeflatedContinuation):
 
                 param = params[self.freeindex]
                 self.ds.assign(ds_)
+
+                self.firsttime = True
+                self.tangent_prev = None
 
                 # Configure the parameters
                 for (const, value) in zip(self.consts, params):
