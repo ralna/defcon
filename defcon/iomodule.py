@@ -484,7 +484,7 @@ class SolutionIO(IO):
         # Trick from Lawrence Mitchell: POSIX guarantees that mv is atomic
         f = tempfile.NamedTemporaryFile("w", delete=False)
         json.dump(data, f.file, indent=4)
-        shutil.move(f.name, self.directory + os.path.sep + "arclength/params-%s-freeindex-%s-branchid-%s-ds-%.14e.json" % (params, freeindex, branchid, ds))
+        shutil.move(f.name, self.directory + os.path.sep + "arclength/params-%s-freeindex-%s-branchid-%s-ds-%.14e.json" % (parameterstostring(self.parameters, params), freeindex, branchid, ds))
 
     def fetch_stability(self, params, branchids):
         stables = []
