@@ -326,10 +326,14 @@ class DeflatedContinuation(object):
             assert(journal.exists())
 
             # The journal file already exists. Let's find out what we already know so we can resume our computation where we left off.
-            previous_sweep, branches, oldfreeindex = journal.resume()
+            (previous_sweep, branches, oldfreeindex, oldothers) = journal.resume()
 
             # Check that we are continuing from the same free parameter. If not, we want to start again.
             assert(oldfreeindex==freeindex)
+
+            # Check the values of the other parameters
+            others = tuple(float(val[0]) for (i, val) in enumerate(self.parameters) if i != freeindex)
+            assert(oldothers==others)
 
             # Everything checks out, so lets schedule the appropriate tasks. 
             branchid_counter = len(branches)

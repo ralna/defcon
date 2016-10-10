@@ -50,13 +50,16 @@ class FileJournal(Journal):
         ylabels = [func[2] for func in self.functionals]
         unicodeylabels = [func[1] for func in self.functionals]
 
+        # Other parameter values
+        others = tuple(float(val[0]) for (i, val) in enumerate(self.parameters) if i != self.freeindex)
+
         try:
             os.makedirs(self.directory)
         except OSError:
             pass
 
         with file(self.directory + os.path.sep + "journal.txt", 'w') as f:
-            f.write("%s;%s;%s;%s;%s;%s;%s;%s\n" % (self.freeindex, xlabel, ylabels, unicodeylabels, nteams, minparam, maxparam, time.time()))
+            f.write("%s;%s;%s;%s;%s;%s;%s;%s;%s\n" % (self.freeindex, xlabel, ylabels, unicodeylabels, nteams, minparam, maxparam, others, time.time()))
 
     def entry(self, teamid, oldparams, branchid, newparams, functionals, continuation):
         """ Tell the journal about a new point we've discovered. """
@@ -88,6 +91,7 @@ class FileJournal(Journal):
         sweep = None
 
         freeindex = pullData[0].split(';')[0]
+        others = literal_eval(pullData[0].split(';')[-2])
 
         for eachLine in pullData[1:]:
             if len(eachLine) > 1:
@@ -115,4 +119,4 @@ class FileJournal(Journal):
 
         self.sweep_params = sweep
         assert(branches) # assert that branches is a nonempty dictionary.
-        return sweep, branches, int(freeindex)
+        return (sweep, branches, int(freeindex), others)
