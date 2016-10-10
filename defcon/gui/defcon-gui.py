@@ -129,7 +129,7 @@ if mesh.geometry().dim() < 2: plot_with_mpl = True
 # Get the function space and set up the I/O module for fetching solutions. 
 V = problem.function_space(mesh)
 problem_parameters = problem.parameters()
-io = problem.io(prefix=working_dir + os.path.sep)
+io = problem.io(prefix=working_dir + os.path.sep + "output")
 io.setup(problem_parameters, None, V)
 os.chdir(current_dir)
 
@@ -355,7 +355,7 @@ class PlotConstructor():
                 if self.freeindex is None:
                     self.running = True
 
-                    freeindex, self.parameter_name, functional_names, unicode_functional_names, nteams, minparam, maxparam, timestamp = dataList[0].split(';')
+                    freeindex, self.parameter_name, functional_names, unicode_functional_names, nteams, minparam, maxparam, othervalues, timestamp = dataList[0].split(';')
                     self.start_time = float(timestamp)
                     self.minparam = float(minparam)
                     self.maxparam = float(maxparam)
