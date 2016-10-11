@@ -52,6 +52,8 @@ class DeflatedContinuation(object):
             Whether defcon should remap stdout/stderr to logfiles (useful for many processes).
           continue_backwards (+1 or -1)
             Whether defcon should also continue backwards when it finds a new branch with deflation.
+          comm (MPI.Comm)
+            The communicator that gathers all processes involved in this computation
         """
 
         self.problem = problem
@@ -62,6 +64,7 @@ class DeflatedContinuation(object):
         self.debug    = kwargs.get("debug", False)
         self.logfiles = kwargs.get("logfiles", False)
         self.continue_backwards = kwargs.get("continue_backwards", True)
+        self.worldcomm = kwargs.get("comm", MPI.COMM_WORLD).Dup()
 
         self.configure_comms()
         self.fetch_data()
@@ -76,7 +79,6 @@ class DeflatedContinuation(object):
     def configure_comms(self):
         # Create a unique context, so as not to confuse my messages with other
         # libraries
-        self.worldcomm = MPI.COMM_WORLD.Dup()
         self.rank = self.worldcomm.rank
 
         # Assert even divisibility of team sizes
