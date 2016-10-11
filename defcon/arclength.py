@@ -405,11 +405,15 @@ class ArclengthContinuation(defcon.DeflatedContinuation):
         for branchid in branchids:
             for jsonfile in glob.glob(self.io.directory + "/arclength/*freeindex-%s-branchid-%s-*.json" % (paramindex, branchid)):
                 self.log("Reading JSON file %s" % jsonfile)
-                data = json.load(open(jsonfile, "r"))
-                x = [entry[0] for entry in data]
-                y = [entry[1][funcindex] for entry in data]
+                try:
+                    data = json.load(open(jsonfile, "r"))
+                    x = [entry[0] for entry in data]
+                    y = [entry[1][funcindex] for entry in data]
 
-                plt.plot(x, y, style, **kwargs)
+                    plt.plot(x, y, style, **kwargs)
+                except ValueError:
+                    self.log("Error: could not load %s" % jsonfile, warning=True)
+                    import traceback; traceback.print_exc()
 
         plt.grid()
         plt.xlabel(self.parameters[paramindex][2])

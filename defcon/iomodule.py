@@ -478,13 +478,17 @@ class SolutionIO(IO):
         f.write(s)
 
     def save_arclength(self, params, freeindex, branchid, ds, data):
-        if not os.path.exists(self.directory + os.path.sep + "arclength"):
-            os.makedirs(self.directory + os.path.sep + "arclength")
+        tmpdir = self.directory + os.path.sep + "arclength" + os.path.sep + "tmp"
+        if not os.path.exists(tmpdir):
+            os.makedirs(tmpdir)
 
         # Trick from Lawrence Mitchell: POSIX guarantees that mv is atomic
-        f = tempfile.NamedTemporaryFile("w", delete=False)
+        f = tempfile.NamedTemporaryFile("w", delete=False, dir=tmpdir)
         json.dump(data, f.file, indent=4)
-        shutil.move(f.name, self.directory + os.path.sep + "arclength/params-%s-freeindex-%s-branchid-%s-ds-%.14e.json" % (parameterstostring(self.parameters, params), freeindex, branchid, ds))
+        f.file.flush()
+        os.fsync(f.file.fileno())
+        f.close()
+        os.rename(f.name, self.directory + os.path.sep + "arclength/params-%s-freeindex-%s-branchid-%s-ds-%.14e.json" % (parameterstostring(self.parameters, params), freeindex, branchid, ds))
 
     def fetch_stability(self, params, branchids):
         stables = []
