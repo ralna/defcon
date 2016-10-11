@@ -89,17 +89,20 @@ class StabilityTask(Task):
         Parameter values to investigate.
       branchid (int)
         Which branch to investigate.
+      direction (+1 or -1)
+        Whether to go forwards or backwards
       hint (anything)
         A hint to pass to the stability calculation.
     """
-    def __init__(self, taskid, oldparams, branchid, hint):
+    def __init__(self, taskid, oldparams, branchid, direction, hint):
         self.taskid = taskid
         self.oldparams = oldparams
         self.branchid = branchid
+        self.direction = direction
         self.hint = hint
 
     def __str__(self):
-        return "StabilityTask(taskid=%s, params=%s, branchid=%s)" % (self.taskid, self.oldparams, self.branchid)
+        return "StabilityTask(taskid=%s, params=%s, branchid=%s, direction=%s)" % (self.taskid, self.oldparams, self.branchid, self.direction)
 
 class ArclengthTask(Task):
     """

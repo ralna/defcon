@@ -189,26 +189,27 @@ class DeflatedContinuation(object):
         # Fix the fixed parameters and identify the free parameter.
 
         freeparam = None
-        freeindex = None
+        self.freeindex = None
         for (index, param) in enumerate(self.parameters):
             if param[1] in fixed:
                 param[0].assign(fixed[param[1]])
 
             if param[1] in free:
                 freeparam = param
-                freeindex = index
+                self.freeindex = index
 
         if freeparam is None:
             backend.info_red("Cannot find %s in parameters %s." % (free.keys()[0], [param[1] for param in self.parameters]))
             assert freeparam is not None
 
         values = list(free[freeparam[1]])
+        self.freeindex = self.freeindex
 
         if self.rank == 0:
-            self.master(freeindex, values)
+            self.master(values)
         else:
             # join a worker team
-            self.worker(freeindex, values)
+            self.worker(values)
 
     def send_task(self, task, team):
         self.log("Sending task %s to team %s" % (task, team), master=True)
@@ -260,12 +261,57 @@ class DeflatedContinuation(object):
         for (param, value) in zip(self.parameters, params):
             param[0].assign(value)
 
-    def master(self, freeindex, values):
+    def insert_continuation_task(self, values, oldparams, branchid, priority):
+        newparams = nextparameters(values, self.freeindex, oldparams)
+        if newparams is not None:
+            task = ContinuationTask(taskid=self.taskid_counter,
+                                    oldparams=oldparams,
+                                    branchid=int(branchid),
+                                    newparams=newparams,
+                                    direction=+1)
+            heappush(self.newtasks, (priority, task))
+            self.taskid_counter += 1
+
+            if self.compute_stability:
+                stabtask = StabilityTask(taskid=self.taskid_counter,
+                                         oldparams=oldparams,
+                                         branchid=int(branchid),
+                                         direction=+1,
+                                         hint=None)
+                newpriority = self.sign*stabtask.oldparams[self.freeindex]
+
+                heappush(self.stabilitytasks, (newpriority, stabtask))
+                self.taskid_counter += 1
+
+            if self.continue_backwards:
+                newparams = prevparameters(values, self.freeindex, oldparams)
+                if newparams is not None:
+                    task = ContinuationTask(taskid=self.taskid_counter,
+                                            oldparams=oldparams,
+                                            branchid=int(branchid),
+                                            newparams=newparams,
+                                            direction=-1)
+                    self.log("Scheduling task: %s" % task, master=True)
+                    heappush(self.newtasks, (priority, task))
+                    self.taskid_counter += 1
+
+                    if self.compute_stability:
+                        stabtask = StabilityTask(taskid=self.taskid_counter,
+                                                 oldparams=oldparams,
+                                                 branchid=int(branchid),
+                                                 direction=-1,
+                                                 hint=None)
+                        newpriority = self.sign*stabtask.oldparams[self.freeindex]
+
+                        heappush(self.stabilitytasks, (newpriority, stabtask))
+                        self.taskid_counter += 1
+
+    def master(self, values):
         """
         The master coordinating routine.
 
         *Arguments*
-          freeindex (:py:class:`tuple`)
+          self.freeindex (:py:class:`tuple`)
             An index into self.parameters that states which parameter is free
           values (:py:class:`list`)
             A list of continuation values for the parameter
@@ -281,22 +327,22 @@ class DeflatedContinuation(object):
         idleteams = range(self.nteams)
 
         # Task id counter
-        taskid_counter = 0
+        self.taskid_counter = 0
 
         # Branch id counter
         branchid_counter = 0
 
         # Next, seed the list of tasks to perform with the initial search
-        newtasks = []  # tasks yet to be sent out
+        self.newtasks = []  # tasks yet to be sent out
         deferredtasks = [] # tasks that we've been forced to defer as we don't have enough information to ensure they're necessary
         waittasks = {} # tasks sent out, waiting to hear back about
 
         # A heap of stability tasks. We keep these separately because we want
         # to process them with a lower priority than deflation and continuation
         # tasks.
-        stabilitytasks = []
+        self.stabilitytasks = []
         # Decide if the user has overridden the compute_stability method or not
-        compute_stability = "compute_stability" in self.problem.__class__.__dict__
+        self.compute_stability = "compute_stability" in self.problem.__class__.__dict__
 
         # A dictionary of parameters -> branches to ensure they exist,
         # to avoid race conditions
@@ -308,10 +354,10 @@ class DeflatedContinuation(object):
         # If we're going downwards in continuation parameter, we need to change
         # signs in a few places
         if values[0] < values[-1]:
-            sign = +1
+            self.sign = +1
             minvals = min
         else:
-            sign = -1
+            self.sign = -1
             minvals = max
 
         # If there's only one process, show a warning. FIXME: do something more advanced so we can run anyway. 
@@ -320,19 +366,20 @@ class DeflatedContinuation(object):
             import sys; sys.exit(1)
 
         # Create a journal object.
-        journal = FileJournal(self.io.directory, self.parameters, self.functionals, freeindex, sign)
+        journal = FileJournal(self.io.directory, self.parameters, self.functionals, self.freeindex, self.sign)
         try:
             # First check to see if the journal exists.
             assert(journal.exists())
 
             # The journal file already exists. Let's find out what we already know so we can resume our computation where we left off.
             (previous_sweep, branches, oldfreeindex, oldothers) = journal.resume()
+            if previous_sweep is None: previous_sweep = values[0]
 
             # Check that we are continuing from the same free parameter. If not, we want to start again.
-            assert(oldfreeindex==freeindex)
+            assert(oldfreeindex==self.freeindex)
 
             # Check the values of the other parameters
-            others = tuple(float(val[0]) for (i, val) in enumerate(self.parameters) if i != freeindex)
+            others = tuple(float(val[0]) for (i, val) in enumerate(self.parameters) if i != self.freeindex)
             assert(oldothers==others)
 
             # Everything checks out, so lets schedule the appropriate tasks. 
@@ -345,48 +392,38 @@ class DeflatedContinuation(object):
             # Schedule continuation tasks for any branches that aren't done yet.
             for branchid in branches.keys():
                 oldparams = branches[branchid]
-                newparams = nextparameters(values, freeindex, oldparams)
-                if newparams is not None:
-                    task = ContinuationTask(taskid=taskid_counter,
-                                            oldparams=oldparams,
-                                            branchid=int(branchid),
-                                            newparams=newparams,
-                                            direction=+1)
-                    self.log("Scheduling task: %s" % task, master=True)
-                    heappush(newtasks, (float("-inf"), task))
-                    taskid_counter += 1
-
+                self.insert_continuation_task(values, oldparams, branchid, priority=float("-inf"))
 
             # We need to schedule deflation tasks at every point from where we'd completed our sweep up to previously 
             # to the furthest we've got in continuation, on every branch.
             for branchid in branches.keys():
                 # Get the fixed parameters
-                knownparams = [x[freeindex] for x in self.io.known_parameters(self.fixed, branchid)]
-                oldparams = list(parameterstofloats(self.parameters, freeindex, values[0]))
-                oldparams[freeindex] = previous_sweep
-                newparams = nextparameters(values, freeindex, tuple(oldparams))
-                while newparams is not None and sign*newparams[freeindex] <= sign*branches[branchid][freeindex]: 
+                knownparams = [x[self.freeindex] for x in self.io.known_parameters(self.fixed, branchid)]
+                oldparams = list(parameterstofloats(self.parameters, self.freeindex, values[0]))
+                oldparams[self.freeindex] = previous_sweep
+                newparams = nextparameters(values, self.freeindex, tuple(oldparams))
+                while newparams is not None and self.sign*newparams[self.freeindex] <= self.sign*branches[branchid][self.freeindex]: 
                     # As long as we're not at the end of the parameter range and we haven't exceeded the extent
                     # of this branch, schedule a deflation. 
 
-                    if oldparams[freeindex] in knownparams:
-                        task = DeflationTask(taskid=taskid_counter,
+                    if oldparams[self.freeindex] in knownparams:
+                        task = DeflationTask(taskid=self.taskid_counter,
                                              oldparams=oldparams,
                                              branchid=int(branchid),
                                              newparams=newparams)
                         self.log("Scheduling task: %s" % task, master=True)
-                        taskid_counter += 1
-                        heappush(newtasks, (sign*task.newparams[freeindex], task))
+                        self.taskid_counter += 1
+                        heappush(self.newtasks, (self.sign*task.newparams[self.freeindex], task))
 
                     oldparams = newparams
-                    newparams = nextparameters(values, freeindex, newparams)
+                    newparams = nextparameters(values, self.freeindex, newparams)
 
         except Exception:
             # Either the journal file does not exist, or something else bad happened. 
             # Oh well, start from scratch.
             journal.setup(self.nteams, min(values), max(values))
-            initialparams = parameterstofloats(self.parameters, freeindex, values[0])
-            previous_sweep = initialparams[freeindex]
+            initialparams = parameterstofloats(self.parameters, self.freeindex, values[0])
+            previous_sweep = initialparams[self.freeindex]
 
             # Send off initial tasks
             knownbranches = self.io.known_branches(initialparams)
@@ -395,46 +432,30 @@ class DeflatedContinuation(object):
                 nguesses = len(knownbranches)
                 self.log("Using %d known solutions at %s" % (nguesses, initialparams,), master=True)
                 oldparams = initialparams
-                initialparams = nextparameters(values, freeindex, initialparams)
+                initialparams = nextparameters(values, self.freeindex, initialparams)
 
                 for guess in range(nguesses):
-                    task = ContinuationTask(taskid=taskid_counter,
-                                            oldparams=oldparams,
-                                            branchid=guess,
-                                            newparams=initialparams,
-                                            direction=+1)
-                    heappush(newtasks, (float("-inf"), task))
-                    taskid_counter += 1
-
-                    if compute_stability:
-                        stabtask = StabilityTask(taskid=taskid_counter,
-                                                 oldparams=oldparams,
-                                                 branchid=guess,
-                                                 hint=None)
-                        newpriority = sign*stabtask.oldparams[freeindex]
-
-                        heappush(stabilitytasks, (newpriority, stabtask))
-                        taskid_counter += 1
+                    self.insert_continuation_task(values, oldparams, guess, priority=float("-inf"))
             else:
                 self.log("Using user-supplied initial guesses at %s" % (initialparams,), master=True)
                 oldparams = None
                 nguesses = self.problem.number_initial_guesses(initialparams)
                 for guess in range(nguesses):
-                    task = DeflationTask(taskid=taskid_counter,
+                    task = DeflationTask(taskid=self.taskid_counter,
                                          oldparams=oldparams,
-                                         branchid=taskid_counter,
+                                         branchid=self.taskid_counter,
                                          newparams=initialparams)
-                    heappush(newtasks, (float("-inf"), task))
-                    taskid_counter += 1
+                    heappush(self.newtasks, (float("-inf"), task))
+                    self.taskid_counter += 1
 
         # Here comes the main master loop.
-        while len(newtasks) + len(waittasks) + len(deferredtasks) + len(stabilitytasks) > 0:
+        while len(self.newtasks) + len(waittasks) + len(deferredtasks) + len(self.stabilitytasks) > 0:
 
             if self.debug:
-                self.log("DEBUG: newtasks = %s" % [(priority, str(x)) for (priority, x) in newtasks], master=True)
+                self.log("DEBUG: newtasks = %s" % [(priority, str(x)) for (priority, x) in self.newtasks], master=True)
                 self.log("DEBUG: waittasks = %s" % [(key, str(waittasks[key][0]), waittasks[key][1]) for key in waittasks], master=True)
                 self.log("DEBUG: deferredtasks = %s" % [(priority, str(x)) for (priority, x) in deferredtasks], master=True)
-                self.log("DEBUG: stabilitytasks = %s" % [(priority, str(x)) for (priority, x) in stabilitytasks], master=True)
+                self.log("DEBUG: stabilitytasks = %s" % [(priority, str(x)) for (priority, x) in self.stabilitytasks], master=True)
                 self.log("DEBUG: idleteams = %s" % idleteams, master=True)
 
             # Sanity check
@@ -444,8 +465,8 @@ class DeflatedContinuation(object):
                 self.log("ALERT: team lost! idleteams and waitasks: \n%s\n%s" % (idleteams, [(key, str(waittasks[key][0])) for key in waittasks]), master=True, warning=True)
 
             # If there are any tasks to send out, send them.
-            while len(newtasks) > 0 and len(idleteams) > 0:
-                (priority, task) = heappop(newtasks)
+            while len(self.newtasks) > 0 and len(idleteams) > 0:
+                (priority, task) = heappop(self.newtasks)
 
                 # Let's check if we have found enough solutions already.
                 send = True
@@ -463,7 +484,7 @@ class DeflatedContinuation(object):
                     # This is because the currently running task might find a branch that we will need
                     # to deflate here.
                     for (t, r) in waittasks.values():
-                        if isinstance(t, ContinuationTask) and sign*t.newparams[freeindex]<=sign*task.newparams[freeindex]:
+                        if isinstance(t, ContinuationTask) and self.sign*t.newparams[self.freeindex]<=self.sign*task.newparams[self.freeindex]:
                             send = False
                             break
 
@@ -484,8 +505,8 @@ class DeflatedContinuation(object):
                     heappush(deferredtasks, (priority, task))
 
             # And the same thing for stability tasks.
-            while len(stabilitytasks) > 0 and len(idleteams) > 0:
-                (priority, task) = heappop(stabilitytasks)
+            while len(self.stabilitytasks) > 0 and len(idleteams) > 0:
+                (priority, task) = heappop(self.stabilitytasks)
                 idleteam = idleteams.pop(0)
                 self.send_task(task, idleteam)
                 waittasks[task.taskid] = (task, idleteam)
@@ -501,13 +522,13 @@ class DeflatedContinuation(object):
                 self.log("Cannot dispatch any tasks, waiting for response.", master=True)
 
                 waiting_values = [wtask[0].oldparams for wtask in waittasks.values() if wtask[0].oldparams is not None]
-                newtask_values = [ntask[1].oldparams for ntask in newtasks if ntask[1].oldparams is not None]
+                newtask_values = [ntask[1].oldparams for ntask in self.newtasks if ntask[1].oldparams is not None]
                 deferred_values = [dtask[1].oldparams for dtask in deferredtasks if dtask[1].oldparams is not None]
                 if len(waiting_values + newtask_values + deferred_values) > 0:
-                    minparams = sign*minvals(waiting_values + newtask_values + deferred_values, key = lambda x: sign*x[freeindex])
-                    prevparams = prevparameters(values, freeindex, minparams)
+                    minparams = self.sign*minvals(waiting_values + newtask_values + deferred_values, key = lambda x: self.sign*x[self.freeindex])
+                    prevparams = prevparameters(values, self.freeindex, minparams)
                     if prevparams is not None:
-                        minwait = prevparams[freeindex]
+                        minwait = prevparams[self.freeindex]
 
                         tot_solutions = self.problem.number_solutions(minparams)
                         if isinf(tot_solutions): tot_solutions = '?'
@@ -536,9 +557,9 @@ class DeflatedContinuation(object):
 
                         # The worker will keep continuing, record that fact
                         if task.direction > 0:
-                            newparams = nextparameters(values, freeindex, task.newparams)
+                            newparams = nextparameters(values, self.freeindex, task.newparams)
                         else:
-                            newparams = prevparameters(values, freeindex, task.newparams)
+                            newparams = prevparameters(values, self.freeindex, task.newparams)
 
                         if newparams is not None:
                             conttask = ContinuationTask(taskid=task.taskid,
@@ -553,12 +574,12 @@ class DeflatedContinuation(object):
                             idleteams.append(team)
                             journal.team_job(team, "i")
 
-                        newtask = DeflationTask(taskid=taskid_counter,
+                        newtask = DeflationTask(taskid=self.taskid_counter,
                                                 oldparams=task.oldparams,
                                                 branchid=task.branchid,
                                                 newparams=task.newparams)
-                        taskid_counter += 1
-                        heappush(newtasks, (sign*newtask.newparams[freeindex], newtask))
+                        self.taskid_counter += 1
+                        heappush(self.newtasks, (self.sign*newtask.newparams[self.freeindex], newtask))
 
                     else:
                         # We tried to continue a branch, but the continuation died. Oh well.
@@ -589,10 +610,10 @@ class DeflatedContinuation(object):
                             #   won't discover anything; if it isn't, hopefully it will discover
                             #   the same (distinct) solution again.
                             if task.oldparams is not None:
-                                priority = sign*task.newparams[freeindex]
+                                priority = self.sign*task.newparams[self.freeindex]
                             else:
                                 priority = float("-inf")
-                            heappush(newtasks, (priority, task))
+                            heappush(self.newtasks, (priority, task))
 
                             # The worker is now idle.
                             idleteams.append(team)
@@ -613,21 +634,21 @@ class DeflatedContinuation(object):
                             journal.entry(team, task.oldparams, branchid_counter, task.newparams, response.data['functionals'], False)
 
                             # * Insert a new deflation task, to seek again with the same settings.
-                            newtask = DeflationTask(taskid=taskid_counter,
+                            newtask = DeflationTask(taskid=self.taskid_counter,
                                                     oldparams=task.oldparams,
                                                     branchid=task.branchid,
                                                     newparams=task.newparams)
                             if task.oldparams is not None:
-                                newpriority = sign*newtask.newparams[freeindex]
+                                newpriority = self.sign*newtask.newparams[self.freeindex]
                             else:
                                 newpriority = float("-inf")
 
-                            heappush(newtasks, (newpriority, newtask))
-                            taskid_counter += 1
+                            heappush(self.newtasks, (newpriority, newtask))
+                            self.taskid_counter += 1
 
                             # * Record that the worker team is now continuing that branch,
                             # if there's continuation to be done.
-                            newparams = nextparameters(values, freeindex, task.newparams)
+                            newparams = nextparameters(values, self.freeindex, task.newparams)
                             if newparams is not None:
                                 conttask = ContinuationTask(taskid=task.taskid,
                                                             oldparams=task.newparams,
@@ -647,16 +668,16 @@ class DeflatedContinuation(object):
 
                             # * If we want to continue backwards, well, let's add that task too
                             if self.continue_backwards:
-                                newparams = prevparameters(values, freeindex, task.newparams)
+                                newparams = prevparameters(values, self.freeindex, task.newparams)
                                 if newparams is not None:
-                                    bconttask = ContinuationTask(taskid=taskid_counter,
+                                    bconttask = ContinuationTask(taskid=self.taskid_counter,
                                                                 oldparams=task.newparams,
                                                                 branchid=branchid_counter,
                                                                 newparams=newparams,
                                                                 direction=-1)
-                                    newpriority = sign*bconttask.newparams[freeindex]
-                                    heappush(newtasks, (newpriority, bconttask))
-                                    taskid_counter += 1
+                                    newpriority = self.sign*bconttask.newparams[self.freeindex]
+                                    heappush(self.newtasks, (newpriority, bconttask))
+                                    self.taskid_counter += 1
 
                             # We'll also make sure that any other DeflationTasks in the queue
                             # that have these parameters know about the existence of this branch.
@@ -666,15 +687,27 @@ class DeflatedContinuation(object):
 
                             # If the user wants us to compute stabilities, then let's
                             # do that.
-                            if compute_stability:
-                                stabtask = StabilityTask(taskid=taskid_counter,
+                            if self.compute_stability:
+                                stabtask = StabilityTask(taskid=self.taskid_counter,
                                                          oldparams=task.newparams,
                                                          branchid=branchid_counter,
+                                                         direction=+1,
                                                          hint=None)
-                                newpriority = sign*stabtask.oldparams[freeindex]
+                                newpriority = self.sign*stabtask.oldparams[self.freeindex]
 
-                                heappush(stabilitytasks, (newpriority, stabtask))
-                                taskid_counter += 1
+                                heappush(self.stabilitytasks, (newpriority, stabtask))
+                                self.taskid_counter += 1
+
+                                if self.continue_backwards:
+                                    stabtask = StabilityTask(taskid=self.taskid_counter,
+                                                             oldparams=task.newparams,
+                                                             branchid=branchid_counter,
+                                                             direction=-1,
+                                                             hint=None)
+                                    newpriority = self.sign*stabtask.oldparams[self.freeindex]
+
+                                    heappush(self.stabilitytasks, (newpriority, stabtask))
+                                    self.taskid_counter += 1
 
                             # Lastly, increment the branch counter.
                             branchid_counter += 1
@@ -688,15 +721,15 @@ class DeflatedContinuation(object):
                         # because the user doesn't know when a problem begins to have a nontrivial
                         # branch. In this case keep trying.
                         if task.oldparams is None and branchid_counter == 0:
-                            newparams = nextparameters(values, freeindex, task.newparams)
+                            newparams = nextparameters(values, self.freeindex, task.newparams)
                             if newparams is not None:
-                                newtask = DeflationTask(taskid=taskid_counter,
+                                newtask = DeflationTask(taskid=self.taskid_counter,
                                                         oldparams=task.oldparams,
                                                         branchid=task.branchid,
                                                         newparams=newparams)
                                 newpriority = float("-inf")
-                                heappush(newtasks, (newpriority, newtask))
-                                taskid_counter += 1
+                                heappush(self.newtasks, (newpriority, newtask))
+                                self.taskid_counter += 1
 
                 elif isinstance(task, StabilityTask):
                     if response.success:
@@ -704,11 +737,16 @@ class DeflatedContinuation(object):
                         # Record this in the journal: TODO
 
                         # The worker will keep continuing, record that fact
-                        newparams = nextparameters(values, freeindex, task.oldparams)
+                        if task.direction > 0:
+                            newparams = nextparameters(values, self.freeindex, task.oldparams)
+                        else:
+                            newparams = prevparameters(values, self.freeindex, task.oldparams)
+
                         if newparams is not None:
                             nexttask = StabilityTask(taskid=task.taskid,
                                                      branchid=task.branchid,
                                                      oldparams=newparams,
+                                                     direction=task.direction,
                                                      hint=None)
                             waittasks[task.taskid] = ((nexttask, team))
                             self.log("Waiting on response for %s" % nexttask, master=True)
@@ -727,7 +765,7 @@ class DeflatedContinuation(object):
                 for i in range(len(idleteams)):
                     try:
                         (priority, task) = heappop(deferredtasks)
-                        heappush(newtasks, (priority, task))
+                        heappush(self.newtasks, (priority, task))
                         self.log("Rescheduling the previously deferred task %s" % task, master=True)
                     except IndexError: break
 
@@ -739,7 +777,7 @@ class DeflatedContinuation(object):
             journal.team_job(teamno, "q")
 
 
-    def worker(self, freeindex, values):
+    def worker(self, values):
         """
         The main worker routine.
 
@@ -761,7 +799,7 @@ class DeflatedContinuation(object):
 
                 # Check for trivial solutions
                 if self.trivial_solutions is None:
-                    self.trivial_solutions = self.problem.trivial_solutions(self.function_space, task.newparams, freeindex)
+                    self.trivial_solutions = self.problem.trivial_solutions(self.function_space, task.newparams, self.freeindex)
 
                 # Set up the problem
                 self.load_solution(task.oldparams, task.branchid, task.newparams)
@@ -818,7 +856,7 @@ class DeflatedContinuation(object):
                         self.log("Saved solution to %s to disk" % task)
 
                         # Automatically start onto the continuation
-                        newparams = nextparameters(values, freeindex, task.newparams)
+                        newparams = nextparameters(values, self.freeindex, task.newparams)
                         if newparams is not None:
                             task = ContinuationTask(taskid=task.taskid,
                                                     oldparams=task.newparams,
@@ -840,7 +878,7 @@ class DeflatedContinuation(object):
 
                 # Check for trivial solutions
                 if self.trivial_solutions is None:
-                    self.trivial_solutions = self.problem.trivial_solutions(self.function_space, task.newparams, freeindex)
+                    self.trivial_solutions = self.problem.trivial_solutions(self.function_space, task.newparams, self.freeindex)
 
                 # Set up the problem
                 self.load_solution(task.oldparams, task.branchid, task.newparams)
@@ -878,9 +916,9 @@ class DeflatedContinuation(object):
                 gc.collect()
 
                 if task.direction > 0:
-                    newparams = nextparameters(values, freeindex, task.newparams)
+                    newparams = nextparameters(values, self.freeindex, task.newparams)
                 else:
-                    newparams = prevparameters(values, freeindex, task.newparams)
+                    newparams = prevparameters(values, self.freeindex, task.newparams)
 
                 if success and newparams is not None:
                     task = ContinuationTask(taskid=task.taskid,
@@ -917,11 +955,16 @@ class DeflatedContinuation(object):
                 # Take this opportunity to call the garbage collector.
                 gc.collect()
 
-                newparams = nextparameters(values, freeindex, task.oldparams)
+                if task.direction > 0:
+                    newparams = nextparameters(values, self.freeindex, task.oldparams)
+                else:
+                    newparams = prevparameters(values, self.freeindex, task.oldparams)
+
                 if success and newparams is not None:
                     task = StabilityTask(taskid=task.taskid,
                                          oldparams=newparams,
                                          branchid=task.branchid,
+                                         direction=task.direction,
                                          hint=d.get("hint", None))
                 else:
                     task = self.fetch_task()
@@ -948,7 +991,7 @@ class DeflatedContinuation(object):
             if param[1] in fixed:
                 freeindices.remove(i)
         assert len(freeindices) == 1
-        freeindex = freeindices[0]
+        self.freeindex = freeindices[0]
 
         for branchid in range(self.io.max_branch() + 1):
             xs = []
@@ -958,10 +1001,10 @@ class DeflatedContinuation(object):
             for i in xrange(0, len(params)):
                 param = params[i]
                 func = funcs[i]
-                xs.append(param[freeindex])
+                xs.append(param[self.freeindex])
                 ys.append(func[funcindex])
             plt.plot(xs, ys, style, **kwargs)
 
         plt.grid()
-        plt.xlabel(self.parameters[freeindex][2])
+        plt.xlabel(self.parameters[self.freeindex][2])
         plt.ylabel(self.functionals[funcindex][2])
