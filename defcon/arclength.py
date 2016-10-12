@@ -20,7 +20,7 @@ class ArclengthContinuation(defcon.DeflatedContinuation):
     This class is the main driver for arclength continuation.
     """
 
-    def __init__(self, problem, deflation=None, teamsize=1, verbose=False, logfiles=False, debug=False):
+    def __init__(self, problem, deflation=None, teamsize=1, **kwargs):
         """
         Constructor.
 
@@ -39,12 +39,12 @@ class ArclengthContinuation(defcon.DeflatedContinuation):
             The communicator that gathers all processes involved in this computation
         """
         self.problem = problem
-
-        self.teamsize  = teamsize
-        self.verbose   = verbose
-        self.logfiles  = logfiles
-        self.debug     = debug
         self.deflation = deflation
+        self.teamsize  = teamsize
+
+        self.verbose  = kwargs.get("verbose", True)
+        self.debug    = kwargs.get("debug", False)
+        self.logfiles = kwargs.get("logfiles", False)
         self.worldcomm = kwargs.get("comm", MPI.COMM_WORLD).Dup()
 
         self.configure_comms()
@@ -344,8 +344,11 @@ class ArclengthContinuation(defcon.DeflatedContinuation):
                         break
 
                     # Step 4. Compute functionals and save information
-                    functionals = self.compute_functionals(z, self.consts)
-                    param = self.fetch_R(self.state.split(deepcopy=True)[1])
+                    (z_, lmbda_) = self.state.split(deepcopy=True)
+                    functionals = self.compute_functionals(z_, self.consts)
+                    del z_
+                    param = self.fetch_R(lmbda_)
+                    del lmbda_
 
                     data.append((param, functionals))
                     self.log("Continued arclength to %s = %.15e with functionals %s" % (self.parameters[self.freeindex][1], param, functionals))
