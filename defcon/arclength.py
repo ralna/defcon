@@ -35,6 +35,8 @@ class ArclengthContinuation(defcon.DeflatedContinuation):
             Activate debugging output.
           logfiles (:py:class:`bool`)
             Whether defcon should remap stdout/stderr to logfiles (useful for many processes).
+          comm (MPI.Comm)
+            The communicator that gathers all processes involved in this computation
         """
         self.problem = problem
 
@@ -43,6 +45,7 @@ class ArclengthContinuation(defcon.DeflatedContinuation):
         self.logfiles  = logfiles
         self.debug     = debug
         self.deflation = deflation
+        self.worldcomm = kwargs.get("comm", MPI.COMM_WORLD).Dup()
 
         self.configure_comms()
         self.configure_logs()
