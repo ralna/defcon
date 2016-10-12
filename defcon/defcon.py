@@ -527,7 +527,7 @@ class DeflatedContinuation(object):
                 newtask_values = [ntask[1].oldparams for ntask in self.newtasks if ntask[1].oldparams is not None]
                 deferred_values = [dtask[1].oldparams for dtask in deferredtasks if dtask[1].oldparams is not None]
                 if len(waiting_values + newtask_values + deferred_values) > 0:
-                    minparams = self.sign*minvals(waiting_values + newtask_values + deferred_values, key = lambda x: self.sign*x[self.freeindex])
+                    minparams = minvals(waiting_values + newtask_values + deferred_values, key = lambda x: self.sign*x[self.freeindex])
                     prevparams = prevparameters(values, self.freeindex, minparams)
                     if prevparams is not None:
                         minwait = prevparams[self.freeindex]
