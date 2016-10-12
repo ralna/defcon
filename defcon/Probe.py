@@ -35,6 +35,7 @@ class Probe(compiled_module.Probe):
         return self.value_size()
     
     def __getitem__(self, i):
+        if i < 0: i = self.value_size() - i
         return self.get_probe_at_snapshot(i)
 
 class Probes(compiled_module.Probes):
