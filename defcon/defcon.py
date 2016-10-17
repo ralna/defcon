@@ -450,6 +450,9 @@ class DeflatedContinuation(object):
                     heappush(self.newtasks, (float("-inf"), task))
                     self.taskid_counter += 1
 
+        # Write to the journal saying where we've completed our sweep up to.
+        journal.sweep(values[0])
+
         # Here comes the main master loop.
         while len(self.newtasks) + len(waittasks) + len(deferredtasks) + len(self.stabilitytasks) > 0:
 
@@ -523,11 +526,12 @@ class DeflatedContinuation(object):
             if len(waittasks) > 0:
                 self.log("Cannot dispatch any tasks, waiting for response.", master=True)
 
-                waiting_values = [wtask[0].oldparams for wtask in waittasks.values() if wtask[0].oldparams is not None]
-                newtask_values = [ntask[1].oldparams for ntask in self.newtasks if ntask[1].oldparams is not None]
-                deferred_values = [dtask[1].oldparams for dtask in deferredtasks if dtask[1].oldparams is not None]
-                if len(waiting_values + newtask_values + deferred_values) > 0:
-                    minparams = minvals(waiting_values + newtask_values + deferred_values, key = lambda x: self.sign*x[self.freeindex])
+                waiting_values = [wtask[0].oldparams for wtask in waittasks.values() if isinstance(wtask[0], DeflationTask)]
+                newtask_values = [ntask[1].oldparams for ntask in self.newtasks if isinstance(ntask[1], DeflationTask)]
+                deferred_values = [dtask[1].oldparams for dtask in deferredtasks if isinstance(dtask[1], DeflationTask)]
+                all_values = filter(lambda x: x is not None, waiting_values + newtask_values + deferred_values)
+                if len(all_values) > 0:
+                    minparams = minvals(all_values, key = lambda x: self.sign*x[self.freeindex])
                     prevparams = prevparameters(values, self.freeindex, minparams)
                     if prevparams is not None:
                         minwait = prevparams[self.freeindex]
@@ -535,10 +539,14 @@ class DeflatedContinuation(object):
                         tot_solutions = self.problem.number_solutions(minparams)
                         if isinf(tot_solutions): tot_solutions = '?'
                         num_solutions = len(self.io.known_branches(minparams))
-                        self.log("Sweep completed <= %14.12e (%s/%s solutions)." % (minwait, num_solutions, tot_solutions), master=True)
-
+                        self.log("Deflation sweep completed <= %14.12e (%s/%s solutions)." % (minwait, num_solutions, tot_solutions), master=True)
                         # Write to the journal saying where we've completed our sweep up to.
                         journal.sweep(minwait)
+
+                elif len(waiting_values + newtask_values + deferred_values) == 0:
+                    minwait = values[-1]
+                    # Write to the journal saying where we've completed our sweep up to.
+                    journal.sweep(minwait)
 
                 # Take this opportunity to call the garbage collector.
                 gc.collect()
