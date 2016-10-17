@@ -208,7 +208,7 @@ elif backend.__name__ == "firedrake":
 
     backend.HDF5File = HDF5File
 
-from parametertools import parameterstostring
+from parametertools import parameters_to_string
 
 import os
 import glob
@@ -286,11 +286,11 @@ class BranchIO(IO):
 
         with HDF5File(self.function_space.mesh().mpi_comm(), self.dir(branchid), mode) as f:
             # First save the solution.
-            f.write(solution, "/" + parameterstostring(self.parameters, params))
+            f.write(solution, "/" + parameters_to_string(self.parameters, params))
 
             # Now save the functionals.
-            s = parameterstostring(self.functionals, funcs)
-            f.attributes(parameterstostring(self.parameters, params))["functional"] = s
+            s = parameters_to_string(self.functionals, funcs)
+            f.attributes(parameters_to_string(self.parameters, params))["functional"] = s
 
             # Flush and save the file.
             f.flush()
@@ -310,7 +310,7 @@ class BranchIO(IO):
                 try:
                     with HDF5File(self.function_space.mesh().mpi_comm(), self.dir(branchid), 'r') as f:
                         soln = Function(self.function_space)
-                        f.read(soln, "/" + parameterstostring(self.parameters, params))
+                        f.read(soln, "/" + parameters_to_string(self.parameters, params))
                         f.flush()
                     solns.append(soln)
                     break
@@ -340,7 +340,7 @@ class BranchIO(IO):
         funcs = []
         with HDF5File(self.function_space.mesh().mpi_comm(), self.dir(branchid), 'r') as f:
             for param in params: 
-                newfuncs = [float(line.split('=')[-1]) for line in f.attributes(parameterstostring(self.parameters, param))["functional"].split('@')]
+                newfuncs = [float(line.split('=')[-1]) for line in f.attributes(parameters_to_string(self.parameters, param))["functional"].split('@')]
                 funcs.append(newfuncs)
         return funcs
 
@@ -359,7 +359,7 @@ class BranchIO(IO):
 class SolutionIO(IO):
     """An I/O class that saves one HDF5File per solution found."""
     def dir(self, params):
-        return self.directory + os.path.sep + parameterstostring(self.parameters, params) + os.path.sep
+        return self.directory + os.path.sep + parameters_to_string(self.parameters, params) + os.path.sep
 
     def save_solution(self, solution, funcs, params, branchid):
         with HDF5File(self.function_space.mesh().mpi_comm(), self.dir(params) + "solution-%d.h5" % branchid, 'w') as f:
@@ -377,7 +377,7 @@ class SolutionIO(IO):
             time.sleep(0.1)
 
         f = file(self.dir(params) + "functional-%d.txt" % branchid, "w")
-        s = parameterstostring(self.functionals, funcs).replace('@', '\n') + '\n'
+        s = parameters_to_string(self.functionals, funcs).replace('@', '\n') + '\n'
         f.write(s)
 
     def fetch_solutions(self, params, branchids):
@@ -488,7 +488,7 @@ class SolutionIO(IO):
         f.file.flush()
         os.fsync(f.file.fileno())
         f.close()
-        os.rename(f.name, self.directory + os.path.sep + "arclength/params-%s-freeindex-%s-branchid-%s-ds-%.14e.json" % (parameterstostring(self.parameters, params), freeindex, branchid, ds))
+        os.rename(f.name, self.directory + os.path.sep + "arclength/params-%s-freeindex-%s-branchid-%s-ds-%.14e.json" % (parameters_to_string(self.parameters, params), freeindex, branchid, ds))
 
     def fetch_stability(self, params, branchids):
         stables = []

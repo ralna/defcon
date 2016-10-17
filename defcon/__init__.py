@@ -13,7 +13,7 @@ import backend
 from numpy                import arange, linspace
 from bifurcationproblem   import BifurcationProblem
 from defcon               import DeflatedContinuation
-from arclength            import ArclengthContinuation
+#from arclength            import ArclengthContinuation
 from iomodule             import IO, SolutionIO, BranchIO
 from operatordeflation    import ShiftedDeflation
 
