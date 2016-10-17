@@ -57,7 +57,7 @@ class DeflatedContinuation(object):
         else:
             self.thread = DefconWorker(problem, **kwargs)
 
-    def run(self, free, fixed):
+    def run(self, free, fixed={}):
         """
         The main execution routine.
 
@@ -96,12 +96,10 @@ Launch with mpiexec: mpiexec -n <number of processes> python %s
         if self.thread.rank != 0:
             return
 
-        mesh = self.problem.mesh(PETSc.Comm(MPI.COMM_SELF))
-        function_space = self.problem.function_space(mesh)
         parameters = self.problem.parameters()
         functionals = self.problem.functionals()
         io = self.problem.io()
-        io.setup(parameters, functionals, function_space)
+        io.setup(parameters, functionals, None)
 
         import matplotlib.pyplot as plt
         if "linewidth" not in kwargs: kwargs["linewidth"] = 2
@@ -677,7 +675,7 @@ class DefconMaster(DefconThread):
         if len(self.deferred_tasks) > 0:
             # Take as many as there are idle teams. This makes things 
             # run much smoother than taking them all. 
-            for i in range(len(idleteams)):
+            for i in range(len(self.idle_teams)):
                 try:
                     (priority, task) = heappop(self.deferred_tasks)
                     heappush(self.new_tasks, (priority, task))

@@ -8,19 +8,18 @@ import backend
 
 from   mpi4py   import MPI
 from   petsc4py import PETSc
-from   parametertools import parameterstoconstants
 from   tasks import QuitTask, ArclengthTask, Response
 from   math import copysign, sqrt
 from   heapq import heappush, heappop
 
 from   ufl.algorithms.map_integrands import map_integrands
 
-class ArclengthContinuation(defcon.DeflatedContinuation):
+class ArclengthContinuation(object):
     """
     This class is the main driver for arclength continuation.
     """
 
-    def __init__(self, problem, deflation=None, teamsize=1, **kwargs):
+    def __init__(self, problem, **kwargs):
         """
         Constructor.
 
@@ -38,35 +37,164 @@ class ArclengthContinuation(defcon.DeflatedContinuation):
           comm (MPI.Comm)
             The communicator that gathers all processes involved in this computation
         """
-        self.problem = problem
-        self.deflation = deflation
-        self.teamsize  = teamsize
 
-        self.verbose  = kwargs.get("verbose", True)
-        self.debug    = kwargs.get("debug", False)
-        self.logfiles = kwargs.get("logfiles", False)
-        self.worldcomm = kwargs.get("comm", MPI.COMM_WORLD).Dup()
+        worldcomm = kwargs.get("comm", MPI.COMM_WORLD).Dup()
+        kwargs["comm"] = worldcomm
+
+        self.problem = problem
+
+        if worldcomm.rank == 0:
+            self.thread = ArclengthMaster(problem, **kwargs)
+        else:
+            self.thread = ArclengthWorker(problem, **kwargs)
+
+    def run(self, params, free, ds, sign, bounds, branchids=None):
+        """
+        The main execution routine.
+
+        *Arguments*
+          params (:py:class:`tuple`)
+            A tuple of parameter values to start from. All known solutions for these
+            values will be used for the arclength continuation, unless branchids is
+            specified.
+          free (:py:class:`str`)
+            The name of the parameter that will be varied in the arclength continuation.
+          ds (:py:class:`float`)
+            The value of the step to take in arclength.
+          sign (:py:class:`int`)
+            The initial direction of travel for the parameter (must be +1 or -1)
+          bounds (:py:class:`tuple`)
+            The bounds of interest (param_min, param_max)
+          branchids (:py:class:`list`)
+            The list of branchids to continue (or None for all of them)
+        """
+
+        # First, check we're parallel enough.
+        if self.thread.worldcomm.size < 2:
+            msg = """
+Defcon started with only 1 process.
+At least 2 processes are required (one master, one worker).
+
+Launch with mpiexec: mpiexec -n <number of processes> python %s
+""" % sys.argv[0]
+            self.thread.log(msg, warning=True)
+            sys.exit(1)
+
+        # Next, check arguments
+
+        problem_parameters = self.problem.parameters()
+        assert len(problem_parameters) == len(params)
+        assert sign in [+1, -1]
+        assert ds > 0
+        assert len(bounds) == 2
+        assert bounds[0] < bounds[1]
+
+        # Fix the fixed parameters and identify the free parameter.
+        freeindex = None
+        for (index, param) in enumerate(problem_parameters):
+            if param[1] == free:
+                freeindex = index
+                break
+
+        if freeindex is None:
+            backend.info_red("Cannot find %s in parameters %s." % (free, [param[1] for param in problem_parameters]))
+            assert freeindex is not None
+
+        assert bounds[0] <= params[freeindex] <= bounds[1]
+
+        # Aaaand .. run.
+
+        self.thread.run(problem_parameters, freeindex, params, ds, sign, bounds, branchids)
+
+    def bifurcation_diagram(self, functional, parameter, branchids=None, style="o-k", **kwargs):
+        if self.thread.rank != 0:
+            return
+
+        if branchids is None:
+            branchids = [""] # find all
+
+        import matplotlib.pyplot as plt
+        import glob
+        if "linewidth" not in kwargs: kwargs["linewidth"] = 2
+        if "markersize" not in kwargs: kwargs["linewidth"] = 1
+
+        functionals = self.problem.functionals()
+        parameters  = self.problem.parameters()
+        io = self.problem.io()
+        io.setup(parameters, functionals, None)
+
+        # Find the functional index.
+        funcindex = None
+        for (i, functionaldata) in enumerate(functionals):
+            if functionaldata[1] == functional:
+                funcindex = i
+                break
+        assert funcindex is not None
+
+        # And find the variable index.
+        paramindex = None
+        for (i, param) in enumerate(parameters):
+            if param[1] == parameter:
+                paramindex = i
+                break
+
+        for branchid in branchids:
+            for jsonfile in glob.glob(io.directory + "/arclength/*freeindex-%s-branchid-%s-*.json" % (paramindex, branchid)):
+                self.thread.log("Reading JSON file %s" % jsonfile)
+                try:
+                    data = json.load(open(jsonfile, "r"))
+                    x = [entry[0] for entry in data]
+                    y = [entry[1][funcindex] for entry in data]
+
+                    plt.plot(x, y, style, **kwargs)
+                except ValueError:
+                    self.thread.log("Error: could not load %s" % jsonfile, warning=True)
+                    import traceback; traceback.print_exc()
+
+        plt.grid()
+        plt.xlabel(parameters[paramindex][2])
+        plt.ylabel(functionals[funcindex][2])
+
+class ArclengthThread(defcon.DefconThread):
+    """
+    The base class for ArclengthWorker/ArclengthMaster.
+    """
+    def __init__(self, problem, **kwargs):
+        self.problem = problem
+        self.functionals = problem.functionals()
+
+        self.deflation = kwargs.get("deflation", None)
+        self.teamsize  = kwargs.get("teamsize", 1)
+        self.verbose   = kwargs.get("verbose", True)
+        self.debug     = kwargs.get("debug", False)
+        self.logfiles  = kwargs.get("logfiles", False)
+        self.worldcomm = kwargs["comm"]
 
         self.configure_comms()
         self.configure_logs()
 
-        self.parameters = problem.parameters()
-        self.functionals = problem.functionals()
-        self.mesh = problem.mesh(PETSc.Comm(self.teamcomm))
-        self.function_space = problem.function_space(self.mesh)
+class ArclengthWorker(defcon.DefconWorker, ArclengthThread):
+    """
+    This class handles the actual execution of the tasks necessary
+    to do arclength continuation.
+    """
+    def __init__(self, problem, **kwargs):
+        ArclengthThread.__init__(self, problem, **kwargs)
 
-        self.configure_io()
-        self.construct_deflation()
+        # A map from the type of task we've received to the code that handles it.
+        self.callbacks = {ArclengthTask: self.arclength_task}
 
     def fetch_data(self):
         problem = self.problem
 
+        self.mesh = problem.mesh(PETSc.Comm(self.teamcomm))
+        self.function_space = problem.function_space(self.mesh)
         self.R = backend.FunctionSpace(self.mesh, "R", 0)
 
         mixed_element = backend.MixedElement([self.function_space.ufl_element(), self.R.ufl_element()])
         self.mixed_space = backend.FunctionSpace(self.mesh, mixed_element)
 
-        self.consts = list(parameterstoconstants(self.parameters))
+        self.consts  = [param[0] for param in self.parameters]
 
         self.state    = backend.Function(self.mixed_space)
         self.prev     = backend.Function(self.mixed_space)
@@ -105,266 +233,169 @@ class ArclengthContinuation(defcon.DeflatedContinuation):
         self.tangent = backend.Function(self.mixed_space)
         self.state_residual_derivative = backend.derivative(self.state_residual, self.state, self.tangent)
 
-    def run(self, params, free, ds, sign, bounds, branchids=None):
-        """
-        The main execution routine.
+    def run(self, problem_parameters, freeindex, *args):
 
-        *Arguments*
-          params (:py:class:`tuple`)
-            A tuple of parameter values to start from. All known solutions for these
-            values will be used for the arclength continuation.
-          free (:py:class:`str`)
-            The name of the parameter that will be varied in the arclength continuation.
-          ds (:py:class:`float`)
-            The value of the step to take in arclength.
-          sign (:py:class:`int`)
-            The initial direction of travel for the parameter (must be +1 or -1)
-          bounds (:py:class:`tuple`)
-            The bounds of interest (param_min, param_max)
-          branchids (:py:class:`list`)
-            The list of branchids to continue (or None for all of them)
-        """
+        self.parameters = problem_parameters
+        self.functionals = self.problem.functionals()
+        self.freeindex = freeindex
+        self.fetch_data()
 
-        assert len(self.parameters) == len(params)
-        assert sign in [+1, -1]
-        assert ds > 0
-        assert len(bounds) == 2
-        assert bounds[0] < bounds[1]
+        dummy = Dummy(self.parameters, self.consts)
+        self.configure_io(dummy)
+        self.construct_deflation(dummy)
 
-        # Fix the fixed parameters and identify the free parameter.
-        freeindex = None
-        for (index, param) in enumerate(self.parameters):
-            if param[1] == free:
-                freeindex = index
+        task = None
+        while True:
+            gc.collect()
+
+            if task is None:
+                task = self.fetch_task()
+
+            if isinstance(task, QuitTask):
+                self.log("Quitting gracefully")
+                return
+            else:
+                self.log("Executing task %s" % task)
+                task = self.callbacks[task.__class__](task)
+        return
+
+    def compute_functionals(self, solution):
+        funcs = []
+        for functional in self.functionals:
+            func = functional[0]
+            j = func(solution, self.consts)
+            assert isinstance(j, float)
+            funcs.append(j)
+        return funcs
+
+    def arclength_task(self, task):
+        params    = task.params
+        branchid  = task.branchid
+        bounds    = task.bounds
+        ds_       = task.ds
+        sign      = task.sign
+
+        param = params[self.freeindex]
+        self.ds.assign(ds_)
+
+        self.firsttime = True
+        self.tangent_prev = None
+
+        # Configure the parameters
+        for (const, value) in zip(self.consts, params):
+            if isinstance(const, backend.Constant):
+                const.assign(value)
+
+        # Load the solution into the previous value
+        solution = self.io.fetch_solutions(params, [branchid])[0]
+
+        if backend.__name__  == "dolfin":
+            backend.assign(self.state.sub(0), solution)
+            r = backend.Function(self.R)
+            r.assign(backend.Constant(param))
+            backend.assign(self.state.sub(1), r)
+            del r
+        elif backend.__name__ == "firedrake":
+            raise NotImplementedError("Don't know how to assign to subfunctions in firedrake")
+
+        # Data about functionals
+        functionals = self.compute_functionals(solution)
+        data = [(param, functionals)]
+        self.log("Initialising arclength at %s = %.15e with functionals %s" % (self.parameters[self.freeindex][1], param, functionals))
+
+        # Data for step halving for robustness
+        num_halvings = 0
+
+        # And begin the main loop
+        while bounds[0] <= param <= bounds[1]:
+            gc.collect()
+
+            current_params = list(params)
+            current_params[self.freeindex] = param
+
+            # Step 1. Compute the tangent linearisation at self.state
+            (z, lmbda) = backend.split(self.state)
+            (w, mu)    = backend.split(self.test)
+            (z_tlm, lmbda_tlm) = backend.split(self.tangent)
+
+            # Normalisation condition
+            if self.tangent_prev is not None:
+                # point in the same direction as before
+                normalisation_condition = backend.inner(self.tangent, self.tangent_prev) - backend.Constant(1.0)
+            else:
+                # start going in the direction of sign
+                normalisation_condition = lmbda_tlm - backend.Constant(copysign(1.0, sign))
+
+            F = self.state_residual_derivative + mu*normalisation_condition*backend.dx
+            (success, iters) = newton.newton(F, self.tangent, self.hbcs,
+                                    self.problem.nonlinear_problem,
+                                    self.problem.solver,
+                                    self.problem.solver_parameters(current_params),
+                                    self.teamno)
+            if not success:
+                self.log("Warning: failed to compute tangent", warning=True)
                 break
 
-        if freeindex is None:
-            backend.info_red("Cannot find %s in parameters %s." % (free, [param[1] for param in self.parameters]))
-            assert freeindex is not None
+            # Step 2. Update the state guess with the tangent
+            self.prevprev.assign(self.prev)
+            self.prev.assign(self.state)
+            nrm = sqrt(backend.assemble(self.problem.squared_norm(z_tlm, backend.zero(*z_tlm.ufl_shape), self.consts) + backend.inner(lmbda_tlm, lmbda_tlm)*backend.dx))
 
-        assert bounds[0] <= params[freeindex] <= bounds[1]
+            # Step 3. Solve the arclength system
+            # I will employ an adaptive loop: if the continuation doesn't
+            # converge, try halving ds, until we give up after 10 halvings
+            for adaptive_loop in range(10):
+                self.state.assign(self.prev + (float(self.ds)/nrm) * self.tangent)
 
-        self.freeindex = freeindex
+                # Deflate the past solution, to make sure we don't converge to that again
+                if self.firsttime:
+                    self.deflation.deflate([])
+                else:
+                    self.deflation.deflate([self.prevprev])
 
-        if self.rank == 0:
-            self.master(params, ds, sign, bounds, branchids)
-        else:
-            # join a worker team
-            self.worker()
+                (success, iters) = newton.newton(self.residual, self.state, self.bcs,
+                                        self.problem.nonlinear_problem,
+                                        self.problem.solver,
+                                        self.problem.solver_parameters(current_params),
+                                        self.teamno, self.deflation)
 
-    def master(self, params, ds, sign, bounds, branchids):
-        # Initialise data structures.
-        stat = MPI.Status()
+                if success: # exit adaptive loop
+                    break
+                else:
+                    self.log("Warning: failed to solve arclength system with step %s. Halving step" % float(self.ds), warning=True)
+                    self.ds.assign(0.5*float(self.ds))
+                    num_halvings += 1
 
-        # First, set the list of idle teams to all of them.
-        idleteams = range(self.nteams)
+            self.firsttime = False # start deflating prevprev
 
-        # Task id counter
-        taskid_counter = 0
+            if success:
+                if num_halvings > 0 and adaptive_loop == 0 and iters <= 4: # we have halved the step before, and this worked
+                    self.ds.assign(2.0*float(self.ds))
+                    self.log("Doubling step to %s" % float(self.ds))
+                    num_halvings -= 1
+            elif not success: # exit arclength loop
+                break
 
-        # The lists of tasks
-        newtasks = []  # tasks yet to be sent out
-        waittasks = {} # tasks sent out, waiting to hear back about
+            # Step 4. Compute functionals and save information
+            (z_, lmbda_) = self.state.split(deepcopy=True)
+            functionals = self.compute_functionals(z_)
+            del z_
+            param = self.fetch_R(lmbda_)
+            del lmbda_
 
-        if self.worldcomm.size < 2:
-            self.log("Defcon started with only 1 process. At least 2 processes are required (one master, one worker).\n\nLaunch with mpiexec: mpiexec -n <number of processes> python <path to file>", master=True, warning=True)
-            import sys; sys.exit(1)
+            data.append((param, functionals))
+            self.log("Continued arclength to %s = %.15e with functionals %s" % (self.parameters[self.freeindex][1], param, functionals))
 
-        # Seed the list of tasks.
-        if branchids is None:
-            branchids = self.io.known_branches(params)
-        for branchid in branchids:
-            task = ArclengthTask(taskid=taskid_counter,
-                                 params=params,
-                                 branchid=branchid,
-                                 bounds=bounds,
-                                 sign=sign,
-                                 ds=ds)
-            heappush(newtasks, (branchid, task))
-            taskid_counter += 1
+            # Step 5. Cycle the tangent linear variables
+            if self.tangent_prev is None:
+                self.tangent_prev = backend.Function(self.mixed_space)
+            self.tangent_prev.assign(self.tangent)
+            self.io.save_arclength(params, self.freeindex, branchid, task.ds, data)
 
-        # Here comes the main master loop.
-        while len(newtasks) + len(waittasks) > 0:
-
-            if self.debug:
-                self.log("DEBUG: newtasks = %s" % [(priority, str(x)) for (priority, x) in newtasks], master=True)
-                self.log("DEBUG: waittasks = %s" % [(key, str(waittasks[key][0]), waittasks[key][1]) for key in waittasks], master=True)
-                self.log("DEBUG: idleteams = %s" % idleteams, master=True)
-
-            # Sanity check
-            if len(set(idleteams).intersection(set([waittasks[key][1] for key in waittasks]))):
-                self.log("ALERT: intersection of idleteams and waittasks: \n%s\n%s" % (idleteams, [(key, str(waittasks[key][0])) for key in waittasks]), master=True, warning=True)
-            if set(idleteams).union(set([waittasks[key][1] for key in waittasks])) != set(range(self.nteams)):
-                self.log("ALERT: team lost! idleteams and waitasks: \n%s\n%s" % (idleteams, [(key, str(waittasks[key][0])) for key in waittasks]), master=True, warning=True)
-
-            # If there are any tasks to send out, send them.
-            while len(newtasks) > 0 and len(idleteams) > 0:
-                (priority, task) = heappop(newtasks)
-                idleteam = idleteams.pop(0)
-                self.send_task(task, idleteam)
-                waittasks[task.taskid] = (task, idleteam)
-
-            # We can't send out any more tasks, either because we have no
-            # tasks to send out or we have no free processors.
-            # If we aren't waiting for anything to finish, we'll exit the loop
-            # here. otherwise, we wait for responses and deal with consequences.
-            if len(waittasks) > 0:
-                self.log("Cannot dispatch any tasks, waiting for response.", master=True)
-
-                # Take this opportunity to call the garbage collector.
-                gc.collect()
-
-                response = self.worldcomm.recv(status=stat, source=MPI.ANY_SOURCE, tag=self.responsetag)
-
-                (task, team) = waittasks[response.taskid]
-                self.log("Received response %s about task %s from team %s" % (response, task, team), master=True)
-                del waittasks[response.taskid]
-                idleteams.append(team)
-
-        quit = QuitTask()
-        for teamno in range(self.nteams):
-            self.send_task(quit, teamno)
-
-    def worker(self):
-        self.fetch_data()
-        task = self.fetch_task()
-        while True:
-            # If you add a new task, make sure to add a call to gc.collect()
-            if isinstance(task, QuitTask):
-                self.log("Quitting gracefully.")
-                return
-            elif isinstance(task, ArclengthTask):
-                self.log("Executing task %s" % task)
-
-                params    = task.params
-                branchid  = task.branchid
-                bounds    = task.bounds
-                ds_       = task.ds
-                sign      = task.sign
-
-                param = params[self.freeindex]
-                self.ds.assign(ds_)
-
-                self.firsttime = True
-                self.tangent_prev = None
-
-                # Configure the parameters
-                for (const, value) in zip(self.consts, params):
-                    if isinstance(const, backend.Constant):
-                        const.assign(value)
-
-                # Load the solution into the previous value
-                solution = self.io.fetch_solutions(params, [branchid])[0]
-
-                if backend.__name__  == "dolfin":
-                    backend.assign(self.state.sub(0), solution)
-                    r = backend.Function(self.R)
-                    r.assign(backend.Constant(param))
-                    backend.assign(self.state.sub(1), r)
-                    del r
-                elif backend.__name__ == "firedrake":
-                    raise NotImplementedError("Don't know how to assign to subfunctions in firedrake")
-
-                # Data about functionals
-                functionals = self.compute_functionals(solution, self.consts)
-                data = [(param, functionals)]
-                self.log("Initialising arclength at %s = %.15e with functionals %s" % (self.parameters[self.freeindex][1], param, functionals))
-
-                # Data for step halving for robustness
-                num_halvings = 0
-
-                # And begin the main loop
-                while bounds[0] <= param <= bounds[1]:
-                    gc.collect()
-
-                    current_params = list(params)
-                    current_params[self.freeindex] = param
-
-                    # Step 1. Compute the tangent linearisation at self.state
-                    (z, lmbda) = backend.split(self.state)
-                    (w, mu)    = backend.split(self.test)
-                    (z_tlm, lmbda_tlm) = backend.split(self.tangent)
-
-                    # Normalisation condition
-                    if self.tangent_prev is not None:
-                        # point in the same direction as before
-                        normalisation_condition = backend.inner(self.tangent, self.tangent_prev) - backend.Constant(1.0)
-                    else:
-                        # start going in the direction of sign
-                        normalisation_condition = lmbda_tlm - backend.Constant(copysign(1.0, sign))
-
-                    F = self.state_residual_derivative + mu*normalisation_condition*backend.dx
-                    (success, iters) = newton.newton(F, self.tangent, self.hbcs,
-                                            self.problem.nonlinear_problem,
-                                            self.problem.solver,
-                                            self.problem.solver_parameters(current_params),
-                                            self.teamno)
-                    if not success:
-                        self.log("Warning: failed to compute tangent", warning=True)
-                        break
-
-                    # Step 2. Update the state guess with the tangent
-                    self.prevprev.assign(self.prev)
-                    self.prev.assign(self.state)
-                    nrm = sqrt(backend.assemble(self.problem.squared_norm(z_tlm, backend.zero(*z_tlm.ufl_shape), self.consts) + backend.inner(lmbda_tlm, lmbda_tlm)*backend.dx))
-
-                    # Step 3. Solve the arclength system
-                    # I will employ an adaptive loop: if the continuation doesn't
-                    # converge, try halving ds, until we give up after 10 halvings
-                    for adaptive_loop in range(10):
-                        self.state.assign(self.prev + (float(self.ds)/nrm) * self.tangent)
-
-                        # Deflate the past solution, to make sure we don't converge to that again
-                        if self.firsttime:
-                            self.deflation.deflate([])
-                        else:
-                            self.deflation.deflate([self.prevprev])
-
-                        (success, iters) = newton.newton(self.residual, self.state, self.bcs,
-                                                self.problem.nonlinear_problem,
-                                                self.problem.solver,
-                                                self.problem.solver_parameters(current_params),
-                                                self.teamno, self.deflation)
-
-                        if success: # exit adaptive loop
-                            break
-                        else:
-                            self.log("Warning: failed to solve arclength system with step %s. Halving step" % float(self.ds), warning=True)
-                            self.ds.assign(0.5*float(self.ds))
-                            num_halvings += 1
-
-                    self.firsttime = False # start deflating prevprev
-
-                    if success:
-                        if num_halvings > 0 and adaptive_loop == 0 and iters <= 4: # we have halved the step before, and this worked
-                            self.ds.assign(2.0*float(self.ds))
-                            self.log("Doubling step to %s" % float(self.ds))
-                            num_halvings -= 1
-                    elif not success: # exit arclength loop
-                        break
-
-                    # Step 4. Compute functionals and save information
-                    (z_, lmbda_) = self.state.split(deepcopy=True)
-                    functionals = self.compute_functionals(z_, self.consts)
-                    del z_
-                    param = self.fetch_R(lmbda_)
-                    del lmbda_
-
-                    data.append((param, functionals))
-                    self.log("Continued arclength to %s = %.15e with functionals %s" % (self.parameters[self.freeindex][1], param, functionals))
-
-                    # Step 5. Cycle the tangent linear variables
-                    if self.tangent_prev is None:
-                        self.tangent_prev = backend.Function(self.mixed_space)
-                    self.tangent_prev.assign(self.tangent)
-                    self.io.save_arclength(params, self.freeindex, branchid, task.ds, data)
-
-                response = Response(task.taskid, success=success)
-                if self.teamrank == 0:
-                    self.log("Sending response %s to master" % response)
-                    self.worldcomm.send(response, dest=0, tag=self.responsetag)
-
-                task = self.fetch_task()
+        response = Response(task.taskid, success=success)
+        if self.teamrank == 0:
+            self.log("Sending response %s to master" % response)
+            self.worldcomm.send(response, dest=0, tag=self.responsetag)
 
     def fetch_R(self, r):
         """
@@ -381,46 +412,102 @@ class ArclengthContinuation(defcon.DeflatedContinuation):
         else:
             raise NotImplementedError("Don't know how to do this in firedrake")
 
-    def bifurcation_diagram(self, functional, parameter, branchids=None, style="o-k", **kwargs):
-        if self.rank != 0:
-            return
+class ArclengthMaster(defcon.DefconMaster, ArclengthThread):
+    """
+    This class implements the core logic of running arclength continuation
+    in parallel.
+    """
+    def __init__(self, *args, **kwargs):
+        ArclengthThread.__init__(self, *args, **kwargs)
 
+    def seed_initial_tasks(self, params, ds, sign, bounds, branchids):
         if branchids is None:
-            branchids = [""] # find all
-
-        import matplotlib.pyplot as plt
-        import glob
-        if "linewidth" not in kwargs: kwargs["linewidth"] = 2
-        if "markersize" not in kwargs: kwargs["linewidth"] = 1
-
-        # Find the functional index.
-        funcindex = None
-        for (i, functionaldata) in enumerate(self.functionals):
-            if functionaldata[1] == functional:
-                funcindex = i
-                break
-        assert funcindex is not None
-
-        # And find the variable index.
-        paramindex = None
-        for (i, param) in enumerate(self.parameters):
-            if param[1] == parameter:
-                paramindex = i
-                break
+            branchids = self.io.known_branches(params)
 
         for branchid in branchids:
-            for jsonfile in glob.glob(self.io.directory + "/arclength/*freeindex-%s-branchid-%s-*.json" % (paramindex, branchid)):
-                self.log("Reading JSON file %s" % jsonfile)
-                try:
-                    data = json.load(open(jsonfile, "r"))
-                    x = [entry[0] for entry in data]
-                    y = [entry[1][funcindex] for entry in data]
+            task = ArclengthTask(taskid=self.taskid_counter,
+                                 params=params,
+                                 branchid=branchid,
+                                 bounds=bounds,
+                                 sign=sign,
+                                 ds=ds)
+            heappush(self.new_tasks, (branchid, task))
+            self.taskid_counter += 1
 
-                    plt.plot(x, y, style, **kwargs)
-                except ValueError:
-                    self.log("Error: could not load %s" % jsonfile, warning=True)
-                    import traceback; traceback.print_exc()
+    def finished(self):
+        return len(self.new_tasks) + len(self.wait_tasks) == 0
 
-        plt.grid()
-        plt.xlabel(self.parameters[paramindex][2])
-        plt.ylabel(self.functionals[funcindex][2])
+    def debug_print(self):
+        if self.debug:
+            self.log("DEBUG: new_tasks = %s" % [(priority, str(x)) for (priority, x) in self.new_tasks])
+            self.log("DEBUG: wait_tasks = %s" % [(key, str(self.wait_tasks[key][0]), self.wait_tasks[key][1]) for key in self.wait_tasks])
+            self.log("DEBUG: idle_teams = %s" % self.idle_teams)
+
+        # Also, a sanity check: idle_teams and busy_teams should be a disjoint partitioning of range(self.nteams)
+        busy_teams = set([self.wait_tasks[key][1] for key in self.wait_tasks])
+        if len(set(self.idle_teams).intersection(busy_teams)) > 0:
+            self.log("ALERT: intersection of idle_teams and wait_tasks: \n%s\n%s" % (self.idle_teams, [(key, str(self.wait_tasks[key][0])) for key in self.wait_tasks]), warning=True)
+        if set(self.idle_teams).union(busy_teams) != set(range(self.nteams)):
+            self.log("ALERT: team lost! idle_teams and wait_tasks: \n%s\n%s" % (self.idle_teams, [(key, str(self.wait_tasks[key][0])) for key in self.wait_tasks]), warning=True)
+
+
+    def run(self, problem_parameters, freeindex, params, ds, sign, bounds, branchids):
+        self.functionals = self.problem.functionals
+        self.parameters  = problem_parameters
+        self.freeindex   = freeindex
+
+        dummy = Dummy(problem_parameters)
+        self.configure_io(dummy)
+
+        # List of idle teams
+        self.idle_teams = range(self.nteams)
+
+        # Task id counter
+        self.taskid_counter = 0
+
+        # Data structures for lists of tasks in various states
+        self.new_tasks  = [] # tasks yet to be dispatched
+        self.wait_tasks = {} # tasks dispatched, waiting to hear back
+
+        # Seed initial tasks
+        self.seed_initial_tasks(params, ds, sign, bounds, branchids)
+
+        # The main master loop.
+        while not self.finished():
+            self.debug_print()
+
+            # Dispatch any tasks that can be dispatched
+            while len(self.new_tasks) > 0 and len(self.idle_teams) > 0:
+                self.dispatch_task()
+
+            # We can't send out any more tasks, either because we have no
+            # tasks to send out or we have no free processors.
+            # If we aren't waiting for anything to finish, we'll exit the loop
+            # here. otherwise, we wait for responses and deal with consequences.
+            if len(self.wait_tasks) > 0:
+                self.log("Cannot dispatch any tasks, waiting for response.")
+                gc.collect()
+
+                response = self.fetch_response()
+                self.handle_response(response)
+
+        # Finished the main loop, tell everyone to quit
+        quit = QuitTask()
+        for teamno in range(self.nteams):
+            self.send_task(quit, teamno)
+
+    def dispatch_task(self):
+        (priority, task) = heappop(self.new_tasks)
+        idleteam = self.idle_teams.pop(0)
+        self.send_task(task, idleteam)
+        self.wait_tasks[task.taskid] = (task, idleteam)
+
+    def handle_response(self, response):
+        (task, team) = self.wait_tasks[response.taskid]
+        self.log("Received response %s about task %s from team %s" % (response, task, team))
+        del self.wait_tasks[response.taskid]
+
+class Dummy(object):
+    def __init__(self, parameters, constants=None):
+        self.parameters = parameters
+        self.constants  = constants
