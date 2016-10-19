@@ -15,6 +15,7 @@ from bifurcationproblem   import BifurcationProblem
 from defcon               import DeflatedContinuation
 from arclength            import ArclengthContinuation
 from iomodule             import IO, SolutionIO, BranchIO, HDF5File
+from tasks                import DeflationTask, ContinuationTask, StabilityTask, ArclengthTask
 from operatordeflation    import ShiftedDeflation
 
 if backend.__name__ == "dolfin":

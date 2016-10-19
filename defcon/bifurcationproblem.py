@@ -290,7 +290,7 @@ class BifurcationProblem(object):
         """
         pass
 
-    def solver_parameters(self, params):
+    def solver_parameters(self, params, klass):
         """
         Returns a dictionary with the PETSc options to configure
         the backend nonlinear solver.  Users should
@@ -299,7 +299,10 @@ class BifurcationProblem(object):
 
         params is the set of continuation parameters, which is present
         so that users could adapt the solver strategy depending on the
-        parameter regime if needed"""
+        parameter regime if needed.
+
+        klass is one of {DeflationTask, ContinuationTask, StabilityTask, ArclengthTask},
+        and allows for the user to tune the solver parameters as required."""
         return {}
 
     def transform_guess(self, oldparams, newparams, state):
