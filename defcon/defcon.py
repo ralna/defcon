@@ -1013,7 +1013,7 @@ class DefconMaster(DefconThread):
         deferred_values = [dtask[1].oldparams for dtask in self.deferred_tasks if isinstance(dtask[1], DeflationTask)]
         all_values = filter(lambda x: x is not None, waiting_values + newtask_values + deferred_values)
         if len(all_values) > 0:
-            minparams = self.minvals(all_values, key = lambda x: self.sign*x[self.freeindex])
+            minparams = self.minvals(all_values, key = lambda x: x[self.freeindex])
             prevparams = self.parameters.previous(minparams)
             if prevparams is not None:
                 minwait = prevparams[self.freeindex]
