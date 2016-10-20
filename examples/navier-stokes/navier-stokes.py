@@ -69,7 +69,7 @@ class NavierStokesProblem(BifurcationProblem):
 
     def boundary_conditions(self, Z, params):
         # Inlet BC
-        poiseuille = Expression(("-(x[1] + 1) * (x[1] - 1)", "0.0"), mpi_comm=Z.mesh().mpi_comm())
+        poiseuille = Expression(("-(x[1] + 1) * (x[1] - 1)", "0.0"), degree=1, mpi_comm=Z.mesh().mpi_comm())
         def inflow(x, on_boundary):
           return on_boundary and near(x[0], 0.0)
         bc_inflow = DirichletBC(Z.sub(0), poiseuille, inflow)
