@@ -330,7 +330,7 @@ class ArclengthWorker(defcon.DefconWorker, ArclengthThread):
             (success, iters) = newton.newton(F, self.tangent, self.hbcs,
                                     self.problem.nonlinear_problem,
                                     self.problem.solver,
-                                    self.problem.solver_parameters(current_params),
+                                    self.problem.solver_parameters(current_params, task.__class__),
                                     self.teamno)
             if not success:
                 self.log("Warning: failed to compute tangent", warning=True)
@@ -356,7 +356,7 @@ class ArclengthWorker(defcon.DefconWorker, ArclengthThread):
                 (success, iters) = newton.newton(self.residual, self.state, self.bcs,
                                         self.problem.nonlinear_problem,
                                         self.problem.solver,
-                                        self.problem.solver_parameters(current_params),
+                                        self.problem.solver_parameters(current_params, task.__class__),
                                         self.teamno, self.deflation)
 
                 if success: # exit adaptive loop
