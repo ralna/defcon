@@ -6,6 +6,7 @@ from parametertools import Parameters, make_parameters
 from newton import newton
 from tasks import QuitTask, ContinuationTask, DeflationTask, StabilityTask, Response
 from iomodule import remap_c_streams
+from journal import FileJournal, task_to_code
 
 import backend
 
@@ -598,6 +599,7 @@ class DefconMaster(DefconThread):
     def run(self, parameters, values):
         self.parameters = parameters
         self.freeindex = parameters.freeindex
+        self.values = values
 
         self.configure_io(parameters)
 
@@ -638,6 +640,11 @@ class DefconMaster(DefconThread):
             self.sign = -1
             self.minvals = max
 
+        # Initialise Journal
+        self.journal = FileJournal(self.io.directory, self.parameters.parameters, self.functionals, self.freeindex, self.sign)
+        self.journal.setup(self.nteams, min(values), max(values))
+        self.journal.sweep(values[0])
+
         # Seed initial tasks
         self.seed_initial_tasks(parameters, values)
 
@@ -656,6 +663,7 @@ class DefconMaster(DefconThread):
             # If we aren't waiting for anything to finish, we'll exit the loop
             # here. otherwise, we wait for responses and deal with consequences.
             if len(self.wait_tasks) > 0:
+                self.compute_sweep()
                 self.log("Cannot dispatch any tasks, waiting for response.")
                 gc.collect()
 
@@ -665,9 +673,11 @@ class DefconMaster(DefconThread):
             self.reschedule_deferred_tasks()
 
         # Finished the main loop, tell everyone to quit
+        self.journal.sweep(values[-1])
         quit = QuitTask()
         for teamno in range(self.nteams):
             self.send_task(quit, teamno)
+            self.journal.team_job(teamno, "q")
 
     def reschedule_deferred_tasks(self):
         # Maybe we deferred some deflation tasks because we didn't have enough 
@@ -708,7 +718,7 @@ class DefconMaster(DefconThread):
             # This is because the currently running task might find a branch that we will need
             # to deflate here.
             for (t, r) in self.wait_tasks.values():
-                if isinstance(t, ContinuationTask) and self.sign*t.newparams[self.freeindex]<=self.sign*task.newparams[self.freeindex]:
+                if isinstance(t, ContinuationTask) and self.sign*t.newparams[self.freeindex]<=self.sign*task.newparams[self.freeindex] and t.direction == +1:
                     send = False
                     break
 
@@ -720,6 +730,8 @@ class DefconMaster(DefconThread):
             idleteam = self.idle_teams.pop(0)
             self.send_task(task, idleteam)
             self.wait_tasks[task.taskid] = (task, idleteam)
+
+            self.journal.team_job(idleteam, task_to_code(task), task.newparams, task.branchid)
         else:
             # Best reschedule for later, as there is still pertinent information yet to come in. 
             self.log("Deferring task %s." % task)
@@ -730,12 +742,13 @@ class DefconMaster(DefconThread):
         idleteam = self.idle_teams.pop(0)
         self.send_task(task, idleteam)
         self.wait_tasks[task.taskid] = (task, idleteam)
+        self.journal.team_job(idleteam, task_to_code(task), task.oldparams, task.branchid)
 
     def deflation_task(self, task, team, response):
         if not response.success:
             # As is typical, deflation found nothing interesting. The team
             # is now idle.
-            self.idle_teams.append(team)
+            self.idle_team(team)
 
             # One more check. If this was an initial guess, and it failed, it might be
             # because the user doesn't know when a problem begins to have a nontrivial
@@ -778,7 +791,7 @@ class DefconMaster(DefconThread):
             heappush(self.new_tasks, (priority, task))
 
             # The worker is now idle.
-            self.idle_teams.append(team)
+            self.idle_team(team)
             return
 
         # OK, we're good! The search succeeded and nothing has invalidated it.
@@ -795,6 +808,9 @@ class DefconMaster(DefconThread):
 
         responseback = Response(task.taskid, success=True, data={"branchid": branchid})
         self.send_response(responseback, team)
+
+        # * Record this new solution in the journal
+        self.journal.entry(team, task.oldparams, branchid, task.newparams, response.data["functionals"], False)
 
         # * Insert a new deflation task, to seek again with the same settings.
         newtask = DeflationTask(taskid=self.taskid_counter,
@@ -820,10 +836,12 @@ class DefconMaster(DefconThread):
                                         direction=+1)
             self.wait_tasks[task.taskid] = ((conttask, team))
             self.log("Waiting on response for %s" % conttask)
+            # Write to the journal, saying that this team is now doing continuation.
+            self.journal.team_job(team, "c", task.newparams, branchid)
         else:
             # It's at the end of the continuation, there's no more continuation
             # to do. Mark the team as idle.
-            self.idle_teams.append(team)
+            self.idle_team(team)
 
         # * If we want to continue backwards, well, let's add that task too
         if self.continue_backwards:
@@ -876,8 +894,11 @@ class DefconMaster(DefconThread):
             # We tried to continue a branch, but the continuation died. Oh well.
             # The team is now idle.
             self.log("Continuation task of team %d on branch %d failed at parameters %s." % (team, task.branchid, task.newparams), warning=True)
-            self.idle_teams.append(team)
+            self.idle_team(team)
             return
+
+        # Record success.
+        self.journal.entry(team, task.oldparams, task.branchid, task.newparams, response.data["functionals"], True)
 
         # The worker will keep continuing, record that fact
         if task.direction > 0:
@@ -887,7 +908,7 @@ class DefconMaster(DefconThread):
 
         if newparams is None:
             # No more continuation to do, the team is now idle.
-            self.idle_teams.append(team)
+            self.idle_team(team)
         else:
             conttask = ContinuationTask(taskid=task.taskid,
                                         oldparams=task.newparams,
@@ -896,6 +917,7 @@ class DefconMaster(DefconThread):
                                         direction=task.direction)
             self.wait_tasks[task.taskid] = ((conttask, team))
             self.log("Waiting on response for %s" % conttask)
+            self.journal.team_job(team, task_to_code(conttask))
 
         # Whether there is another continuation task to insert or not,
         # we have a deflation task to insert.
@@ -908,7 +930,7 @@ class DefconMaster(DefconThread):
 
     def stability_task(self, task, team, response):
         if not response.success:
-            self.idle_teams.append(team)
+            self.idle_team(team)
             return
 
         # FIXME: make this aware of the current state of the branch
@@ -931,8 +953,9 @@ class DefconMaster(DefconThread):
                                      hint=None)
             self.wait_tasks[task.taskid] = ((nexttask, team))
             self.log("Waiting on response for %s" % nexttask)
+            self.journal.team_job(team, task_to_code(nexttask), nexttask.oldparams, task.branchid)
         else:
-            self.idle_teams.append(team)
+            self.idle_team(team)
 
     def insert_continuation_task(self, oldparams, branchid, priority):
         newparams = self.parameters.next(oldparams)
@@ -980,3 +1003,29 @@ class DefconMaster(DefconThread):
                         heappush(self.stability_tasks, (newpriority, stabtask))
                         self.taskid_counter += 1
 
+    def idle_team(self, team):
+        self.idle_teams.append(team)
+        self.journal.team_job(team, "i")
+
+    def compute_sweep(self):
+        waiting_values = [wtask[0].oldparams for wtask in self.wait_tasks.values() if isinstance(wtask[0], DeflationTask)]
+        newtask_values = [ntask[1].oldparams for ntask in self.new_tasks if isinstance(ntask[1], DeflationTask)]
+        deferred_values = [dtask[1].oldparams for dtask in self.deferred_tasks if isinstance(dtask[1], DeflationTask)]
+        all_values = filter(lambda x: x is not None, waiting_values + newtask_values + deferred_values)
+        if len(all_values) > 0:
+            minparams = self.minvals(all_values, key = lambda x: self.sign*x[self.freeindex])
+            prevparams = self.parameters.previous(minparams)
+            if prevparams is not None:
+                minwait = prevparams[self.freeindex]
+
+                tot_solutions = self.problem.number_solutions(minparams)
+                if isinf(tot_solutions): tot_solutions = '?'
+                num_solutions = len(self.io.known_branches(minparams))
+                self.log("Deflation sweep completed <= %14.12e (%s/%s solutions)." % (minwait, num_solutions, tot_solutions))
+                # Write to the journal saying where we've completed our sweep up to.
+                self.journal.sweep(minwait)
+
+        elif len(self.wait_tasks.values() + self.new_tasks + self.deferred_tasks) == 0:
+            # We have only stability tasks to do.
+            minwait = self.values[-1]
+            self.journal.sweep(minwait)

@@ -1,7 +1,11 @@
 import time
 import os
 from ast import literal_eval
+from tasks import ArclengthTask, StabilityTask, ContinuationTask, DeflationTask
 
+codes = {ArclengthTask: "a", StabilityTask: "s", ContinuationTask: "c", DeflationTask: "d"}
+def task_to_code(task):
+    return codes[task.__class__]
 
 class Journal(object):
     """
@@ -68,10 +72,9 @@ class FileJournal(Journal):
 
     def sweep(self, params):
         """ Tell the journal about an update to the sweepline. """
-        if (self.sweep_params is None) or self.sign*self.sweep_params < self.sign*params:
-            self.sweep_params = params
-            with file(self.directory + os.path.sep + "journal.txt", 'a') as f:
-                f.write("$%.20f\n" % params) # Need to make sure we get the decimal places correct here, else there will be bugs with checkpointing.
+        self.sweep_params = params
+        with file(self.directory + os.path.sep + "journal.txt", 'a') as f:
+            f.write("$%.20f\n" % params)
 
     def team_job(self, team, task, params=None, branch=None):
         """ Tell the journal about what this team is doing. """

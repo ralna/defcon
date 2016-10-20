@@ -22,7 +22,7 @@ import time as TimeModule
 
 # Imports for the paraview and hdf5topvd methods.
 from subprocess import Popen
-from parametertools import parameterstostring
+from parametertools import parameters_to_string
 
 # We'll use literal_eval to get lists and tuples back from the journal. 
 # This is not as bad as eval, as it only recognises: strings, bytes, numbers, tuples, lists, dicts, booleans, sets, and None.
@@ -510,7 +510,7 @@ class PlotConstructor():
                 except OSError: pass
 
                 # Create the file to which we will write these solutions.
-                pvd_filename = solutions_dir + "SOLUTION$%s$branchid=%d.pvd" % (parameterstostring(problem_parameters, params), branchid)
+                pvd_filename = solutions_dir + "SOLUTION$%s$branchid=%d.pvd" % (parameters_to_string(problem_parameters, params), branchid)
                 pvd = File(pvd_filename)
 
                 # Write the solution.

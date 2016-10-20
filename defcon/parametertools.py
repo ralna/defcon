@@ -1,5 +1,3 @@
-import backend
-
 class Parameters(object):
     """
     Takes in the parameters and freeindex. Has a bunch of utility
@@ -77,7 +75,7 @@ def make_parameters(parameters, values, free, fixed):
             freeindex = index
 
     if freeparam is None:
-        backend.info_red("Cannot find %s in parameters %s." % (free.keys()[0], [param[1] for param in self.parameters]))
+        print("Cannot find %s in parameters %s." % (free.keys()[0], [param[1] for param in self.parameters]))
         assert freeparam is not None
 
     return Parameters(parameters, values, freeindex)
