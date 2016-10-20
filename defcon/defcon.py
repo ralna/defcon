@@ -489,7 +489,7 @@ class DeflatedContinuation(object):
                     # This is because the currently running task might find a branch that we will need
                     # to deflate here.
                     for (t, r) in waittasks.values():
-                        if isinstance(t, ContinuationTask) and self.sign*t.newparams[self.freeindex]<=self.sign*task.newparams[self.freeindex]:
+                        if isinstance(t, ContinuationTask) and self.sign*t.newparams[self.freeindex]<=self.sign*task.newparams[self.freeindex] and t.direction == +1:
                             send = False
                             break
 
