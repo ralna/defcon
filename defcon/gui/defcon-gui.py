@@ -124,7 +124,10 @@ import backend
 mesh = problem.mesh(backend.comm_world)
 
 # If the mesh is 1D, we don't want to use paraview. 
-if mesh.geometry().dim() < 2: plot_with_mpl = True 
+if backend.__name__ == "dolfin":
+    if mesh.geometry().dim() < 2: plot_with_mpl = True
+else:
+    if mesh.geometric_dimension() < 2: plot_with_mpl = True
 
 # Get the function space and set up the I/O module for fetching solutions. 
 V = problem.function_space(mesh)
