@@ -46,7 +46,7 @@ class HyperelasticityProblem(BifurcationProblem):
         # Construct rigid body modes used in algebraic multigrid preconditioner later on
         rbms = [Constant((0, 1)),
                 Constant((1, 0)),
-                Expression(("-x[1]", "x[0]"), mpi_comm=mesh.mpi_comm())]
+                Expression(("-x[1]", "x[0]"), degree=1, mpi_comm=mesh.mpi_comm())]
         self.rbms = [interpolate(rbm, V) for rbm in rbms]
 
         return V
@@ -130,10 +130,10 @@ class HyperelasticityProblem(BifurcationProblem):
     def squared_norm(self, a, b, params):
         return inner(a - b, a - b)*dx + inner(grad(a - b), grad(a - b))*dx
 
-    def solver(self, problem, prefix=""):
+    def solver(self, problem, solver_params, prefix=""):
         # Set the rigid body modes for use in AMG
 
-        s = SNUFLSolver(problem, prefix=prefix)
+        s = SNUFLSolver(problem, solver_parameters=solver_params, prefix=prefix)
         snes = s.snes
         snes.setFromOptions()
 
