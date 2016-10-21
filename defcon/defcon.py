@@ -18,6 +18,7 @@ import time
 import sys
 import gc
 import os
+import traceback
 from heapq import heappush, heappop
 
 class DeflatedContinuation(object):
@@ -477,16 +478,26 @@ class DefconWorker(DefconThread):
 
     def stability_task(self, task):
         try:
-            self.load_solution(task.oldparams, task.branchid, -1)
-            self.load_parameters(task.oldparams)
-
-            d = self.problem.compute_stability(task.oldparams, task.branchid, self.state, hint=task.hint)
+            # Have we already computed the stability? For good reasons
+            # we sometimes get the same task twice.
+            stab = self.io.fetch_stability(task.oldparams, [task.branchid])
             success = True
-            response = Response(task.taskid, success=success, data={"stable": d["stable"]})
-        except:
-            import traceback; traceback.print_exc()
-            success = False
-            response = Response(task.taskid, success=success)
+            d = {"stable": stab[0]}
+            response = Response(task.taskid, success=success, data={"stable": stab[0]})
+        except IOError:
+            # We don't know whether it's stable or not, compute.
+            try:
+                self.load_solution(task.oldparams, task.branchid, -1)
+                self.load_parameters(task.oldparams)
+
+                d = self.problem.compute_stability(task.oldparams, task.branchid, self.state, hint=task.hint)
+                success = True
+                response = Response(task.taskid, success=success, data={"stable": d["stable"]})
+            except:
+                self.log("Stability task %s failed; exception follows." % task, warning=True)
+                traceback.print_exc()
+                success = False
+                response = Response(task.taskid, success=success)
 
         if success:
             # Save the data to disk with the I/O module
@@ -623,13 +634,18 @@ class DefconMaster(DefconThread):
         self.compute_stability = "compute_stability" in self.problem.__class__.__dict__
 
         # We need to keep a map of parameters -> branches.
-        # FIXME: make writes atomic and get rid of this.
+        # FIXME: make disk writes atomic and get rid of this.
         self.ensure_branches = {}
 
         # In parallel, we might make a discovery with deflation that invalidates
         # the results of other deflations ongoing. This set keeps track of the tasks
         # whose results we need to ignore.
         self.invalidated_tasks = set()
+
+        # A map from branchid -> (min, max) parameter value known.
+        # This is needed to keep stability tasks from outrunning the
+        # continuation on which they depend.
+        self.branch_extent = {}
 
         # If we're going downwards in continuation parameter, we need to change
         # signs in a few places
@@ -809,6 +825,9 @@ class DefconMaster(DefconThread):
         responseback = Response(task.taskid, success=True, data={"branchid": branchid})
         self.send_response(responseback, team)
 
+        # * Record the branch extent
+        self.branch_extent[branchid] = [task.newparams[self.freeindex], task.newparams[self.freeindex]]
+
         # * Record this new solution in the journal
         self.journal.entry(team, task.oldparams, branchid, task.newparams, response.data["functionals"], False)
 
@@ -875,7 +894,7 @@ class DefconMaster(DefconThread):
             heappush(self.stability_tasks, (newpriority, stabtask))
             self.taskid_counter += 1
 
-            if self.continue_backwards:
+            if self.continue_backwards and task.oldparams is not None:
                 stabtask = StabilityTask(taskid=self.taskid_counter,
                                          oldparams=task.newparams,
                                          branchid=branchid,
@@ -899,6 +918,12 @@ class DefconMaster(DefconThread):
 
         # Record success.
         self.journal.entry(team, task.oldparams, task.branchid, task.newparams, response.data["functionals"], True)
+
+        # Update the branch extent.
+        if task.direction > 0:
+            self.branch_extent[task.branchid][1] = task.newparams[self.freeindex]
+        else:
+            self.branch_extent[task.branchid][0] = task.newparams[self.freeindex]
 
         # The worker will keep continuing, record that fact
         if task.direction > 0:
@@ -933,11 +958,52 @@ class DefconMaster(DefconThread):
             self.idle_team(team)
             return
 
-        # FIXME: make this aware of the current state of the branch
-        # and kill the StabilityTask if it's outpaced the associated
-        # continuation
-        responseback = Response(task.taskid, success=True)
+        # Check if this is the end of the known data: if it is, don't
+        # continue
+        success = True
+        if task.direction > 0:
+            if self.sign*task.oldparams[self.freeindex] >= self.sign*self.branch_extent[task.branchid][1]:
+                success = False
+        else:
+            if self.sign*task.oldparams[self.freeindex] <= self.sign*self.branch_extent[task.branchid][0]:
+                success = False
+        responseback = Response(task.taskid, success=success)
         self.send_response(responseback, team)
+
+        if not success:
+            # We've told the worker to stop. The team is now idle.
+            self.idle_team(team)
+
+            # If the continuation is still ongoing, we'll insert another stability
+            # task into the queue.
+            continuation_ongoing = False
+            for currenttask in self.wait_tasks.values():
+                if currenttask[0].branchid == task.branchid:
+                    continuation_ongoing = True
+                    break
+
+            if not continuation_ongoing:
+                for currenttask in self.new_tasks:
+                    if currenttask[1].branchid == task.branchid:
+                        continuation_ongoing = True
+                        break
+
+            if continuation_ongoing:
+                # Insert another StabilityTask into the queue.
+                if task.direction > 0:
+                    newparams = self.parameters.next(task.oldparams)
+                else:
+                    newparams = self.parameters.previous(task.oldparams)
+
+                if newparams is not None:
+                    nexttask = StabilityTask(taskid=task.taskid,
+                                             branchid=task.branchid,
+                                             oldparams=newparams,
+                                             direction=task.direction,
+                                             hint=None)
+                    newpriority = self.sign*nexttask.oldparams[self.freeindex]
+                    heappush(self.stability_tasks, (newpriority, nexttask))
+            return
 
         # The worker will keep continuing, record that fact
         if task.direction > 0:
