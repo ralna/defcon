@@ -7,26 +7,6 @@ from dolfin import *
 
 import matplotlib.pyplot as plt
 
-args = [sys.argv[0]] + """
-                       --petsc.snes_max_it 100
-                       --petsc.snes_atol 1.0e-9
-                       --petsc.snes_rtol 0.0
-                       --petsc.snes_monitor
-
-                       --petsc.ksp_type preonly
-                       --petsc.pc_type lu
-
-                       --petsc.eps_type krylovschur
-                       --petsc.eps_target -1
-                       --petsc.eps_monitor_all
-                       --petsc.eps_converged_reason
-                       --petsc.eps_nev 1
-                       --petsc.st_type sinvert
-                       --petsc.st_ksp_type preonly
-                       --petsc.st_pc_type lu
-                       """.split()
-parameters.parse(args)
-
 from petsc4py import PETSc
 from slepc4py import SLEPc # for stability calculations
 
@@ -173,6 +153,26 @@ class ElasticaProblem(BifurcationProblem):
 
         return d
 
+    def solver_parameters(self, params, klass):
+        args = {
+               "snes_max_it": 100,
+               "snes_atol": 1.0e-9,
+               "snes_rtol": 0.0,
+               "snes_monitor": None,
+               "ksp_type": "preonly",
+               "pc_type": "lu",
+               "eps_type": "krylovschur",
+               "eps_target": -1,
+               "eps_monitor_all": None,
+               "eps_converged_reason": None,
+               "eps_nev": 1,
+               "st_type": "sinvert",
+               "st_ksp_type": "preonly",
+               "st_pc_type": "lu",
+               "st_pc_factor_mat_solver_package": "mumps",
+               }
+        return args
+
 if __name__ == "__main__":
     dc = DeflatedContinuation(problem=ElasticaProblem(), teamsize=1, verbose=True)
     dc.run(free={"lambda": linspace(0, 3.9*pi, 200)}, fixed={"mu": 0.5})
@@ -180,8 +180,3 @@ if __name__ == "__main__":
     dc.bifurcation_diagram("signedL2", fixed={"mu": 0.5})
     plt.title(r"Buckling of an Euler elastica, $\mu = 1/2$")
     plt.savefig("bifurcation.pdf")
-
-    # Maybe you could also do:
-    #dc.run(fixed={"lambda": 4*pi}, free={"mu": linspace(0.5, 0.0, 6)})
-    #dc.run(fixed={"mu": 0.0}, free={"lambda": linspace(4*pi, 0.0, 100)})
-
