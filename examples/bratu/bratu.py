@@ -7,17 +7,7 @@ from dolfin import *
 import matplotlib.pyplot as plt
 from   numpy import array
 
-args = [sys.argv[0]] + """
-                       --petsc.snes_max_it 100
-                       --petsc.snes_atol 1.0e-9
-                       --petsc.snes_rtol 0.0
-                       --petsc.snes_monitor
-
-                       --petsc.ksp_type preonly
-                       --petsc.pc_type lu
-                       --petsc.pc_factor_mat_solver_package umfpack
-                       """.split()
-parameters.parse(args)
+parameters["form_compiler"]["representation"] = "quadrature" # crashes with "uflacs"
 
 class BratuProblem(BifurcationProblem):
     def mesh(self, comm):
@@ -62,6 +52,16 @@ class BratuProblem(BifurcationProblem):
         lmbda = params[0]
         if lmbda > 3.513: return 0
         else: return 2
+
+    def solver_parameters(self, params, klass):
+        return {
+               "snes_max_it": 100,
+               "snes_atol": 1.0e-9,
+               "snes_rtol": 0.0,
+               "snes_monitor": None,
+               "ksp_type": "preonly",
+               "pc_type": "lu"
+               }
 
 if __name__ == "__main__":
     dc = DeflatedContinuation(problem=BratuProblem(), teamsize=1, verbose=True)

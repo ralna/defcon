@@ -7,20 +7,6 @@ from dolfin import *
 
 import matplotlib.pyplot as plt
 
-args = [sys.argv[0]] + """
-                       --petsc.snes_max_it 50
-                       --petsc.snes_atol 1.0e-9
-                       --petsc.snes_rtol 0.0
-                       --petsc.snes_monitor
-                       --petsc.snes_converged_reason
-
-                       --petsc.ksp_type preonly
-                       --petsc.pc_type lu
-                       --petsc.pc_factor_mat_solver_package mumps
-                       --petsc.ksp_converged_reason
-                       """.split()
-parameters.parse(args)
-
 class NavierStokesProblem(BifurcationProblem):
     def mesh(self, comm):
         mesh = Mesh(comm, "mesh/mesh.xml.gz")
@@ -103,6 +89,19 @@ class NavierStokesProblem(BifurcationProblem):
         elif Re < 75:  return 5
         elif Re < 100: return 8
         else:          return float("inf")
+
+    def solver_parameters(self, params, klass):
+        return {
+               "snes_max_it": 50,
+               "snes_atol": 1.0e-9,
+               "snes_rtol": 0.0,
+               "snes_monitor": None,
+               "snes_converged_reason": None,
+               "ksp_type": "preonly",
+               "pc_type": "lu",
+               "pc_factor_mat_solver_package": "mumps",
+               "ksp_converged_reason": None,
+               }
 
 if __name__ == "__main__":
     dc = DeflatedContinuation(problem=NavierStokesProblem(), teamsize=1, verbose=True)

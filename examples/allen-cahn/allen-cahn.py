@@ -5,17 +5,6 @@ from   math import floor
 from defcon import *
 from dolfin import *
 
-args = [sys.argv[0]] + """
-                       --petsc.snes_max_it 50
-                       --petsc.snes_atol 1.0e-9
-                       --petsc.snes_rtol 0.0
-                       --petsc.snes_monitor
-
-                       --petsc.ksp_type preonly
-                       --petsc.pc_type lu
-                       """.split()
-parameters.parse(args)
-
 class AllenCahnProblem(BifurcationProblem):
     def mesh(self, comm):
         return UnitSquareMesh(comm, 100, 100, "crossed")
@@ -59,6 +48,16 @@ class AllenCahnProblem(BifurcationProblem):
         delta = params[0]
         if delta == 0.04: return 3
         else:             return float("inf")
+
+    def solver_parameters(self, params, klass):
+        return {
+               "snes_max_it": 50,
+               "snes_atol": 1.0e-9,
+               "snes_rtol": 0.0,
+               "snes_monitor": None,
+               "ksp_type": "preonly",
+               "pc_type": "lu"
+               }
 
 if __name__ == "__main__":
     dc = DeflatedContinuation(problem=AllenCahnProblem(), teamsize=1, verbose=True)

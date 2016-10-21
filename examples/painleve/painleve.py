@@ -4,23 +4,8 @@ import sys
 from defcon import *
 from dolfin import *
 
-args = [sys.argv[0]] + """
-                       --petsc.snes_type newtonls
-                       --petsc.snes_linesearch_type basic
-                       --petsc.snes_linesearch_damping 0.1
-                       --petsc.snes_max_it 10000
-                       --petsc.snes_max_funcs 10000
-                       --petsc.snes_monitor
-                       --petsc.snes_linesearch_monitor
-                       --petsc.snes_converged_reason
-                       --petsc.snes_stol 0.0
-
-                       --petsc.ksp_type preonly
-                       --petsc.pc_type lu
-                       """.split()
-parameters.parse(args)
-
 L = 10 # length of domain
+parameters["form_compiler"]["representation"] = "quadrature" # "uflacs" crashes
 
 class PainleveProblem(BifurcationProblem):
     def mesh(self, comm):
@@ -68,6 +53,21 @@ class PainleveProblem(BifurcationProblem):
 
     def number_solutions(self, params):
         return 2
+
+    def solver_parameters(self, params, klass):
+        return {
+               "snes_type": "newtonls",
+               "snes_linesearch_type": "basic",
+               "snes_linesearch_damping": 0.1,
+               "snes_max_it": 10000,
+               "snes_max_funcs": 10000,
+               "snes_monitor": None,
+               "snes_linesearch_monitor": None,
+               "snes_converged_reason": None,
+               "snes_stol": 0.0,
+               "ksp_type": "preonly",
+               "pc_type": "lu",
+               }
 
 if __name__ == "__main__":
     problem = PainleveProblem()

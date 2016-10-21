@@ -7,17 +7,6 @@ from dolfin import *
 
 import matplotlib.pyplot as plt
 
-args = [sys.argv[0]] + """
-                       --petsc.snes_max_it 100
-                       --petsc.snes_atol 1.0e-9
-                       --petsc.snes_rtol 0.0
-                       --petsc.snes_monitor
-
-                       --petsc.ksp_type preonly
-                       --petsc.pc_type lu
-                       """.split()
-parameters.parse(args)
-
 class CarrierProblem(BifurcationProblem):
     def __init__(self):
         self.bcs = None
@@ -85,6 +74,17 @@ class CarrierProblem(BifurcationProblem):
         eps = params[0]
 
         return inner(a - b, a - b)*dx + sqrt(eps)*inner(grad(a - b), grad(a - b))*dx
+
+    def solver_parameters(self, params, klass):
+        return {
+               "snes_max_it": 100,
+               "snes_atol": 1.0e-9,
+               "snes_rtol": 0.0,
+               "snes_divergence_tolerance": -1,
+               "snes_monitor": None,
+               "ksp_type": "preonly",
+               "pc_type": "lu"
+               }
 
 if __name__ == "__main__":
     dc = DeflatedContinuation(problem=CarrierProblem(), teamsize=1, verbose=True)
