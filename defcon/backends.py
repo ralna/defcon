@@ -34,6 +34,12 @@ def import_backend():
         dolfin.parameters["form_compiler"]["cpp_optimize"] = True
         dolfin.parameters["form_compiler"]["cpp_optimize_flags"] = "-O3 -ffast-math -march=native"
 
+        # I have to *force* DOLFIN to initialise PETSc.
+        # Otherwise, it will do it in the workers, using COMM_WORLD,
+        # and deadlock. Yikes.
+        dolfin.PETScOptions.set("dummy", 1)
+        dolfin.PETScOptions.clear("dummy")
+
     elif use_firedrake:
         # firedrake imported, no dolfin
         import firedrake
