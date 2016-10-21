@@ -6,14 +6,15 @@ from defcon import *
 from dolfin import *
 
 import matplotlib.pyplot as plt
+from numpy import sqrt as nsqrt
 
 class CarrierProblem(BifurcationProblem):
     def __init__(self):
         self.bcs = None
 
         # Awesome asymptotic formulae from Jon Chapman
-        self.pitchbfs = [(0.472537/n)**2 for n in range(1,100)]
-        self.foldbfs  = [(0.472537/(n - 0.8344/n))**2 for n in range(2, 100)]
+        self.pitchbfs = [(0.472537/n) for n in range(1,100)]
+        self.foldbfs  = [(0.472537/(n - 0.8344/n)) for n in range(2, 100)]
 
     def mesh(self, comm):
         return IntervalMesh(comm, 10000, -1, 1)
@@ -30,7 +31,7 @@ class CarrierProblem(BifurcationProblem):
         x = SpatialCoordinate(y.function_space().mesh())[0]
 
         F = (
-            - eps*inner(grad(y), grad(v))*dx
+            - eps**2*inner(grad(y), grad(v))*dx
             + 2*(1-x*x) * inner(y, v)*dx
             + inner(y*y, v)*dx
             - inner(Constant(1), v)*dx
@@ -88,7 +89,9 @@ class CarrierProblem(BifurcationProblem):
 
 if __name__ == "__main__":
     dc = DeflatedContinuation(problem=CarrierProblem(), teamsize=1, verbose=True)
-    dc.run(free={"epsilon": list(arange(0.25, 0.01, -0.0005)) + [0.01]})
+    epssq = linspace(0.25, 0.01, 481) # a step of -0.0005
+    eps   = nsqrt(epssq)
+    dc.run(free={"epsilon": list(eps)})
 
     dc.bifurcation_diagram("signedL2")
     ax = plt.gca()
