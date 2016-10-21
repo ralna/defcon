@@ -4,37 +4,6 @@ import sys
 from defcon import *
 from dolfin import *
 
-args = [sys.argv[0]] + """
-                       --petsc.snes_max_it 100
-                       --petsc.snes_stol 0.0
-                       --petsc.snes_rtol 1.0e-10
-                       --petsc.snes_trtol 0.0
-                       --petsc.snes_monitor
-
-                       --petsc.ksp_monitor_cancel
-                       --petsc.ksp_type gmres
-                       --petsc.ksp_gmres_restart 100
-                       --petsc.ksp_monitor_short
-                       --petsc.ksp_max_it 1000
-                       --petsc.ksp_atol 1.0e-10
-                       --petsc.ksp_rtol 1.0e-10
-
-                       --petsc.pc_type gamg
-                       --petsc.pc_gamg_verbose 10
-                       --petsc.pc_gamg_type agg
-                       --petsc.pc_gamg_coarse_eq_limit 2000
-                       --petsc.pc_gamg_agg_nsmooths 4
-                       --petsc.pc_gamg_threshold 0.04
-                       --petsc.pc_gamg_square_graph 1
-                       --petsc.pc_gamg_sym_graph 1
-                       --petsc.mg_coarse_pc_type redundant
-                       --petsc.mg_coarse_sub_pc_type lu
-                       --petsc.mg_levels_pc_type jacobi
-                       --petsc.mg_levels_ksp_type chebyshev
-                       --petsc.mg_levels_ksp_max_it 10
-                       --petsc.gamg_est_ksp_max_it 30
-                       """.split()
-parameters.parse(args)
 parameters["form_compiler"]["quadrature_degree"] = 5
 parameters["form_compiler"]["optimize"]     = True
 parameters["form_compiler"]["cpp_optimize"] = True
@@ -83,6 +52,37 @@ class YamabeProblem(BifurcationProblem):
 
     def initial_guess(self, V, params, n):
         return interpolate(Constant(1), V)
+
+    def solver_parameters(self, params, klass):
+        return {
+               "snes_max_it": 100,
+               "snes_stol": 0.0,
+               "snes_rtol": 1.0e-10,
+               "snes_trtol": 0.0,
+               "snes_monitor": None,
+               "snes_divergence_tolerance": -1,
+               "ksp_monitor_cancel": None,
+               "ksp_type": "preonly",
+               "ksp_gmres_restart": 100,
+               "ksp_monitor_short": None,
+               "ksp_max_it": 1000,
+               "ksp_atol": 1.0e-10,
+               "ksp_rtol": 1.0e-10,
+               "pc_type": "lu",
+               "pc_gamg_verbose": 10,
+               "pc_gamg_type": "agg",
+               "pc_gamg_coarse_eq_limit": 2000,
+               "pc_gamg_agg_nsmooths": 4,
+               "pc_gamg_threshold": 0.04,
+               "pc_gamg_square_graph": 1,
+               "pc_gamg_sym_graph": 1,
+               "mg_coarse_pc_type": "redundant",
+               "mg_coarse_sub_pc_type": "lu",
+               "mg_levels_pc_type": "jacobi",
+               "mg_levels_ksp_type": "chebyshev",
+               "mg_levels_ksp_max_it": 10,
+               "gamg_est_ksp_max_it": 30,
+               }
 
 if __name__ == "__main__":
     problem = YamabeProblem()
