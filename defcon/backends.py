@@ -40,6 +40,10 @@ def import_backend():
         dolfin.PETScOptions.set("dummy", 1)
         dolfin.PETScOptions.clear("dummy")
 
+        # PETSc has recently implemented a new divergence tolerance,
+        # which regularly breaks my deflation code. Disable it.
+        dolfin.PETScOptions.set("snes_divergence_tolerance", -1)
+
     elif use_firedrake:
         # firedrake imported, no dolfin
         import firedrake
@@ -47,3 +51,7 @@ def import_backend():
 
         firedrake.parameters["assembly_cache"]["enabled"] = False
         firedrake.parameters["pyop2_options"]["lazy_evaluation"] = False
+
+        from petsc4py import PETSc
+        opts = PETSc.Options()
+        opts.setValue("snes_divergence_tolerance", -1)
