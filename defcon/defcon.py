@@ -45,6 +45,8 @@ class DeflatedContinuation(object):
             Whether defcon should remap stdout/stderr to logfiles (useful for many processes).
           continue_backwards (+1 or -1)
             Whether defcon should also continue backwards when it finds a new branch with deflation.
+          clear_output (:py:class:`bool`)
+            Whether defcon should first clear any old output.
           comm (MPI.Comm)
             The communicator that gathers all processes involved in this computation
         """
@@ -53,6 +55,11 @@ class DeflatedContinuation(object):
         kwargs["comm"] = worldcomm
 
         self.problem = problem
+
+        clear_output = kwargs.get("clear_output", False)
+        if clear_output:
+            io = problem.io()
+            io.clear()
 
         if worldcomm.rank == 0:
             self.thread = DefconMaster(problem, **kwargs)

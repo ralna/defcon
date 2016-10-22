@@ -215,6 +215,7 @@ import glob
 import time
 import numpy as np
 from ast import literal_eval
+import shutil
 
 class IO(object):
     """
@@ -228,6 +229,9 @@ class IO(object):
         self.parameters = parameters
         self.functionals = functionals
         self.function_space = function_space
+
+    def clear(self):
+        shutil.rmtree(self.directory, ignore_errors=True)
 
     def save_solution(self, solution, funcs, params, branchid):
         raise NotImplementedError
