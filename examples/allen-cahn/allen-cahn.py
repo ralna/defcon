@@ -60,5 +60,5 @@ class AllenCahnProblem(BifurcationProblem):
                }
 
 if __name__ == "__main__":
-    dc = DeflatedContinuation(problem=AllenCahnProblem(), teamsize=1, verbose=True)
+    dc = DeflatedContinuation(problem=AllenCahnProblem(), teamsize=1, verbose=True, clear_output=True)
     dc.run(free={"delta": [0.04]})
