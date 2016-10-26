@@ -21,14 +21,14 @@ class Parameters(object):
             out[self.freeindex] = value
         return tuple(out)
 
-    def next(self, oldparams):
+    def next(self, oldparams, freeindex):
         """
         This is probably unnecessarily slow. It will index into
         values each time it is called to find the next parameter
         value. We could think about using a better data structure
         for values.
         """
-        current_value = oldparams[self.freeindex]
+        current_value = oldparams[freeindex]
         current_index = self.values.index(current_value)
 
         if current_index == len(self.values) - 1:
@@ -37,11 +37,11 @@ class Parameters(object):
         next_value = self.values[current_index + 1]
 
         newparams = list(oldparams)
-        newparams[self.freeindex] = next_value
+        newparams[freeindex] = next_value
         return tuple(newparams)
 
-    def previous(self, oldparams):
-        current_value = oldparams[self.freeindex]
+    def previous(self, oldparams, freeindex):
+        current_value = oldparams[freeindex]
         current_index = self.values.index(current_value)
 
         if current_index == 0:
@@ -50,7 +50,7 @@ class Parameters(object):
         prev_value = self.values[current_index - 1]
 
         newparams = list(oldparams)
-        newparams[self.freeindex] = prev_value
+        newparams[freeindex] = prev_value
         return tuple(newparams)
 
     def update_from_string(s):

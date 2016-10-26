@@ -413,7 +413,7 @@ class DefconWorker(DefconThread):
         self.log("Saved solution to %s to disk" % task)
 
         # Automatically start onto the continuation
-        newparams = self.parameters.next(task.newparams)
+        newparams = self.parameters.next(task.newparams, task.freeindex)
         if newparams is not None:
             task = ContinuationTask(taskid=task.taskid,
                                     oldparams=task.newparams,
@@ -468,9 +468,9 @@ class DefconWorker(DefconThread):
             return
 
         if task.direction > 0:
-            newparams = self.parameters.next(task.newparams)
+            newparams = self.parameters.next(task.newparams, task.freeindex)
         else:
-            newparams = self.parameters.previous(task.newparams)
+            newparams = self.parameters.previous(task.newparams, task.freeindex)
 
         if newparams is None:
             # we have no more continuation to do, move on.
@@ -529,9 +529,9 @@ class DefconWorker(DefconThread):
             return
 
         if task.direction > 0:
-            newparams = self.parameters.next(task.oldparams)
+            newparams = self.parameters.next(task.oldparams, task.freeindex)
         else:
-            newparams = self.parameters.previous(task.oldparams)
+            newparams = self.parameters.previous(task.oldparams, task.freeindex)
 
         if newparams is not None:
             task = StabilityTask(taskid=task.taskid,
@@ -779,7 +779,7 @@ class DefconMaster(DefconThread):
             # because the user doesn't know when a problem begins to have a nontrivial
             # branch. In this case keep trying.
             if task.oldparams is None and self.branchid_counter == 0:
-                newparams = self.parameters.next(task.newparams)
+                newparams = self.parameters.next(task.newparams, task.freeindex)
                 if newparams is not None:
                     newtask = DeflationTask(taskid=self.taskid_counter,
                                             oldparams=task.oldparams,
@@ -857,7 +857,7 @@ class DefconMaster(DefconThread):
 
         # * Record that the worker team is now continuing that branch,
         # if there's continuation to be done.
-        newparams = self.parameters.next(task.newparams)
+        newparams = self.parameters.next(task.newparams, task.freeindex)
         if newparams is not None:
             conttask = ContinuationTask(taskid=task.taskid,
                                         oldparams=task.newparams,
@@ -876,7 +876,7 @@ class DefconMaster(DefconThread):
 
         # * If we want to continue backwards, well, let's add that task too
         if self.continue_backwards:
-            newparams = self.parameters.previous(task.newparams)
+            newparams = self.parameters.previous(task.newparams, task.freeindex)
             if newparams is not None:
                 bconttask = ContinuationTask(taskid=self.taskid_counter,
                                             oldparams=task.newparams,
@@ -942,9 +942,9 @@ class DefconMaster(DefconThread):
 
         # The worker will keep continuing, record that fact
         if task.direction > 0:
-            newparams = self.parameters.next(task.newparams)
+            newparams = self.parameters.next(task.newparams, task.freeindex)
         else:
-            newparams = self.parameters.previous(task.newparams)
+            newparams = self.parameters.previous(task.newparams, task.freeindex)
 
         if newparams is None:
             # No more continuation to do, the team is now idle.
@@ -1008,9 +1008,9 @@ class DefconMaster(DefconThread):
             if continuation_ongoing:
                 # Insert another StabilityTask into the queue.
                 if task.direction > 0:
-                    newparams = self.parameters.next(task.oldparams)
+                    newparams = self.parameters.next(task.oldparams, task.freeindex)
                 else:
-                    newparams = self.parameters.previous(task.oldparams)
+                    newparams = self.parameters.previous(task.oldparams, task.freeindex)
 
                 if newparams is not None:
                     nexttask = StabilityTask(taskid=task.taskid,
@@ -1025,9 +1025,9 @@ class DefconMaster(DefconThread):
 
         # The worker will keep continuing, record that fact
         if task.direction > 0:
-            newparams = self.parameters.next(task.oldparams)
+            newparams = self.parameters.next(task.oldparams, task.freeindex)
         else:
-            newparams = self.parameters.previous(task.oldparams)
+            newparams = self.parameters.previous(task.oldparams, task.freeindex)
 
         if newparams is not None:
             nexttask = StabilityTask(taskid=task.taskid,
@@ -1043,7 +1043,7 @@ class DefconMaster(DefconThread):
             self.idle_team(team)
 
     def insert_continuation_task(self, oldparams, freeindex, branchid, priority):
-        newparams = self.parameters.next(oldparams)
+        newparams = self.parameters.next(oldparams, freeindex)
         branchid  = int(branchid)
         if newparams is not None:
             task = ContinuationTask(taskid=self.taskid_counter,
@@ -1068,7 +1068,7 @@ class DefconMaster(DefconThread):
                 self.taskid_counter += 1
 
             if self.continue_backwards:
-                newparams = self.parameters.previous(oldparams)
+                newparams = self.parameters.previous(oldparams, freeindex)
                 if newparams is not None:
                     task = ContinuationTask(taskid=self.taskid_counter,
                                             oldparams=oldparams,
@@ -1103,7 +1103,7 @@ class DefconMaster(DefconThread):
         all_values = filter(lambda x: x is not None, waiting_values + newtask_values + deferred_values)
         if len(all_values) > 0:
             minparams = self.minvals(all_values, key = lambda x: x[self.parameters.freeindex])
-            prevparams = self.parameters.previous(minparams)
+            prevparams = self.parameters.previous(minparams, self.parameters.freeindex)
             if prevparams is not None:
                 minwait = prevparams[self.parameters.freeindex]
 
