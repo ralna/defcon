@@ -20,6 +20,8 @@ class ContinuationTask(Task):
         Global identifier for this task
       oldparams (tuple)
         Parameter values to continue from
+      freeindex (int)
+        Which parameter is currently being varied
       branchid (int)
         Which branch to continue (int)
       newparams (tuple)
@@ -27,9 +29,10 @@ class ContinuationTask(Task):
       direction (+1 or -1)
         +1 means go increasing in parameter direction; -1 to go backwards
     """
-    def __init__(self, taskid, oldparams, branchid, newparams, direction, ensure_branches=None):
+    def __init__(self, taskid, oldparams, freeindex, branchid, newparams, direction, ensure_branches=None):
         self.taskid    = taskid
         self.oldparams = oldparams
+        self.freeindex = freeindex
         self.branchid  = branchid
         self.newparams = newparams
         self.direction = direction
@@ -42,7 +45,7 @@ class ContinuationTask(Task):
         self.ensure_branches.update(branches)
 
     def __str__(self):
-        return "ContinuationTask(taskid=%s, oldparams=%s, branchid=%s, newparams=%s, direction=%s)" % (self.taskid, self.oldparams, self.branchid, self.newparams, self.direction)
+        return "ContinuationTask(taskid=%s, oldparams=%s, freeindex=%s, branchid=%s, newparams=%s, direction=%s)" % (self.taskid, self.oldparams, self.freeindex, self.branchid, self.newparams, self.direction)
 
 class DeflationTask(Task):
     """
@@ -54,6 +57,8 @@ class DeflationTask(Task):
         Global identifier for this task
       oldparams (tuple)
         Parameter values to continue from. If None, this means use the initial guesses
+      freeindex (int)
+        Which parameter is currently being varied
       branchid (int)
         Which branch to search from (int). If oldparams is None, this is the number of the initial guess
         to use
@@ -62,9 +67,10 @@ class DeflationTask(Task):
       ensure_branches (set):
         Branches that *must* be deflated; if they are not present yet, wait for them
     """
-    def __init__(self, taskid, oldparams, branchid, newparams, ensure_branches=None):
+    def __init__(self, taskid, oldparams, freeindex, branchid, newparams, ensure_branches=None):
         self.taskid    = taskid
         self.oldparams = oldparams
+        self.freeindex = freeindex
         self.branchid  = branchid
         self.newparams = newparams
         assert isinstance(branchid, int)
@@ -76,7 +82,7 @@ class DeflationTask(Task):
         self.ensure_branches.update(branches)
 
     def __str__(self):
-        return "DeflationTask(taskid=%s, oldparams=%s, branchid=%s, newparams=%s)" % (self.taskid, self.oldparams, self.branchid, self.newparams)
+        return "DeflationTask(taskid=%s, oldparams=%s, freeindex=%s, branchid=%s, newparams=%s)" % (self.taskid, self.oldparams, self.freeindex, self.branchid, self.newparams)
 
 class StabilityTask(Task):
     """
@@ -87,6 +93,8 @@ class StabilityTask(Task):
         Global identifier for this task
       oldparams (tuple)
         Parameter values to investigate.
+      freeindex (int)
+        Which parameter is currently being varied
       branchid (int)
         Which branch to investigate.
       direction (+1 or -1)
@@ -94,15 +102,16 @@ class StabilityTask(Task):
       hint (anything)
         A hint to pass to the stability calculation.
     """
-    def __init__(self, taskid, oldparams, branchid, direction, hint):
+    def __init__(self, taskid, oldparams, freeindex, branchid, direction, hint):
         self.taskid = taskid
         self.oldparams = oldparams
+        self.freeindex = freeindex
         self.branchid = branchid
         self.direction = direction
         self.hint = hint
 
     def __str__(self):
-        return "StabilityTask(taskid=%s, params=%s, branchid=%s, direction=%s)" % (self.taskid, self.oldparams, self.branchid, self.direction)
+        return "StabilityTask(taskid=%s, params=%s, freeindex=%s, branchid=%s, direction=%s)" % (self.taskid, self.oldparams, self.freeindex, self.branchid, self.direction)
 
 class ArclengthTask(Task):
     """

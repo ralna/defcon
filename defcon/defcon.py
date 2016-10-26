@@ -264,7 +264,6 @@ class DefconWorker(DefconThread):
     def run(self, parameters, values):
 
         self.parameters = parameters
-        self.freeindex = parameters.freeindex
 
         # Fetch data from the problem.
         self.mesh = self.problem.mesh(PETSc.Comm(self.teamcomm))
@@ -353,7 +352,7 @@ class DefconWorker(DefconThread):
     def deflation_task(self, task):
         # First, load trivial solutions
         if self.trivial_solutions is None:
-            self.trivial_solutions = self.problem.trivial_solutions(self.function_space, task.newparams, self.freeindex)
+            self.trivial_solutions = self.problem.trivial_solutions(self.function_space, task.newparams, task.freeindex)
 
         # Set up the problem
         self.load_solution(task.oldparams, task.branchid, task.newparams)
@@ -418,6 +417,7 @@ class DefconWorker(DefconThread):
         if newparams is not None:
             task = ContinuationTask(taskid=task.taskid,
                                     oldparams=task.newparams,
+                                    freeindex=task.freeindex,
                                     branchid=branchid,
                                     newparams=newparams,
                                     direction=+1)
@@ -429,7 +429,7 @@ class DefconWorker(DefconThread):
     def continuation_task(self, task):
         # Check for trivial solutions
         if self.trivial_solutions is None:
-            self.trivial_solutions = self.problem.trivial_solutions(self.function_space, task.newparams, self.freeindex)
+            self.trivial_solutions = self.problem.trivial_solutions(self.function_space, task.newparams, task.freeindex)
 
         # Set up the problem
         self.load_solution(task.oldparams, task.branchid, task.newparams)
@@ -478,6 +478,7 @@ class DefconWorker(DefconThread):
         else:
             task = ContinuationTask(taskid=task.taskid,
                                     oldparams=task.newparams,
+                                    freeindex=task.freeindex,
                                     branchid=task.branchid,
                                     newparams=newparams,
                                     direction=task.direction)
@@ -535,6 +536,7 @@ class DefconWorker(DefconThread):
         if newparams is not None:
             task = StabilityTask(taskid=task.taskid,
                                  oldparams=newparams,
+                                 freeindex=task.freeindex,
                                  branchid=task.branchid,
                                  direction=task.direction,
                                  hint=d.get("hint", None))
@@ -571,7 +573,7 @@ class DefconMaster(DefconThread):
         response = self.worldcomm.recv(source=MPI.ANY_SOURCE, tag=self.responsetag)
         return response
 
-    def seed_initial_tasks(self, parameters, values):
+    def seed_initial_tasks(self, parameters, values, freeindex):
         # Queue initial tasks
         initialparams = parameters.floats(value=values[0])
 
@@ -583,7 +585,7 @@ class DefconMaster(DefconThread):
             self.log("Using %d known solutions at %s" % (nguesses, initialparams,))
 
             for guess in range(nguesses):
-                self.insert_continuation_task(initialparams, guess, priority=float("-inf"))
+                self.insert_continuation_task(initialparams, freeindex, guess, priority=float("-inf"))
         else:
             self.log("Using user-supplied initial guesses at %s" % (initialparams,))
             oldparams = None
@@ -591,6 +593,7 @@ class DefconMaster(DefconThread):
             for guess in range(nguesses):
                 task = DeflationTask(taskid=self.taskid_counter,
                                      oldparams=oldparams,
+                                     freeindex=freeindex,
                                      branchid=self.taskid_counter,
                                      newparams=initialparams)
                 heappush(self.new_tasks, (float("-inf"), task))
@@ -616,7 +619,6 @@ class DefconMaster(DefconThread):
 
     def run(self, parameters, values):
         self.parameters = parameters
-        self.freeindex = parameters.freeindex
         self.values = values
 
         self.configure_io(parameters)
@@ -664,12 +666,12 @@ class DefconMaster(DefconThread):
             self.minvals = max
 
         # Initialise Journal
-        self.journal = FileJournal(self.io.directory, self.parameters.parameters, self.functionals, self.freeindex, self.sign)
+        self.journal = FileJournal(self.io.directory, self.parameters.parameters, self.functionals, parameters.freeindex, self.sign)
         self.journal.setup(self.nteams, min(values), max(values))
         self.journal.sweep(values[0])
 
         # Seed initial tasks
-        self.seed_initial_tasks(parameters, values)
+        self.seed_initial_tasks(parameters, values, parameters.freeindex)
 
         # The main master loop.
         while not self.finished():
@@ -741,7 +743,7 @@ class DefconMaster(DefconThread):
             # This is because the currently running task might find a branch that we will need
             # to deflate here.
             for (t, r) in self.wait_tasks.values():
-                if isinstance(t, ContinuationTask) and self.sign*t.newparams[self.freeindex]<=self.sign*task.newparams[self.freeindex] and t.direction == +1:
+                if task.freeindex == t.freeindex and isinstance(t, ContinuationTask) and self.sign*t.newparams[task.freeindex]<=self.sign*task.newparams[task.freeindex] and t.direction == +1:
                     send = False
                     break
 
@@ -781,6 +783,7 @@ class DefconMaster(DefconThread):
                 if newparams is not None:
                     newtask = DeflationTask(taskid=self.taskid_counter,
                                             oldparams=task.oldparams,
+                                            freeindex=task.freeindex,
                                             branchid=task.branchid,
                                             newparams=newparams)
                     newpriority = float("-inf")
@@ -808,7 +811,7 @@ class DefconMaster(DefconThread):
             #   won't discover anything; if it isn't, hopefully it will discover
             #   the same (distinct) solution again.
             if task.oldparams is not None:
-                priority = self.sign*task.newparams[self.freeindex]
+                priority = self.sign*task.newparams[task.freeindex]
             else:
                 priority = float("-inf")
             heappush(self.new_tasks, (priority, task))
@@ -833,7 +836,7 @@ class DefconMaster(DefconThread):
         self.send_response(responseback, team)
 
         # * Record the branch extent
-        self.branch_extent[branchid] = [task.newparams[self.freeindex], task.newparams[self.freeindex]]
+        self.branch_extent[branchid] = [task.newparams[task.freeindex], task.newparams[task.freeindex]]
 
         # * Record this new solution in the journal
         self.journal.entry(team, task.oldparams, branchid, task.newparams, response.data["functionals"], False)
@@ -841,10 +844,11 @@ class DefconMaster(DefconThread):
         # * Insert a new deflation task, to seek again with the same settings.
         newtask = DeflationTask(taskid=self.taskid_counter,
                                 oldparams=task.oldparams,
+                                freeindex=task.freeindex,
                                 branchid=task.branchid,
                                 newparams=task.newparams)
         if task.oldparams is not None:
-            newpriority = self.sign*newtask.newparams[self.freeindex]
+            newpriority = self.sign*newtask.newparams[task.freeindex]
         else:
             newpriority = float("-inf")
 
@@ -857,6 +861,7 @@ class DefconMaster(DefconThread):
         if newparams is not None:
             conttask = ContinuationTask(taskid=task.taskid,
                                         oldparams=task.newparams,
+                                        freeindex=task.freeindex,
                                         branchid=branchid,
                                         newparams=newparams,
                                         direction=+1)
@@ -875,10 +880,11 @@ class DefconMaster(DefconThread):
             if newparams is not None:
                 bconttask = ContinuationTask(taskid=self.taskid_counter,
                                             oldparams=task.newparams,
+                                            freeindex=task.freeindex,
                                             branchid=branchid,
                                             newparams=newparams,
                                             direction=-1)
-                newpriority = self.sign*bconttask.newparams[self.freeindex]
+                newpriority = self.sign*bconttask.newparams[task.freeindex]
                 heappush(self.new_tasks, (newpriority, bconttask))
                 self.taskid_counter += 1
 
@@ -893,10 +899,11 @@ class DefconMaster(DefconThread):
         if self.compute_stability:
             stabtask = StabilityTask(taskid=self.taskid_counter,
                                      oldparams=task.newparams,
+                                     freeindex=task.freeindex,
                                      branchid=branchid,
                                      direction=+1,
                                      hint=None)
-            newpriority = self.sign*stabtask.oldparams[self.freeindex]
+            newpriority = self.sign*stabtask.oldparams[task.freeindex]
 
             heappush(self.stability_tasks, (newpriority, stabtask))
             self.taskid_counter += 1
@@ -904,10 +911,11 @@ class DefconMaster(DefconThread):
             if self.continue_backwards and task.oldparams is not None:
                 stabtask = StabilityTask(taskid=self.taskid_counter,
                                          oldparams=task.newparams,
+                                         freeindex=task.freeindex,
                                          branchid=branchid,
                                          direction=-1,
                                          hint=None)
-                newpriority = self.sign*stabtask.oldparams[self.freeindex]
+                newpriority = self.sign*stabtask.oldparams[task.freeindex]
 
                 heappush(self.stability_tasks, (newpriority, stabtask))
                 self.taskid_counter += 1
@@ -928,9 +936,9 @@ class DefconMaster(DefconThread):
 
         # Update the branch extent.
         if task.direction > 0:
-            self.branch_extent[task.branchid][1] = task.newparams[self.freeindex]
+            self.branch_extent[task.branchid][1] = task.newparams[task.freeindex]
         else:
-            self.branch_extent[task.branchid][0] = task.newparams[self.freeindex]
+            self.branch_extent[task.branchid][0] = task.newparams[task.freeindex]
 
         # The worker will keep continuing, record that fact
         if task.direction > 0:
@@ -944,6 +952,7 @@ class DefconMaster(DefconThread):
         else:
             conttask = ContinuationTask(taskid=task.taskid,
                                         oldparams=task.newparams,
+                                        freeindex=task.freeindex,
                                         branchid=task.branchid,
                                         newparams=newparams,
                                         direction=task.direction)
@@ -955,10 +964,11 @@ class DefconMaster(DefconThread):
         # we have a deflation task to insert.
         newtask = DeflationTask(taskid=self.taskid_counter,
                                 oldparams=task.oldparams,
+                                freeindex=task.freeindex,
                                 branchid=task.branchid,
                                 newparams=task.newparams)
         self.taskid_counter += 1
-        heappush(self.new_tasks, (self.sign*newtask.newparams[self.freeindex], newtask))
+        heappush(self.new_tasks, (self.sign*newtask.newparams[task.freeindex], newtask))
 
     def stability_task(self, task, team, response):
         if not response.success:
@@ -969,10 +979,10 @@ class DefconMaster(DefconThread):
         # continue
         success = True
         if task.direction > 0:
-            if self.sign*task.oldparams[self.freeindex] >= self.sign*self.branch_extent[task.branchid][1]:
+            if self.sign*task.oldparams[task.freeindex] >= self.sign*self.branch_extent[task.branchid][1]:
                 success = False
         else:
-            if self.sign*task.oldparams[self.freeindex] <= self.sign*self.branch_extent[task.branchid][0]:
+            if self.sign*task.oldparams[task.freeindex] <= self.sign*self.branch_extent[task.branchid][0]:
                 success = False
         responseback = Response(task.taskid, success=success)
         self.send_response(responseback, team)
@@ -1005,10 +1015,11 @@ class DefconMaster(DefconThread):
                 if newparams is not None:
                     nexttask = StabilityTask(taskid=task.taskid,
                                              branchid=task.branchid,
+                                             freeindex=task.freeindex,
                                              oldparams=newparams,
                                              direction=task.direction,
                                              hint=None)
-                    newpriority = self.sign*nexttask.oldparams[self.freeindex]
+                    newpriority = self.sign*nexttask.oldparams[task.freeindex]
                     heappush(self.stability_tasks, (newpriority, nexttask))
             return
 
@@ -1021,6 +1032,7 @@ class DefconMaster(DefconThread):
         if newparams is not None:
             nexttask = StabilityTask(taskid=task.taskid,
                                      branchid=task.branchid,
+                                     freeindex=task.freeindex,
                                      oldparams=newparams,
                                      direction=task.direction,
                                      hint=None)
@@ -1030,12 +1042,13 @@ class DefconMaster(DefconThread):
         else:
             self.idle_team(team)
 
-    def insert_continuation_task(self, oldparams, branchid, priority):
+    def insert_continuation_task(self, oldparams, freeindex, branchid, priority):
         newparams = self.parameters.next(oldparams)
         branchid  = int(branchid)
         if newparams is not None:
             task = ContinuationTask(taskid=self.taskid_counter,
                                     oldparams=oldparams,
+                                    freeindex=freeindex,
                                     branchid=branchid,
                                     newparams=newparams,
                                     direction=+1)
@@ -1045,10 +1058,11 @@ class DefconMaster(DefconThread):
             if self.compute_stability:
                 stabtask = StabilityTask(taskid=self.taskid_counter,
                                          oldparams=oldparams,
+                                         freeindex=freeindex,
                                          branchid=branchid,
                                          direction=+1,
                                          hint=None)
-                newpriority = self.sign*stabtask.oldparams[self.freeindex]
+                newpriority = self.sign*stabtask.oldparams[freeindex]
 
                 heappush(self.stability_tasks, (newpriority, stabtask))
                 self.taskid_counter += 1
@@ -1058,6 +1072,7 @@ class DefconMaster(DefconThread):
                 if newparams is not None:
                     task = ContinuationTask(taskid=self.taskid_counter,
                                             oldparams=oldparams,
+                                            freeindex=freeindex,
                                             branchid=branchid,
                                             newparams=newparams,
                                             direction=-1)
@@ -1068,10 +1083,11 @@ class DefconMaster(DefconThread):
                     if self.compute_stability:
                         stabtask = StabilityTask(taskid=self.taskid_counter,
                                                  oldparams=oldparams,
+                                                 freeindex=freeindex,
                                                  branchid=branchid,
                                                  direction=-1,
                                                  hint=None)
-                        newpriority = self.sign*stabtask.oldparams[self.freeindex]
+                        newpriority = self.sign*stabtask.oldparams[freeindex]
 
                         heappush(self.stability_tasks, (newpriority, stabtask))
                         self.taskid_counter += 1
@@ -1086,10 +1102,10 @@ class DefconMaster(DefconThread):
         deferred_values = [dtask[1].oldparams for dtask in self.deferred_tasks if isinstance(dtask[1], DeflationTask)]
         all_values = filter(lambda x: x is not None, waiting_values + newtask_values + deferred_values)
         if len(all_values) > 0:
-            minparams = self.minvals(all_values, key = lambda x: x[self.freeindex])
+            minparams = self.minvals(all_values, key = lambda x: x[self.parameters.freeindex])
             prevparams = self.parameters.previous(minparams)
             if prevparams is not None:
-                minwait = prevparams[self.freeindex]
+                minwait = prevparams[self.parameters.freeindex]
 
                 tot_solutions = self.problem.number_solutions(minparams)
                 if isinf(tot_solutions): tot_solutions = '?'
