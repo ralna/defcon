@@ -7,6 +7,7 @@ from newton import newton
 from tasks import QuitTask, ContinuationTask, DeflationTask, StabilityTask, Response
 from iomodule import remap_c_streams
 from journal import FileJournal, task_to_code
+from graph import DefconGraph
 
 import backend
 
@@ -19,7 +20,6 @@ import sys
 import gc
 import os
 import traceback
-from heapq import heappush, heappop
 
 class DeflatedContinuation(object):
     """
@@ -596,26 +596,23 @@ class DefconMaster(DefconThread):
                                      freeindex=freeindex,
                                      branchid=self.taskid_counter,
                                      newparams=initialparams)
-                heappush(self.new_tasks, (float("-inf"), task))
+                self.graph.push(task, float("-inf"))
                 self.taskid_counter += 1
 
     def finished(self):
-        return len(self.new_tasks) + len(self.wait_tasks) + len(self.deferred_tasks) + len(self.stability_tasks) == 0
+        return self.graph.all_tasks() == 0
 
     def debug_print(self):
         if self.debug:
-            self.log("DEBUG: new_tasks = %s" % [(priority, str(x)) for (priority, x) in self.new_tasks])
-            self.log("DEBUG: wait_tasks = %s" % [(key, str(self.wait_tasks[key][0]), self.wait_tasks[key][1]) for key in self.wait_tasks])
-            self.log("DEBUG: deferred_tasks = %s" % [(priority, str(x)) for (priority, x) in self.deferred_tasks])
-            self.log("DEBUG: stability_tasks = %s" % [(priority, str(x)) for (priority, x) in self.stability_tasks])
+            self.graph.debug(self.log)
             self.log("DEBUG: idle_teams = %s" % self.idle_teams)
 
         # Also, a sanity check: idle_teams and busy_teams should be a disjoint partitioning of range(self.nteams)
-        busy_teams = set([self.wait_tasks[key][1] for key in self.wait_tasks])
+        busy_teams = set([self.graph.wait_tasks[key][1] for key in self.graph.wait_tasks])
         if len(set(self.idle_teams).intersection(busy_teams)) > 0:
-            self.log("ALERT: intersection of idle_teams and wait_tasks: \n%s\n%s" % (self.idle_teams, [(key, str(self.wait_tasks[key][0])) for key in self.wait_tasks]), warning=True)
+            self.log("ALERT: intersection of idle_teams and wait_tasks: \n%s\n%s" % (self.idle_teams, [(key, str(self.graph.wait_tasks[key][0])) for key in self.wait_tasks]), warning=True)
         if set(self.idle_teams).union(busy_teams) != set(range(self.nteams)):
-            self.log("ALERT: team lost! idle_teams and wait_tasks: \n%s\n%s" % (self.idle_teams, [(key, str(self.wait_tasks[key][0])) for key in self.wait_tasks]), warning=True)
+            self.log("ALERT: team lost! idle_teams and wait_tasks: \n%s\n%s" % (self.idle_teams, [(key, str(self.graph.wait_tasks[key][0])) for key in self.graph.wait_tasks]), warning=True)
 
     def run(self, parameters, values):
         self.parameters = parameters
@@ -632,15 +629,11 @@ class DefconMaster(DefconThread):
         # Branch id counter
         self.branchid_counter = 0
 
-        # Data structures for lists of tasks in various states
-        self.new_tasks       = [] # tasks yet to be dispatched
-        self.deferred_tasks  = [] # tasks we cannot dispatch yet because we're expecting more info
-        self.wait_tasks      = {} # tasks dispatched, waiting to hear back
-        self.stability_tasks = [] # stability tasks, kept with a lower priority than others
-
         # Should we insert stability tasks? Let's see if the user
         # has overridden the compute_stability method or not
         self.compute_stability = "compute_stability" in self.problem.__class__.__dict__
+
+        self.graph = DefconGraph()
 
         # We need to keep a map of parameters -> branches.
         # FIXME: make disk writes atomic and get rid of this.
@@ -678,16 +671,14 @@ class DefconMaster(DefconThread):
             self.debug_print()
 
             # Dispatch any tasks that can be dispatched
-            while len(self.new_tasks) > 0 and len(self.idle_teams) > 0:
+            while self.graph.executable_tasks() > 0 and len(self.idle_teams) > 0:
                 self.dispatch_task()
-            while len(self.stability_tasks) > 0 and len(self.idle_teams) > 0:
-                self.dispatch_stability_task()
 
             # We can't send out any more tasks, either because we have no
             # tasks to send out or we have no free processors.
             # If we aren't waiting for anything to finish, we'll exit the loop
             # here. otherwise, we wait for responses and deal with consequences.
-            if len(self.wait_tasks) > 0:
+            if len(self.graph.waiting()) > 0:
                 self.compute_sweep()
                 self.log("Cannot dispatch any tasks, waiting for response.")
                 gc.collect()
@@ -695,7 +686,7 @@ class DefconMaster(DefconThread):
                 response = self.fetch_response()
                 self.handle_response(response)
 
-            self.reschedule_deferred_tasks()
+            self.graph.reschedule(len(self.idle_teams))
 
         # Finished the main loop, tell everyone to quit
         self.journal.sweep(values[-1])
@@ -704,28 +695,13 @@ class DefconMaster(DefconThread):
             self.send_task(quit, teamno)
             self.journal.team_job(teamno, "q")
 
-    def reschedule_deferred_tasks(self):
-        # Maybe we deferred some deflation tasks because we didn't have enough 
-        # information to judge if they were worthwhile. Now we must reschedule.
-        if len(self.deferred_tasks) > 0:
-            # Take as many as there are idle teams. This makes things 
-            # run much smoother than taking them all. 
-            for i in range(len(self.idle_teams)):
-                try:
-                    (priority, task) = heappop(self.deferred_tasks)
-                    heappush(self.new_tasks, (priority, task))
-                    self.log("Rescheduling the previously deferred task %s" % task)
-                except IndexError: break
-
     def handle_response(self, response):
-        (task, team) = self.wait_tasks[response.taskid]
+        (task, team) = self.graph.finish(response.taskid)
         self.log("Received response %s about task %s from team %s" % (response, task, team))
-        del self.wait_tasks[response.taskid]
-
         self.callbacks[task.__class__](task, team, response)
 
     def dispatch_task(self):
-        (priority, task) = heappop(self.new_tasks)
+        (task, priority) = self.graph.pop()
 
         send = True
         if isinstance(task, DeflationTask):
@@ -742,32 +718,29 @@ class DefconMaster(DefconThread):
             # we want to not send this task out now and look at it again later.
             # This is because the currently running task might find a branch that we will need
             # to deflate here.
-            for (t, r) in self.wait_tasks.values():
-                if task.freeindex == t.freeindex and isinstance(t, ContinuationTask) and self.sign*t.newparams[task.freeindex]<=self.sign*task.newparams[task.freeindex] and t.direction == +1:
+            for t in self.graph.waiting(ContinuationTask):
+                if task.freeindex == t.freeindex and self.sign*t.newparams[task.freeindex]<=self.sign*task.newparams[task.freeindex] and t.direction == +1:
                     send = False
                     break
 
         if send:
             # OK, we're happy to send it out. Let's tell it any new information
             # we've found out since we scheduled it.
-            if task.newparams in self.ensure_branches:
-                task.ensure(self.ensure_branches[task.newparams])
+            if hasattr(task, 'ensure'):
+                if task.newparams in self.ensure_branches:
+                    task.ensure(self.ensure_branches[task.newparams])
             idleteam = self.idle_teams.pop(0)
             self.send_task(task, idleteam)
-            self.wait_tasks[task.taskid] = (task, idleteam)
+            self.graph.wait(task.taskid, idleteam, task)
 
-            self.journal.team_job(idleteam, task_to_code(task), task.newparams, task.branchid)
+            if hasattr(task, 'newparams'):
+                self.journal.team_job(idleteam, task_to_code(task), task.newparams, task.branchid)
+            else:
+                self.journal.team_job(idleteam, task_to_code(task), task.oldparams, task.branchid)
         else:
             # Best reschedule for later, as there is still pertinent information yet to come in. 
             self.log("Deferring task %s." % task)
-            heappush(self.deferred_tasks, (priority, task))
-
-    def dispatch_stability_task(self):
-        (priority, task) = heappop(self.stability_tasks)
-        idleteam = self.idle_teams.pop(0)
-        self.send_task(task, idleteam)
-        self.wait_tasks[task.taskid] = (task, idleteam)
-        self.journal.team_job(idleteam, task_to_code(task), task.oldparams, task.branchid)
+            self.graph.defer(task, priority)
 
     def deflation_task(self, task, team, response):
         if not response.success:
@@ -787,7 +760,7 @@ class DefconMaster(DefconThread):
                                             branchid=task.branchid,
                                             newparams=newparams)
                     newpriority = float("-inf")
-                    heappush(self.new_tasks, (newpriority, newtask))
+                    self.graph.push(newtask, newpriority)
                     self.taskid_counter += 1
             return
 
@@ -814,7 +787,7 @@ class DefconMaster(DefconThread):
                 priority = self.sign*task.newparams[task.freeindex]
             else:
                 priority = float("-inf")
-            heappush(self.new_tasks, (priority, task))
+            self.graph.push(task, priority)
 
             # The worker is now idle.
             self.idle_team(team)
@@ -824,9 +797,8 @@ class DefconMaster(DefconThread):
         # In this case, we want the master to
         # * Record any currently ongoing searches that this discovery
         #   invalidates.
-        for (othertask, _) in self.wait_tasks.values():
-            if isinstance(othertask, DeflationTask):
-                self.invalidated_tasks.add(othertask)
+        for (othertask, _) in self.graph.waiting(DeflationTask):
+            self.invalidated_tasks.add(othertask)
 
         # * Allocate a new branch id for the discovered branch.
         branchid = self.branchid_counter
@@ -852,7 +824,7 @@ class DefconMaster(DefconThread):
         else:
             newpriority = float("-inf")
 
-        heappush(self.new_tasks, (newpriority, newtask))
+        self.graph.push(newtask, newpriority)
         self.taskid_counter += 1
 
         # * Record that the worker team is now continuing that branch,
@@ -865,7 +837,7 @@ class DefconMaster(DefconThread):
                                         branchid=branchid,
                                         newparams=newparams,
                                         direction=+1)
-            self.wait_tasks[task.taskid] = ((conttask, team))
+            self.graph.wait(task.taskid, team, conttask)
             self.log("Waiting on response for %s" % conttask)
             # Write to the journal, saying that this team is now doing continuation.
             self.journal.team_job(team, "c", task.newparams, branchid)
@@ -885,7 +857,7 @@ class DefconMaster(DefconThread):
                                             newparams=newparams,
                                             direction=-1)
                 newpriority = self.sign*bconttask.newparams[task.freeindex]
-                heappush(self.new_tasks, (newpriority, bconttask))
+                self.graph.push(bconttask, newpriority)
                 self.taskid_counter += 1
 
         # We'll also make sure that any other DeflationTasks in the queue
@@ -904,8 +876,7 @@ class DefconMaster(DefconThread):
                                      direction=+1,
                                      hint=None)
             newpriority = self.sign*stabtask.oldparams[task.freeindex]
-
-            heappush(self.stability_tasks, (newpriority, stabtask))
+            self.graph.push(stabtask, newpriority)
             self.taskid_counter += 1
 
             if self.continue_backwards and task.oldparams is not None:
@@ -916,8 +887,7 @@ class DefconMaster(DefconThread):
                                          direction=-1,
                                          hint=None)
                 newpriority = self.sign*stabtask.oldparams[task.freeindex]
-
-                heappush(self.stability_tasks, (newpriority, stabtask))
+                self.graph.push(stabtask, newpriority)
                 self.taskid_counter += 1
 
         # Phew! What a lot of bookkeeping. That's it.
@@ -956,7 +926,7 @@ class DefconMaster(DefconThread):
                                         branchid=task.branchid,
                                         newparams=newparams,
                                         direction=task.direction)
-            self.wait_tasks[task.taskid] = ((conttask, team))
+            self.graph.wait(task.taskid, team, conttask)
             self.log("Waiting on response for %s" % conttask)
             self.journal.team_job(team, task_to_code(conttask))
 
@@ -968,7 +938,8 @@ class DefconMaster(DefconThread):
                                 branchid=task.branchid,
                                 newparams=task.newparams)
         self.taskid_counter += 1
-        heappush(self.new_tasks, (self.sign*newtask.newparams[task.freeindex], newtask))
+        newpriority = self.sign*newtask.newparams[task.freeindex]
+        self.graph.push(newtask, newpriority)
 
     def stability_task(self, task, team, response):
         if not response.success:
@@ -994,14 +965,14 @@ class DefconMaster(DefconThread):
             # If the continuation is still ongoing, we'll insert another stability
             # task into the queue.
             continuation_ongoing = False
-            for currenttask in self.wait_tasks.values():
-                if currenttask[0].branchid == task.branchid:
+            for currenttask in self.graph.waiting(ContinuationTask):
+                if currenttask.branchid == task.branchid:
                     continuation_ongoing = True
                     break
 
             if not continuation_ongoing:
-                for currenttask in self.new_tasks:
-                    if currenttask[1].branchid == task.branchid:
+                for currenttask in self.graph.executable(ContinuationTask):
+                    if currenttask.branchid == task.branchid:
                         continuation_ongoing = True
                         break
 
@@ -1020,7 +991,7 @@ class DefconMaster(DefconThread):
                                              direction=task.direction,
                                              hint=None)
                     newpriority = self.sign*nexttask.oldparams[task.freeindex]
-                    heappush(self.stability_tasks, (newpriority, nexttask))
+                    self.graph.push(nexttask, newpriority)
             return
 
         # The worker will keep continuing, record that fact
@@ -1036,7 +1007,7 @@ class DefconMaster(DefconThread):
                                      oldparams=newparams,
                                      direction=task.direction,
                                      hint=None)
-            self.wait_tasks[task.taskid] = ((nexttask, team))
+            self.graph.wait(task.taskid, team, nexttask)
             self.log("Waiting on response for %s" % nexttask)
             self.journal.team_job(team, task_to_code(nexttask), nexttask.oldparams, task.branchid)
         else:
@@ -1052,7 +1023,7 @@ class DefconMaster(DefconThread):
                                     branchid=branchid,
                                     newparams=newparams,
                                     direction=+1)
-            heappush(self.new_tasks, (priority, task))
+            self.graph.push(task, priority)
             self.taskid_counter += 1
 
             if self.compute_stability:
@@ -1063,8 +1034,7 @@ class DefconMaster(DefconThread):
                                          direction=+1,
                                          hint=None)
                 newpriority = self.sign*stabtask.oldparams[freeindex]
-
-                heappush(self.stability_tasks, (newpriority, stabtask))
+                self.graph.push(stabtask, newpriority)
                 self.taskid_counter += 1
 
             if self.continue_backwards:
@@ -1077,7 +1047,7 @@ class DefconMaster(DefconThread):
                                             newparams=newparams,
                                             direction=-1)
                     self.log("Scheduling task: %s" % task)
-                    heappush(self.new_tasks, (priority, task))
+                    self.graph.push(task, priority)
                     self.taskid_counter += 1
 
                     if self.compute_stability:
@@ -1088,8 +1058,7 @@ class DefconMaster(DefconThread):
                                                  direction=-1,
                                                  hint=None)
                         newpriority = self.sign*stabtask.oldparams[freeindex]
-
-                        heappush(self.stability_tasks, (newpriority, stabtask))
+                        self.graph.push(stabtask, newpriority)
                         self.taskid_counter += 1
 
     def idle_team(self, team):
@@ -1097,12 +1066,8 @@ class DefconMaster(DefconThread):
         self.journal.team_job(team, "i")
 
     def compute_sweep(self):
-        waiting_values = [wtask[0].oldparams for wtask in self.wait_tasks.values() if isinstance(wtask[0], DeflationTask)]
-        newtask_values = [ntask[1].oldparams for ntask in self.new_tasks if isinstance(ntask[1], DeflationTask)]
-        deferred_values = [dtask[1].oldparams for dtask in self.deferred_tasks if isinstance(dtask[1], DeflationTask)]
-        all_values = filter(lambda x: x is not None, waiting_values + newtask_values + deferred_values)
-        if len(all_values) > 0:
-            minparams = self.minvals(all_values, key = lambda x: x[self.parameters.freeindex])
+        minparams = self.graph.sweep(self.minvals, self.parameters.freeindex)
+        if minparams is not None:
             prevparams = self.parameters.previous(minparams, self.parameters.freeindex)
             if prevparams is not None:
                 minwait = prevparams[self.parameters.freeindex]
@@ -1114,7 +1079,7 @@ class DefconMaster(DefconThread):
                 # Write to the journal saying where we've completed our sweep up to.
                 self.journal.sweep(minwait)
 
-        elif len(self.wait_tasks.values() + self.new_tasks + self.deferred_tasks) == 0:
+        elif len(self.graph.executable(StabilityTask)) > 0:
             # We have only stability tasks to do.
             minwait = self.values[-1]
             self.journal.sweep(minwait)
