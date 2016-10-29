@@ -88,4 +88,4 @@ if __name__ == "__main__":
     problem = YamabeProblem()
     deflation = ShiftedDeflation(problem, power=1, shift=1.0e-2)
     dc = DeflatedContinuation(problem, deflation=deflation, teamsize=1, verbose=True, clear_output=True)
-    dc.run(free={"a": [8.0]})
+    dc.run(values={"a": [8.0]})

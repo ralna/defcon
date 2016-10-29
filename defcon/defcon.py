@@ -2,7 +2,7 @@
 
 from operatordeflation import ShiftedDeflation
 from parallellayout import ranktoteamno, teamnotoranks
-from parametertools import Parameters, make_parameters
+from parametertools import Parameters
 from newton import newton
 from tasks import QuitTask, ContinuationTask, DeflationTask, StabilityTask, Response
 from iomodule import remap_c_streams
@@ -66,15 +66,18 @@ class DeflatedContinuation(object):
         else:
             self.thread = DefconWorker(problem, **kwargs)
 
-    def run(self, free, fixed={}):
+    def run(self, values, freeparam=None):
         """
         The main execution routine.
 
         *Arguments*
-          free (:py:class:`dict`)
+          values (:py:class:`dict`)
             A dictionary mapping ASCII name of parameter to list of parameter values.
-          fixed (:py:class:`dict`)
-            A dictionary mapping ASCII name of parameter to fixed value.
+            Use a list with one element for parameters you wish to fix.
+          freeparam (:py:class:`str`)
+            The ASCII name of the parameter on which to start the continuation.
+            Additional continuation runs can be executed by overloading the `branch_found`
+            routine.
         """
 
         # First, check we're parallel enough.
@@ -91,15 +94,21 @@ Launch with mpiexec: mpiexec -n <number of processes> python %s
         # Next, check parameters.
 
         problem_parameters = self.problem.parameters()
-        assert len(problem_parameters) == len(fixed) + len(free)
-        assert len(free) == 1
+        assert len(problem_parameters) == len(values)
 
-        values = list(free.values()[0])
-        parameters = make_parameters(problem_parameters, values, free, fixed)
+        if freeparam is None:
+            assert len(values) == 1
+            freeparam = values.keys()[0]
+
+        # Apply list to concretely instantiate the values
+        for param in values:
+            values[param] = list(values[param])
+
+        parameters = Parameters(problem_parameters, values)
 
         # Aaaand .. run.
 
-        self.thread.run(parameters, values)
+        self.thread.run(parameters, freeparam)
 
     def bifurcation_diagram(self, functional, fixed={}, style="ok", **kwargs):
         if self.thread.rank != 0:
@@ -261,7 +270,7 @@ class DefconWorker(DefconThread):
                           StabilityTask:    self.stability_task,
                           ContinuationTask: self.continuation_task}
 
-    def run(self, parameters, values):
+    def run(self, parameters, freeparam):
 
         self.parameters = parameters
 
@@ -575,7 +584,7 @@ class DefconMaster(DefconThread):
 
     def seed_initial_tasks(self, parameters, values, freeindex):
         # Queue initial tasks
-        initialparams = parameters.floats(value=values[0])
+        initialparams = parameters.floats(value=values[0], freeindex=freeindex)
 
         # Send off initial tasks
         knownbranches = self.io.known_branches(initialparams)
@@ -614,9 +623,9 @@ class DefconMaster(DefconThread):
         if set(self.idle_teams).union(busy_teams) != set(range(self.nteams)):
             self.log("ALERT: team lost! idle_teams and wait_tasks: \n%s\n%s" % (self.idle_teams, [(key, str(self.graph.wait_tasks[key][0])) for key in self.graph.wait_tasks]), warning=True)
 
-    def run(self, parameters, values):
+    def run(self, parameters, freeparam):
         self.parameters = parameters
-        self.values = values
+        freeindex = self.parameters.labels.index(freeparam)
 
         self.configure_io(parameters)
 
@@ -651,20 +660,24 @@ class DefconMaster(DefconThread):
 
         # If we're going downwards in continuation parameter, we need to change
         # signs in a few places
-        if values[0] < values[-1]:
-            self.sign = +1
-            self.minvals = min
-        else:
-            self.sign = -1
-            self.minvals = max
+        self.signs = []
+        self.minvals = []
+        for label in self.parameters.labels:
+            values = self.parameters.values[label]
+            if values[0] < values[-1]:
+                self.signs.append(+1)
+                self.minvals.append(min)
+            else:
+                self.signs.append(-1)
+                self.minvals.append(max)
 
         # Initialise Journal
-        self.journal = FileJournal(self.io.directory, self.parameters.parameters, self.functionals, parameters.freeindex, self.sign)
-        self.journal.setup(self.nteams, min(values), max(values))
-        self.journal.sweep(values[0])
+        self.journal = FileJournal(self.io.directory, self.parameters.parameters, self.functionals, freeindex, self.signs[freeindex])
+        self.journal.setup(self.nteams, min(self.parameters.values[freeparam]), max(self.parameters.values[freeparam]))
+        self.journal.sweep(self.parameters.values[freeparam][0])
 
         # Seed initial tasks
-        self.seed_initial_tasks(parameters, values, parameters.freeindex)
+        self.seed_initial_tasks(parameters, parameters.values[freeparam], freeindex)
 
         # The main master loop.
         while not self.finished():
@@ -679,7 +692,7 @@ class DefconMaster(DefconThread):
             # If we aren't waiting for anything to finish, we'll exit the loop
             # here. otherwise, we wait for responses and deal with consequences.
             if len(self.graph.waiting()) > 0:
-                self.compute_sweep()
+                self.compute_sweep(freeindex, freeparam)
                 self.log("Cannot dispatch any tasks, waiting for response.")
                 gc.collect()
 
@@ -719,7 +732,7 @@ class DefconMaster(DefconThread):
             # This is because the currently running task might find a branch that we will need
             # to deflate here.
             for t in self.graph.waiting(ContinuationTask):
-                if task.freeindex == t.freeindex and self.sign*t.newparams[task.freeindex]<=self.sign*task.newparams[task.freeindex] and t.direction == +1:
+                if task.freeindex == t.freeindex and self.signs[t.freeindex]*t.newparams[task.freeindex]<=self.signs[t.freeindex]*task.newparams[task.freeindex] and t.direction == +1:
                     send = False
                     break
 
@@ -784,7 +797,7 @@ class DefconMaster(DefconThread):
             #   won't discover anything; if it isn't, hopefully it will discover
             #   the same (distinct) solution again.
             if task.oldparams is not None:
-                priority = self.sign*task.newparams[task.freeindex]
+                priority = self.signs[task.freeindex]*task.newparams[task.freeindex]
             else:
                 priority = float("-inf")
             self.graph.push(task, priority)
@@ -820,7 +833,7 @@ class DefconMaster(DefconThread):
                                 branchid=task.branchid,
                                 newparams=task.newparams)
         if task.oldparams is not None:
-            newpriority = self.sign*newtask.newparams[task.freeindex]
+            newpriority = self.signs[task.freeindex]*newtask.newparams[task.freeindex]
         else:
             newpriority = float("-inf")
 
@@ -846,6 +859,23 @@ class DefconMaster(DefconThread):
             # to do. Mark the team as idle.
             self.idle_team(team)
 
+        # * Now let's ask the user if they want to do anything special,
+        #   e.g. insert new tasks going in another direction.
+        userin = ContinuationTask(taskid=self.taskid_counter,
+                                  oldparams=task.newparams,
+                                  freeindex=task.freeindex,
+                                  branchid=branchid,
+                                  newparams=newparams,
+                                  direction=+1)
+        self.taskid_counter += 1
+        user_tasks = self.problem.branch_found(userin)
+        for (j, user_task) in enumerate(user_tasks):
+            assert user_task.taskid == userin.taskid + j + 1
+            user_task.newparams = self.parameters.next(user_task.oldparams, user_task.freeindex)
+            priority = user_task.oldparams[user_task.freeindex]
+            self.graph.push(user_task, priority)
+        self.taskid_counter += len(user_tasks)
+
         # * If we want to continue backwards, well, let's add that task too
         if self.continue_backwards:
             newparams = self.parameters.previous(task.newparams, task.freeindex)
@@ -856,7 +886,7 @@ class DefconMaster(DefconThread):
                                             branchid=branchid,
                                             newparams=newparams,
                                             direction=-1)
-                newpriority = self.sign*bconttask.newparams[task.freeindex]
+                newpriority = self.signs[task.freeindex]*bconttask.newparams[task.freeindex]
                 self.graph.push(bconttask, newpriority)
                 self.taskid_counter += 1
 
@@ -875,7 +905,7 @@ class DefconMaster(DefconThread):
                                      branchid=branchid,
                                      direction=+1,
                                      hint=None)
-            newpriority = self.sign*stabtask.oldparams[task.freeindex]
+            newpriority = self.signs[task.freeindex]*stabtask.oldparams[task.freeindex]
             self.graph.push(stabtask, newpriority)
             self.taskid_counter += 1
 
@@ -886,7 +916,7 @@ class DefconMaster(DefconThread):
                                          branchid=branchid,
                                          direction=-1,
                                          hint=None)
-                newpriority = self.sign*stabtask.oldparams[task.freeindex]
+                newpriority = self.signs[task.freeindex]*stabtask.oldparams[task.freeindex]
                 self.graph.push(stabtask, newpriority)
                 self.taskid_counter += 1
 
@@ -938,7 +968,7 @@ class DefconMaster(DefconThread):
                                 branchid=task.branchid,
                                 newparams=task.newparams)
         self.taskid_counter += 1
-        newpriority = self.sign*newtask.newparams[task.freeindex]
+        newpriority = self.signs[task.freeindex]*newtask.newparams[task.freeindex]
         self.graph.push(newtask, newpriority)
 
     def stability_task(self, task, team, response):
@@ -950,10 +980,10 @@ class DefconMaster(DefconThread):
         # continue
         success = True
         if task.direction > 0:
-            if self.sign*task.oldparams[task.freeindex] >= self.sign*self.branch_extent[task.branchid][1]:
+            if self.signs[task.freeindex]*task.oldparams[task.freeindex] >= self.signs[task.freeindex]*self.branch_extent[task.branchid][1]:
                 success = False
         else:
-            if self.sign*task.oldparams[task.freeindex] <= self.sign*self.branch_extent[task.branchid][0]:
+            if self.signs[task.freeindex]*task.oldparams[task.freeindex] <= self.signs[task.freeindex]*self.branch_extent[task.branchid][0]:
                 success = False
         responseback = Response(task.taskid, success=success)
         self.send_response(responseback, team)
@@ -990,7 +1020,7 @@ class DefconMaster(DefconThread):
                                              oldparams=newparams,
                                              direction=task.direction,
                                              hint=None)
-                    newpriority = self.sign*nexttask.oldparams[task.freeindex]
+                    newpriority = self.signs[task.freeindex]*nexttask.oldparams[task.freeindex]
                     self.graph.push(nexttask, newpriority)
             return
 
@@ -1033,7 +1063,7 @@ class DefconMaster(DefconThread):
                                          branchid=branchid,
                                          direction=+1,
                                          hint=None)
-                newpriority = self.sign*stabtask.oldparams[freeindex]
+                newpriority = self.signs[freeindex]*stabtask.oldparams[freeindex]
                 self.graph.push(stabtask, newpriority)
                 self.taskid_counter += 1
 
@@ -1057,7 +1087,7 @@ class DefconMaster(DefconThread):
                                                  branchid=branchid,
                                                  direction=-1,
                                                  hint=None)
-                        newpriority = self.sign*stabtask.oldparams[freeindex]
+                        newpriority = self.signs[freeindex]*stabtask.oldparams[freeindex]
                         self.graph.push(stabtask, newpriority)
                         self.taskid_counter += 1
 
@@ -1065,12 +1095,12 @@ class DefconMaster(DefconThread):
         self.idle_teams.append(team)
         self.journal.team_job(team, "i")
 
-    def compute_sweep(self):
-        minparams = self.graph.sweep(self.minvals, self.parameters.freeindex)
+    def compute_sweep(self, freeindex, freeparam):
+        minparams = self.graph.sweep(self.minvals[freeindex], freeindex)
         if minparams is not None:
-            prevparams = self.parameters.previous(minparams, self.parameters.freeindex)
+            prevparams = self.parameters.previous(minparams, freeindex)
             if prevparams is not None:
-                minwait = prevparams[self.parameters.freeindex]
+                minwait = prevparams[freeindex]
 
                 tot_solutions = self.problem.number_solutions(minparams)
                 if isinf(tot_solutions): tot_solutions = '?'
@@ -1081,5 +1111,5 @@ class DefconMaster(DefconThread):
 
         elif len(self.graph.executable(StabilityTask)) > 0:
             # We have only stability tasks to do.
-            minwait = self.values[-1]
+            minwait = self.parameters.values[freeparam][-1]
             self.journal.sweep(minwait)

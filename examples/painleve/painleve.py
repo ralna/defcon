@@ -73,4 +73,4 @@ if __name__ == "__main__":
     problem = PainleveProblem()
     deflation = ShiftedDeflation(problem, power=2, shift=1)
     dc = DeflatedContinuation(problem, deflation=deflation, teamsize=1, verbose=True, clear_output=True)
-    dc.run(free={"a": [6.0]})
+    dc.run(values={"a": [6.0]})

@@ -4,21 +4,26 @@ class Parameters(object):
     functions to transform parameters in various ways.
     """
 
-    def __init__(self, parameters, values, freeindex):
+    def __init__(self, parameters, values):
         self.parameters = parameters # the output from problem.parameters()
         self.values     = values
         self.constants  = [param[0] for param in parameters]
         self.labels     = [param[1] for param in parameters]
-        self.freeindex  = freeindex
+
+        # Set all the constants to their initial values
+        for (j, label) in enumerate(self.labels):
+            const = self.constants[j]
+            val   = values[label]
+            const.assign(val[0])
 
     def update_constants(self, values):
         for (val, const) in zip(values, self.constants):
             const.assign(val)
 
-    def floats(self, value=None):
+    def floats(self, freeindex=None, value=None):
         out = map(float, self.constants)
-        if value is not None:
-            out[self.freeindex] = value
+        if value is not None and freeindex is not None:
+            out[freeindex] = value
         return tuple(out)
 
     def next(self, oldparams, freeindex):
@@ -29,12 +34,13 @@ class Parameters(object):
         for values.
         """
         current_value = oldparams[freeindex]
-        current_index = self.values.index(current_value)
+        label = self.labels[freeindex]
+        current_index = self.values[label].index(current_value)
 
-        if current_index == len(self.values) - 1:
+        if current_index == len(self.values[label]) - 1:
             # We've reached the last value, no more continuation to do.
             return None
-        next_value = self.values[current_index + 1]
+        next_value = self.values[label][current_index + 1]
 
         newparams = list(oldparams)
         newparams[freeindex] = next_value
@@ -42,12 +48,13 @@ class Parameters(object):
 
     def previous(self, oldparams, freeindex):
         current_value = oldparams[freeindex]
-        current_index = self.values.index(current_value)
+        label = self.labels[freeindex]
+        current_index = self.values[label].index(current_value)
 
         if current_index == 0:
             # We've reached the first value, no more continuation to do.
             return None
-        prev_value = self.values[current_index - 1]
+        prev_value = self.values[label][current_index - 1]
 
         newparams = list(oldparams)
         newparams[freeindex] = prev_value
@@ -60,25 +67,6 @@ class Parameters(object):
         for (sub, const) in zip(subs, self.constants):
             val = float(sub.split('=')[1])
             const.assign(val)
-
-def make_parameters(parameters, values, free, fixed):
-    freeparam = None
-    freeindex = None
-    for (index, param) in enumerate(parameters):
-        label = param[1]
-        const = param[0]
-        if label in fixed:
-            const.assign(fixed[label])
-
-        if label in free:
-            freeparam = param
-            freeindex = index
-
-    if freeparam is None:
-        print("Cannot find %s in parameters %s." % (free.keys()[0], [param[1] for param in self.parameters]))
-        assert freeparam is not None
-
-    return Parameters(parameters, values, freeindex)
 
 def parameters_to_string(parameters, values):
     s = ""

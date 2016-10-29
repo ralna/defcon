@@ -64,8 +64,8 @@ class BratuProblem(BifurcationProblem):
                }
 
 if __name__ == "__main__":
-    dc = DeflatedContinuation(problem=BratuProblem(), teamsize=1, verbose=True)
-    dc.run(free={"lambda": list(arange(0.0, 3.6, 0.01)) + [3.6]})
+    dc = DeflatedContinuation(problem=BratuProblem(), teamsize=1, verbose=True, clear_output=True)
+    dc.run(values={"lambda": list(arange(0.0, 3.6, 0.01)) + [3.6]})
 
     dc.bifurcation_diagram("eval")
     plt.title(r"The Bratu problem")

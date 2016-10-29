@@ -5,7 +5,7 @@ import json
 def test_bratu():
     problem = BratuProblem()
     dc = DeflatedContinuation(problem, teamsize=1, clear_output=True)
-    dc.run(free={"lambda": list(arange(0.0, 3.6, 0.01)) + [3.6]})
+    dc.run(values={"lambda": list(arange(0.0, 3.6, 0.01)) + [3.6]})
 
     ac = ArclengthContinuation(problem, teamsize=1)
     ac.run(params=(0.5,), free="lambda", ds=0.1, sign=+1, bounds=(0.01, 3.6), branchids=[0])

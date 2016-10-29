@@ -105,7 +105,7 @@ class NavierStokesProblem(BifurcationProblem):
 
 if __name__ == "__main__":
     dc = DeflatedContinuation(problem=NavierStokesProblem(), teamsize=1, verbose=True)
-    dc.run(free={"Re": linspace(10.0, 100.0, 181)})
+    dc.run(values={"Re": linspace(10.0, 100.0, 181)})
 
     dc.bifurcation_diagram("sqL2")
     plt.title(r"Bifurcation diagram for sudden expansion in a channel")

@@ -92,6 +92,8 @@ class ElasticaProblem(BifurcationProblem):
         return inner(a - b, a - b)*dx + inner(grad(a - b), grad(a - b))*dx
 
     def compute_stability(self, params, branchid, theta, hint=None):
+        if params[0] == 0: return {"stable": True}
+
         V = theta.function_space()
         trial = TrialFunction(V)
         test  = TestFunction(V)
@@ -108,49 +110,26 @@ class ElasticaProblem(BifurcationProblem):
         asm = SystemAssembler(J, b, bcs)
         asm.assemble(A)
 
-        # Build the mass matrix for the RHS of the generalised eigenproblem
-        B = PETScMatrix(comm)
-        asm = SystemAssembler(inner(test, trial)*dx, b, bcs)
-        asm.assemble(B)
-        [bc.zero(B) for bc in bcs]
+        pc = PETSc.PC().create(comm)
+        pc.setOperators(A.mat())
+        pc.setType("cholesky")
+        pc.setFactorSolverPackage("mumps")
+        pc.setUp()
 
-        # Create the SLEPc eigensolver
-        eps = SLEPc.EPS().create(comm=comm)
-        eps.setOperators(A.mat(), B.mat())
-        eps.setWhichEigenpairs(eps.Which.SMALLEST_MAGNITUDE)
-        eps.setProblemType(eps.ProblemType.GHEP)
-        eps.setFromOptions()
+        F = pc.getFactorMatrix()
+        (neg, zero, pos) = F.getInertia()
 
-        # If we have a hint, use it - it's the eigenfunctions from the previous solve
-        if hint is not None:
-            initial_space = [vec(x) for x in hint]
-            eps.setInitialSpace(initial_space)
+        print "Inertia: (-: %s, 0: %s, +: %s)" % (neg, zero, pos)
 
-        # Solve the eigenproblem
-        eps.solve()
+        expected_dim = 0
 
-        eigenvalues = []
-        eigenfunctions = []
-        eigenfunction = Function(V, name="Eigenfunction")
-
-        for i in range(eps.getConverged()):
-            lmbda = eps.getEigenvalue(i)
-            assert lmbda.imag == 0
-            eigenvalues.append(lmbda.real)
-
-            eps.getEigenvector(i, vec(eigenfunction))
-            eigenfunctions.append(eigenfunction.copy(deepcopy=True))
-
-        if min(eigenvalues) < 0:
-            is_stable = False
-        else:
+        # Nocedal & Wright, theorem 16.3
+        if neg == expected_dim:
             is_stable = True
+        else:
+            is_stable = False
 
-        d = {"stable": is_stable,
-             "eigenvalues": eigenvalues,
-             "eigenfunctions": eigenfunctions,
-             "hint": eigenfunctions}
-
+        d = {"stable": is_stable}
         return d
 
     def solver_parameters(self, params, klass):
@@ -161,21 +140,14 @@ class ElasticaProblem(BifurcationProblem):
                "snes_monitor": None,
                "ksp_type": "preonly",
                "pc_type": "lu",
-               "eps_type": "krylovschur",
-               "eps_target": -1,
-               "eps_monitor_all": None,
-               "eps_converged_reason": None,
-               "eps_nev": 1,
-               "st_type": "sinvert",
-               "st_ksp_type": "preonly",
-               "st_pc_type": "lu",
-               "st_pc_factor_mat_solver_package": "mumps",
+               "mat_mumps_icntl_24": 1,
+               "mat_mumps_icntl_13": 1
                }
         return args
 
 if __name__ == "__main__":
-    dc = DeflatedContinuation(problem=ElasticaProblem(), teamsize=1, verbose=True)
-    dc.run(free={"lambda": linspace(0, 3.9*pi, 200)}, fixed={"mu": 0.5})
+    dc = DeflatedContinuation(problem=ElasticaProblem(), teamsize=1, verbose=True, clear_output=True)
+    dc.run(values={"lambda": linspace(0, 3.9*pi, 200), "mu": [0.5]}, freeparam="lambda")
 
     dc.bifurcation_diagram("signedL2", fixed={"mu": 0.5})
     plt.title(r"Buckling of an Euler elastica, $\mu = 1/2$")

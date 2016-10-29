@@ -91,7 +91,7 @@ if __name__ == "__main__":
     dc = DeflatedContinuation(problem=CarrierProblem(), teamsize=1, verbose=True)
     epssq = linspace(0.25, 0.01, 481) # a step of -0.0005
     eps   = nsqrt(epssq)
-    dc.run(free={"epsilon": list(eps)})
+    dc.run(values={"epsilon": list(eps)})
 
     dc.bifurcation_diagram("signedL2")
     ax = plt.gca()

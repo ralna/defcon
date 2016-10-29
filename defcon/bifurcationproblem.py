@@ -314,3 +314,18 @@ class BifurcationProblem(object):
         It should modify state in place, not return anything.
         """
         pass
+
+    def branch_found(self, task):
+        """
+        This hook is experimental. Its interface will probably change.
+
+        When a new branch is discovered, this method is called. It is called
+        with the ContinuationTask representing the new branch.
+
+        This method should return a list of additional tasks to perform,
+        such as continuation tasks in another parameter dimension. The
+        taskids of these additional tasks should be task.taskid + 1,
+        task.taskid + 2, ...
+        """
+
+        return []
