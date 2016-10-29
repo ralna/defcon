@@ -494,6 +494,11 @@ class DefconWorker(DefconThread):
             return task
 
     def stability_task(self, task):
+        options = self.problem.solver_parameters(task.oldparams, task.__class__)
+        opts = PETSc.Options()
+        for k in options:
+            opts[k] = options[k]
+
         try:
             # Have we already computed the stability? For good reasons
             # we sometimes get the same task twice.
@@ -871,10 +876,15 @@ class DefconMaster(DefconThread):
         user_tasks = self.problem.branch_found(userin)
         for (j, user_task) in enumerate(user_tasks):
             assert user_task.taskid == userin.taskid + j + 1
-            user_task.newparams = self.parameters.next(user_task.oldparams, user_task.freeindex)
+            if hasattr(user_task, 'newparams'):
+                user_task.newparams = self.parameters.next(user_task.oldparams, user_task.freeindex)
+                if user_task.newparams is None:
+                    self.log("Warning: disregarding user-inserted task %s" % user_task, warning=True)
+                    continue
             priority = user_task.oldparams[user_task.freeindex]
+            self.log("Registering user-inserted task %s" % user_task)
             self.graph.push(user_task, priority)
-        self.taskid_counter += len(user_tasks)
+            self.taskid_counter += 1
 
         # * If we want to continue backwards, well, let's add that task too
         if self.continue_backwards:
@@ -959,6 +969,28 @@ class DefconMaster(DefconThread):
             self.graph.wait(task.taskid, team, conttask)
             self.log("Waiting on response for %s" % conttask)
             self.journal.team_job(team, task_to_code(conttask))
+
+        # Now let's ask the user if they want to do anything special,
+        # e.g. insert new tasks going in another direction.
+        userin = ContinuationTask(taskid=self.taskid_counter,
+                                  oldparams=task.newparams,
+                                  freeindex=task.freeindex,
+                                  branchid=task.branchid,
+                                  newparams=newparams,
+                                  direction=+1)
+        self.taskid_counter += 1
+        user_tasks = self.problem.branch_found(userin)
+        for (j, user_task) in enumerate(user_tasks):
+            assert user_task.taskid == userin.taskid + j + 1
+            if hasattr(user_task, 'newparams'):
+                user_task.newparams = self.parameters.next(user_task.oldparams, user_task.freeindex)
+                if user_task.newparams is None:
+                    self.log("Warning: disregarding user-inserted task %s" % user_task, warning=True)
+                    continue
+            priority = user_task.oldparams[user_task.freeindex]
+            self.log("Registering user-inserted task %s" % user_task)
+            self.graph.push(user_task, priority)
+            self.taskid_counter += 1
 
         # Whether there is another continuation task to insert or not,
         # we have a deflation task to insert.
