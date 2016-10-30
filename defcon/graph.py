@@ -57,9 +57,9 @@ class DefconGraph(object):
         Get the waiting tasks of type cls.
         """
         if cls is None:
-            out = [task for (team, task) in self.wait_tasks.values()]
+            out = [task for (task, team) in self.wait_tasks.values()]
         else:
-            out = [task for (team, task) in self.wait_tasks.values() if isinstance(task, cls)]
+            out = [task for (task, team) in self.wait_tasks.values() if isinstance(task, cls)]
         return out
 
     def executable(self, cls=None):

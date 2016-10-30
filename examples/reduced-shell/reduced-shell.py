@@ -160,7 +160,7 @@ class ReducedNaghdi(BifurcationProblem):
 
     def solver_parameters(self, params, klass):
         return {
-               "snes_max_it": 100,
+               "snes_max_it": 20,
                "snes_atol": 1.0e-10,
                "snes_rtol": 1.0e-10,
                "snes_monitor": None,
@@ -184,7 +184,7 @@ class ReducedNaghdi(BifurcationProblem):
                                         direction=+1)
             out.append(conttask)
 
-            if hasattr(self, 'compute_stability'):
+            if 'compute_stability' in self.__class__.__dict__:
                 stabtask = StabilityTask(taskid=task.taskid + 2,
                                             oldparams=task.oldparams,
                                             freeindex=1,

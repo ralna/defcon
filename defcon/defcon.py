@@ -791,6 +791,7 @@ class DefconMaster(DefconThread):
 
         if task in self.invalidated_tasks:
             # * Send the worker the bad news.
+            self.log("Task %s has been invalidated" % task)
             responseback = Response(task.taskid, success=False)
             self.send_response(responseback, team)
 
@@ -816,6 +817,7 @@ class DefconMaster(DefconThread):
         # * Record any currently ongoing searches that this discovery
         #   invalidates.
         for othertask in self.graph.waiting(DeflationTask):
+            self.log("Invalidating %s" % othertask)
             self.invalidated_tasks.add(othertask)
 
         # * Allocate a new branch id for the discovered branch.
