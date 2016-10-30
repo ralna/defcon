@@ -658,7 +658,7 @@ class DefconMaster(DefconThread):
         # whose results we need to ignore.
         self.invalidated_tasks = set()
 
-        # A map from branchid -> (min, max) parameter value known.
+        # A map from (branchid, freeindex) -> (min, max) parameter value known.
         # This is needed to keep stability tasks from outrunning the
         # continuation on which they depend.
         self.branch_extent = {}
@@ -828,7 +828,7 @@ class DefconMaster(DefconThread):
         self.send_response(responseback, team)
 
         # * Record the branch extent
-        self.branch_extent[branchid] = [task.newparams[task.freeindex], task.newparams[task.freeindex]]
+        self.branch_extent[(branchid, task.freeindex)] = [task.newparams[task.freeindex], task.newparams[task.freeindex]]
 
         # * Record this new solution in the journal
         self.journal.entry(team, task.oldparams, branchid, task.newparams, response.data["functionals"], False)
@@ -947,10 +947,13 @@ class DefconMaster(DefconThread):
         self.journal.entry(team, task.oldparams, task.branchid, task.newparams, response.data["functionals"], True)
 
         # Update the branch extent.
-        if task.direction > 0:
-            self.branch_extent[task.branchid][1] = task.newparams[task.freeindex]
+        if (task.branchid, task.freeindex) not in self.branch_extent:
+            self.branch_extent[(task.branchid, task.freeindex)] = [task.oldparams[task.freeindex], task.newparams[task.freeindex]]
         else:
-            self.branch_extent[task.branchid][0] = task.newparams[task.freeindex]
+            if task.direction > 0:
+                self.branch_extent[(task.branchid, task.freeindex)][1] = task.newparams[task.freeindex]
+            else:
+                self.branch_extent[(task.branchid, task.freeindex)][0] = task.newparams[task.freeindex]
 
         # The worker will keep continuing, record that fact
         if task.direction > 0:
@@ -1014,10 +1017,10 @@ class DefconMaster(DefconThread):
         # continue
         success = True
         if task.direction > 0:
-            if self.signs[task.freeindex]*task.oldparams[task.freeindex] >= self.signs[task.freeindex]*self.branch_extent[task.branchid][1]:
+            if self.signs[task.freeindex]*task.oldparams[task.freeindex] >= self.signs[task.freeindex]*self.branch_extent[(task.branchid, task.freeindex)][1]:
                 success = False
         else:
-            if self.signs[task.freeindex]*task.oldparams[task.freeindex] <= self.signs[task.freeindex]*self.branch_extent[task.branchid][0]:
+            if self.signs[task.freeindex]*task.oldparams[task.freeindex] <= self.signs[task.freeindex]*self.branch_extent[(task.branchid, task.freeindex)][0]:
                 success = False
         responseback = Response(task.taskid, success=success)
         self.send_response(responseback, team)
