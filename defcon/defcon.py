@@ -815,7 +815,7 @@ class DefconMaster(DefconThread):
         # In this case, we want the master to
         # * Record any currently ongoing searches that this discovery
         #   invalidates.
-        for (othertask, _) in self.graph.waiting(DeflationTask):
+        for othertask in self.graph.waiting(DeflationTask):
             self.invalidated_tasks.add(othertask)
 
         # * Allocate a new branch id for the discovered branch.
