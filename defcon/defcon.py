@@ -827,8 +827,9 @@ class DefconMaster(DefconThread):
         responseback = Response(task.taskid, success=True, data={"branchid": branchid})
         self.send_response(responseback, team)
 
-        # * Record the branch extent
-        self.branch_extent[(branchid, task.freeindex)] = [task.newparams[task.freeindex], task.newparams[task.freeindex]]
+        # * Record the branch extents
+        for freeindex in range(len(self.parameters.labels)):
+            self.branch_extent[(branchid, freeindex)] = [task.newparams[freeindex], task.newparams[freeindex]]
 
         # * Record this new solution in the journal
         self.journal.entry(team, task.oldparams, branchid, task.newparams, response.data["functionals"], False)
@@ -875,18 +876,7 @@ class DefconMaster(DefconThread):
                                   newparams=newparams,
                                   direction=+1)
         self.taskid_counter += 1
-        user_tasks = self.problem.branch_found(userin)
-        for (j, user_task) in enumerate(user_tasks):
-            assert user_task.taskid == userin.taskid + j + 1
-            if hasattr(user_task, 'newparams'):
-                user_task.newparams = self.parameters.next(user_task.oldparams, user_task.freeindex)
-                if user_task.newparams is None:
-                    self.log("Warning: disregarding user-inserted task %s" % user_task, warning=True)
-                    continue
-            priority = user_task.oldparams[user_task.freeindex]
-            self.log("Registering user-inserted task %s" % user_task)
-            self.graph.push(user_task, priority)
-            self.taskid_counter += 1
+        self.process_user_tasks(userin)
 
         # * If we want to continue backwards, well, let's add that task too
         if self.continue_backwards:
@@ -984,18 +974,7 @@ class DefconMaster(DefconThread):
                                   newparams=newparams,
                                   direction=+1)
         self.taskid_counter += 1
-        user_tasks = self.problem.branch_found(userin)
-        for (j, user_task) in enumerate(user_tasks):
-            assert user_task.taskid == userin.taskid + j + 1
-            if hasattr(user_task, 'newparams'):
-                user_task.newparams = self.parameters.next(user_task.oldparams, user_task.freeindex)
-                if user_task.newparams is None:
-                    self.log("Warning: disregarding user-inserted task %s" % user_task, warning=True)
-                    continue
-            priority = user_task.oldparams[user_task.freeindex]
-            self.log("Registering user-inserted task %s" % user_task)
-            self.graph.push(user_task, priority)
-            self.taskid_counter += 1
+        self.process_user_tasks(userin)
 
         # Whether there is another continuation task to insert or not,
         # we have a deflation task to insert.
@@ -1150,3 +1129,20 @@ class DefconMaster(DefconThread):
             # We have only stability tasks to do.
             minwait = self.parameters.values[freeparam][-1]
             self.journal.sweep(minwait)
+
+    def process_user_tasks(self, userin):
+        user_tasks = self.problem.branch_found(userin)
+        for (j, user_task) in enumerate(user_tasks):
+            assert user_task.taskid == userin.taskid + j + 1
+
+            if hasattr(user_task, 'newparams'):
+                user_task.newparams = self.parameters.next(user_task.oldparams, user_task.freeindex)
+                if user_task.newparams is None:
+                    self.log("Warning: disregarding user-inserted task %s" % user_task, warning=True)
+                    continue
+
+            priority = user_task.oldparams[user_task.freeindex]
+            self.log("Registering user-inserted task %s" % user_task)
+            self.graph.push(user_task, priority)
+            self.taskid_counter += 1
+
