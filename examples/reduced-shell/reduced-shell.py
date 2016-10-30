@@ -2,6 +2,10 @@
 # From Vidoli & Maurini,
 # Tristability of thin orthotropic shells with uniform initial curvature
 # doi:10.1098/rspa.2008.0094
+
+# This example shows how to do multi-parameter continuation
+# (see the branch_found method of the ReducedNaghdi class).
+
 import sys
 import os
 from   math import floor
@@ -166,7 +170,7 @@ class ReducedNaghdi(BifurcationProblem):
                "snes_monitor": None,
                "snes_converged_reason": None,
                "ksp_type": "preonly",
-               "pc_type": "lu",
+               "pc_type": "cholesky",
                "pc_factor_mat_solver_package": "mumps",
                "mat_mumps_icntl_24": 1,
                "mat_mumps_icntl_13": 1
