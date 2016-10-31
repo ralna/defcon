@@ -10,14 +10,26 @@ import sys
 import os
 from   math import floor
 
-from defcon import *
+from petsc4py import PETSc
 from dolfin import *
-from fenics_shells import *
+from defcon import *
 
 from numpy import array
-from petsc4py import PETSc
 
 parameters.form_compiler.quadrature_degree = 4
+
+# These two functions are borrowed from fenics-shells
+def strain_to_voigt(e):
+    r"""Returns the pseudo-vector in the Voigt notation associate to a 2x2
+    symmetric strain tensor, according to the following rule (see e.g.
+    https://en.wikipedia.org/wiki/Voigt_notation).
+    """
+    return as_vector((e[0,0], e[1,1], 2*e[0,1]))
+
+def stress_from_voigt(sigma_voigt):
+    r"""Inverse operation of stress_to_voigt.
+    """
+    return as_matrix(((sigma_voigt[0], sigma_voigt[2]), (sigma_voigt[2], sigma_voigt[1])))
 
 class ReducedNaghdi(BifurcationProblem):
 
