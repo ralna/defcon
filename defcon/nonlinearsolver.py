@@ -98,7 +98,7 @@ if backend.__name__ == "dolfin":
 
             # Fix what must be one of the worst defaults in PETSc
             opts = PETSc.Options()
-            if (prefix + "snes_linesearch_type") not in opts:
+            if "snes_linesearch_type" not in solver_parameters:
                 opts[prefix + "snes_linesearch_type"] = "basic"
 
             # set the petsc options from the solver_parameters
@@ -118,6 +118,10 @@ if backend.__name__ == "dolfin":
             snes.setJacobian(self.jacobian, self.A.mat(), self.P.mat())
             # why isn't this done in setJacobian?
             snes.ksp.setOperators(self.A.mat(), self.P.mat())
+
+            # Workaround for bug in Cray PETSc on ARCHER
+            if "pc_type" in solver_parameters:
+                snes.ksp.pc.setType(solver_parameters["pc_type"])
 
             snes.setDM(funcspace2dm(u.function_space()))
 
