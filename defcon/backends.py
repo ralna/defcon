@@ -37,8 +37,8 @@ def import_backend():
         # I have to *force* DOLFIN to initialise PETSc.
         # Otherwise, it will do it in the workers, using COMM_WORLD,
         # and deadlock. Yikes.
-        dolfin.PETScOptions.set("dummy", 1)
-        dolfin.PETScOptions.clear("dummy")
+        dolfin.PETScOptions.set("-dummy", 1)
+        dolfin.PETScOptions.clear("-dummy")
 
         # PETSc has recently implemented a new divergence tolerance,
         # which regularly breaks my deflation code. Disable it.
