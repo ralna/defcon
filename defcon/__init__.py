@@ -1,3 +1,5 @@
+import mpi4py.rc
+mpi4py.rc.threaded = False
 from mpi4py import MPI
 
 try:
