@@ -71,4 +71,4 @@ class WingedCuspProblem(BifurcationProblem):
 
 if __name__ == "__main__":
     dc = DeflatedContinuation(problem=WingedCuspProblem(), teamsize=1, verbose=True, clear_output=True)
-    dc.run(values={"lambda": linspace(-3, 6, 91)})
+    dc.run(values={"lambda": linspace(-3, 6, 901)})
