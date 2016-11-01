@@ -214,6 +214,6 @@ class ReducedNaghdi(BifurcationProblem):
 
 if __name__ == "__main__":
     dc = DeflatedContinuation(problem=ReducedNaghdi(), teamsize=1, verbose=True, clear_output=True, logfiles=True)
-    c0loadings = linspace(0, 1, 101)
-    cIloadings = linspace(0, 1, 101)
+    c0loadings = linspace(0, 3, 301)
+    cIloadings = linspace(0, 3, 301)
     dc.run(values={"c_0": c0loadings, "c_I": cIloadings}, freeparam="c_0")
