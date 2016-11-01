@@ -225,6 +225,14 @@ class IO(object):
     def __init__(self, directory):
         self.directory = directory
 
+        tmpdir = self.directory + os.path.sep + "tmp"
+        try:
+            if not os.path.exists(tmpdir):
+                os.makedirs(tmpdir)
+        except OSError:
+            pass
+        self.tmpdir = tmpdir
+
     def setup(self, parameters, functionals, function_space):
         self.parameters = parameters
         self.functionals = functionals
@@ -477,17 +485,24 @@ class SolutionIO(IO):
                 #print "Waiting for %s to have nonzero size" % (self.dir(params) + "solution-%d.xml.gz" % branchid)
                 time.sleep(0.1)
 
-        f = file(self.dir(params) + "stability-%d.txt" % branchid, "w")
+        # Trick from Lawrence Mitchell: POSIX guarantees that mv is atomic
+        f = tempfile.NamedTemporaryFile("w", delete=False, dir=self.tmpdir)
         s = str(stable)
         f.write(s)
+        os.fsync(f.file.fileno())
+        f.close()
+        filename = self.dir(params) + "stability-%d.txt" % branchid
+        os.rename(f.name, filename)
 
     def save_arclength(self, params, freeindex, branchid, ds, data):
-        tmpdir = self.directory + os.path.sep + "arclength" + os.path.sep + "tmp"
-        if not os.path.exists(tmpdir):
-            os.makedirs(tmpdir)
+        try:
+            if not os.path.exists(self.directory + os.path.sep + "arclength"):
+                os.makedirs(self.directory + os.path.sep + "arclength")
+        except OSError:
+            pass
 
         # Trick from Lawrence Mitchell: POSIX guarantees that mv is atomic
-        f = tempfile.NamedTemporaryFile("w", delete=False, dir=tmpdir)
+        f = tempfile.NamedTemporaryFile("w", delete=False, dir=self.tmpdir)
         json.dump(data, f.file, indent=4)
         f.file.flush()
         os.fsync(f.file.fileno())
