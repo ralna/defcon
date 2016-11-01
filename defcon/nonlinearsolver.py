@@ -100,6 +100,8 @@ if backend.__name__ == "dolfin":
             opts = PETSc.Options()
             if "snes_linesearch_type" not in solver_parameters:
                 opts[prefix + "snes_linesearch_type"] = "basic"
+            if "snes_divergence_tolerance" not in solver_parameters:
+                opts[prefix + "snes_divergence_tolerance"] = -1.0
 
             # set the petsc options from the solver_parameters
             for k in solver_parameters:
