@@ -111,12 +111,12 @@ Launch with mpiexec: mpiexec -n <number of processes> python %s
             return
 
         if branchids is None:
-            branchids = [""] # find all
+            branchids = ["*"] # find all
 
         import matplotlib.pyplot as plt
         import glob
         if "linewidth" not in kwargs: kwargs["linewidth"] = 2
-        if "markersize" not in kwargs: kwargs["linewidth"] = 1
+        if "markersize" not in kwargs: kwargs["markersize"] = 1
 
         functionals = self.problem.functionals()
         parameters  = self.problem.parameters()
@@ -327,10 +327,14 @@ class ArclengthWorker(defcon.DefconWorker, ArclengthThread):
                 normalisation_condition = lmbda_tlm - backend.Constant(copysign(1.0, sign))
 
             F = self.state_residual_derivative + mu*normalisation_condition*backend.dx
+            self.log("Computing tangent")
+            solverparams = self.problem.solver_parameters(current_params, task.__class__)
+            solverparams["snes_linesearch_type"] = "basic"
+            solverparams["snes_max_it"] = 1
             (success, iters) = newton.newton(F, self.tangent, self.hbcs,
                                     self.problem.nonlinear_problem,
                                     self.problem.solver,
-                                    self.problem.solver_parameters(current_params, task.__class__),
+                                    solverparams,
                                     self.teamno)
             if not success:
                 self.log("Warning: failed to compute tangent", warning=True)
@@ -353,6 +357,7 @@ class ArclengthWorker(defcon.DefconWorker, ArclengthThread):
                 else:
                     self.deflation.deflate([self.prevprev])
 
+                self.log("Computing arclength step")
                 (success, iters) = newton.newton(self.residual, self.state, self.bcs,
                                         self.problem.nonlinear_problem,
                                         self.problem.solver,
@@ -508,6 +513,7 @@ class ArclengthMaster(defcon.DefconMaster, ArclengthThread):
         (task, team) = self.wait_tasks[response.taskid]
         self.log("Received response %s about task %s from team %s" % (response, task, team))
         del self.wait_tasks[response.taskid]
+        self.idle_teams.append(team)
 
 class Dummy(object):
     def __init__(self, parameters, constants=None):
