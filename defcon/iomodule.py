@@ -18,6 +18,8 @@ import glob
 import time
 import numpy as np
 from ast import literal_eval
+from mpi4py import MPI
+from petsc4py import PETSc
 import shutil
 
 class IO(object):
@@ -28,7 +30,7 @@ class IO(object):
     def __init__(self, directory):
         self.directory = directory
 
-        tmpdir = self.directory + os.path.sep + "tmp"
+        tmpdir = "tmp"
         try:
             if not os.path.exists(tmpdir):
                 os.makedirs(tmpdir)
@@ -36,13 +38,32 @@ class IO(object):
             pass
         self.tmpdir = tmpdir
 
+    def __del__(self):
+        shutil.rmtree(self.tmpdir, ignore_errors=True)
+
+    def construct(self, comm):
+        pass
+
     def setup(self, parameters, functionals, function_space):
         self.parameters = parameters
         self.functionals = functionals
         self.function_space = function_space
 
+        # Argh, why do we need two communicators, from two libraries,
+        # written by the same person ... ?
+        if function_space is not None:
+            # petsc4py comm
+            self.pcomm = function_space.mesh().mpi_comm()
+            self.mcomm = self.pcomm.tompi4py()
+        else:
+            self.mcomm = MPI.COMM_SELF
+            self.pcomm = PETSc.Comm(self.mcomm)
+
     def clear(self):
-        shutil.rmtree(self.directory, ignore_errors=True)
+        if os.path.exists(self.directory):
+            tmpd = tempfile.mkdtemp(dir=os.getcwd())
+            shutil.move(self.directory, tmpd + os.path.sep + self.directory)
+            shutil.rmtree(tmpd, ignore_errors=True)
 
     def save_solution(self, solution, funcs, params, branchid):
         raise NotImplementedError

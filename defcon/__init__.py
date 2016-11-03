@@ -17,6 +17,7 @@ from bifurcationproblem   import BifurcationProblem
 from defcon               import DeflatedContinuation
 from arclength            import ArclengthContinuation
 from iomodule             import IO, SolutionIO, BranchIO, HDF5File
+from h5io                 import H5IO
 from tasks                import DeflationTask, ContinuationTask, StabilityTask, ArclengthTask
 from operatordeflation    import ShiftedDeflation
 

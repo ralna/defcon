@@ -56,10 +56,13 @@ class DeflatedContinuation(object):
 
         self.problem = problem
 
+        # Set up I/O
+        io = problem.io()
         clear_output = kwargs.get("clear_output", False)
-        if clear_output:
-            io = problem.io()
+        if worldcomm.rank == 0 and clear_output:
             io.clear()
+
+        io.construct(worldcomm)
 
         if worldcomm.rank == 0:
             self.thread = DefconMaster(problem, **kwargs)
