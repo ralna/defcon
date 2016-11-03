@@ -82,16 +82,12 @@ class ElasticaProblem(BifurcationProblem):
             "ksp_type": "preonly",
             "pc_type": "lu"
          }
-    
+
 if __name__ == "__main__":
-    dc = DeflatedContinuation(problem=ElasticaProblem(), teamsize=1, verbose=True)
-    dc.run(free={"lambda": linspace(0, 3.9*pi, 200)}, fixed={"mu": 0.5})
+    dc = DeflatedContinuation(problem=ElasticaProblem(), teamsize=1, verbose=True, clear_output=True)
+    dc.run(values={"lambda": linspace(0, 3.9*pi, 200), "mu": [0.5]}, freeparam="lambda")
 
     dc.bifurcation_diagram("signedL2", fixed={"mu": 0.5})
     plt.title(r"Buckling of an Euler elastica, $\mu = 1/2$")
     plt.savefig("bifurcation.pdf")
-
-    # Maybe you could also do:
-    #dc.run(fixed={"lambda": 4*pi}, free={"mu": linspace(0.5, 0.0, 6)})
-    #dc.run(fixed={"mu": 0.0}, free={"lambda": linspace(4*pi, 0.0, 100)})
 

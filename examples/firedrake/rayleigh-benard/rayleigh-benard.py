@@ -134,5 +134,4 @@ class RayleighBenardProblem(BifurcationProblem):
 
 if __name__ == "__main__":
     dc = DeflatedContinuation(problem=RayleighBenardProblem(), teamsize=1, verbose=True)
-    #dc.run(free={"Ra": range(1701, 1720, +1)}, fixed={"Pr": 6.8})
-    dc.run(free={"Ra": [1701]}, fixed={"Pr": 6.8})
+    dc.run(values={"Ra": [1701], "Pr": [6.8]}, freeparam="Ra")
