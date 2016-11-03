@@ -28,14 +28,11 @@ If you're compiling things yourself, defcon depends on
 
 * mpi4py (http://pythonhosted.org/mpi4py/)
 * petsc4py (https://bitbucket.org/petsc/petsc4py)
-* FEniCS, compiled with PETSc and petsc4py support (http://fenicsproject.org)
-
-DOLFIN 2016.1.0 has a critical bug that causes defcon to hang. You need to use
-the development version (latest git master). If you're using docker, use the `dev`
-container with `fenicsproject run dev`.
+* FEniCS, compiled with PETSc, petsc4py and HDF5 support (http://fenicsproject.org)
 
 Defcon recommends (and some of the examples depend on)
 
+* h5py, compiled against parallel HDF5 (http://www.h5py.org/)
 * matplotlib (http://matplotlib.org)
 * mshr (https://bitbucket.org/fenics-project/mshr)
 * slepc4py (https://bitbucket.org/slepc/slepc4py)
