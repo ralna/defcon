@@ -444,7 +444,17 @@ class DefconWorker(DefconThread):
             self.trivial_solutions = self.problem.trivial_solutions(self.function_space, task.newparams, task.freeindex)
 
         # Set up the problem
-        self.load_solution(task.oldparams, task.branchid, task.newparams)
+
+        # We want each (branch, freeindex) pairing to have a unique branch id,
+        # to allow for one HDF5 file per branchid (otherwise two teams could
+        # write to the same file, causing a race condition). This case occurs
+        # when we do multi-parameter continuation, and need to continue a branch
+        # in another direction -- we want to load the old branch, but store it
+        # with a new branchid.
+        if hasattr(task, 'source_branchid'):
+            self.load_solution(task.oldparams, task.source_branchid, task.newparams)
+        else:
+            self.load_solution(task.oldparams, task.branchid, task.newparams)
         self.load_parameters(task.newparams)
         knownbranches = self.io.known_branches(task.newparams)
         other_solutions = self.io.fetch_solutions(task.newparams, knownbranches)
@@ -981,10 +991,14 @@ class DefconMaster(DefconThread):
 
         # Whether there is another continuation task to insert or not,
         # we have a deflation task to insert.
+        if hasattr(task, 'source_branchid'):
+            new_branchid = task.source_branchid
+        else:
+            new_branchid = task.branchid
         newtask = DeflationTask(taskid=self.taskid_counter,
                                 oldparams=task.oldparams,
                                 freeindex=task.freeindex,
-                                branchid=task.branchid,
+                                branchid=new_branchid,
                                 newparams=task.newparams)
         self.taskid_counter += 1
         newpriority = self.signs[task.freeindex]*newtask.newparams[task.freeindex]
@@ -1138,14 +1152,36 @@ class DefconMaster(DefconThread):
         for (j, user_task) in enumerate(user_tasks):
             assert user_task.taskid == userin.taskid + j + 1
 
+            if isinstance(user_task, StabilityTask):
+                self.log("Warning: disregarding user-inserted %s. Stability tasks are inserted automatically." % user_task, warning=True)
+                continue
+
             if hasattr(user_task, 'newparams'):
+                # Set the new parameter values to be investigated
                 user_task.newparams = self.parameters.next(user_task.oldparams, user_task.freeindex)
                 if user_task.newparams is None:
                     self.log("Warning: disregarding user-inserted task %s" % user_task, warning=True)
                     continue
 
+            if hasattr(user_task, 'branchid'):
+                # Give a new branchid
+                user_task.source_branchid = user_task.branchid
+                user_task.branchid = self.branchid_counter
+                self.branchid_counter += 1
+
             priority = user_task.oldparams[user_task.freeindex]
             self.log("Registering user-inserted task %s" % user_task)
             self.graph.push(user_task, priority)
             self.taskid_counter += 1
+
+            if isinstance(user_task, ContinuationTask) and self.compute_stability:
+                stab_task = StabilityTask(taskid=self.taskid_counter,
+                                          oldparams=user_task.newparams,
+                                          freeindex=user_task.freeindex,
+                                          branchid=user_task.branchid,
+                                          direction=user_task.direction,
+                                          hint=None)
+                self.taskid_counter += 1
+                self.log("Registering automatically generated task %s" % stab_task)
+                self.graph.push(stab_task, priority)
 
