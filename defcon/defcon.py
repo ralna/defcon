@@ -321,9 +321,13 @@ class DefconWorker(DefconThread):
         task = self.mastercomm.bcast(None)
         return task
 
-    def fetch_response(self):
+    def fetch_response(self, block=False):
         self.log("Fetching response")
         response = self.mastercomm.bcast(None)
+
+        if block:
+            self.mastercomm.barrier()
+
         return response
 
     def send_response(self, response):
@@ -371,23 +375,11 @@ class DefconWorker(DefconThread):
         out = self.problem.transform_guess(task.oldparams, task.newparams, self.state); assert out is None
 
         self.load_parameters(task.newparams)
-        knownbranches = self.io.known_branches(task.newparams)
-        # If there are branches that must be there, spin until they are there
-        if len(task.ensure_branches) > 0:
-            while True:
-                if task.ensure_branches.issubset(knownbranches):
-                    break
-                self.log("Waiting until branches %s are available for %s. Known branches: %s" % (task.ensure_branches, task.newparams, knownbranches))
-                time.sleep(1)
-                knownbranches = self.io.known_branches(task.newparams)
-        if len(task.ensure_branches) > 0:
-            self.log("Found all necessary branches.")
-
-        other_solutions = self.io.fetch_solutions(task.newparams, knownbranches)
-        self.log("Deflating other branches %s" % knownbranches)
+        other_solutions = self.io.fetch_solutions(task.newparams, task.ensure_branches)
         bcs = self.problem.boundary_conditions(self.function_space, task.newparams)
 
         # Deflate and solve
+        self.log("Deflating other branches %s" % task.ensure_branches)
         self.deflation.deflate(other_solutions + self.trivial_solutions)
         (success, iters) = newton(self.residual, self.state, bcs,
                          self.problem.nonlinear_problem,
@@ -424,6 +416,10 @@ class DefconWorker(DefconThread):
         self.io.save_solution(self.state, functionals, task.newparams, branchid)
         self.log("Saved solution to %s to disk" % task)
 
+        # We want to add one more synchronisation point with master, so that it doesn't go
+        # haring off with this solution until it's written to disk (i.e. now)
+        response = self.fetch_response(block=True)
+
         # Automatically start onto the continuation
         newparams = self.parameters.next(task.newparams, task.freeindex)
         if newparams is not None:
@@ -433,6 +429,7 @@ class DefconWorker(DefconThread):
                                     branchid=branchid,
                                     newparams=newparams,
                                     direction=+1)
+            task.ensure(response.data["ensure_branches"])
             return task
         else:
             # Reached the end of the continuation, don't want to continue, move on
@@ -456,11 +453,11 @@ class DefconWorker(DefconThread):
         else:
             self.load_solution(task.oldparams, task.branchid, task.newparams)
         self.load_parameters(task.newparams)
-        knownbranches = self.io.known_branches(task.newparams)
-        other_solutions = self.io.fetch_solutions(task.newparams, knownbranches)
+        other_solutions = self.io.fetch_solutions(task.newparams, task.ensure_branches)
         bcs = self.problem.boundary_conditions(self.function_space, task.newparams)
 
         # Try to solve it
+        self.log("Deflating other branches %s" % task.ensure_branches)
         self.deflation.deflate(other_solutions + self.trivial_solutions)
         (success, iters) = newton(self.residual, self.state, bcs,
                          self.problem.nonlinear_problem,
@@ -498,12 +495,14 @@ class DefconWorker(DefconThread):
             # we have no more continuation to do, move on.
             return
         else:
+            response = self.fetch_response()
             task = ContinuationTask(taskid=task.taskid,
                                     oldparams=task.newparams,
                                     freeindex=task.freeindex,
                                     branchid=task.branchid,
                                     newparams=newparams,
                                     direction=task.direction)
+            task.ensure(response.data["ensure_branches"])
             return task
 
     def stability_task(self, task):
@@ -592,9 +591,12 @@ class DefconMaster(DefconThread):
         self.log("Sending task %s to team %s" % (task, team))
         self.teamcomms[team].bcast(task)
 
-    def send_response(self, response, team):
+    def send_response(self, response, team, block=False):
         self.log("Sending response %s to team %s" % (response, team))
         self.teamcomms[team].bcast(response)
+
+        if block:
+            self.teamcomms[team].barrier()
 
     def fetch_response(self):
         response = self.worldcomm.recv(source=MPI.ANY_SOURCE, tag=self.responsetag)
@@ -664,7 +666,7 @@ class DefconMaster(DefconThread):
 
         # We need to keep a map of parameters -> branches.
         # FIXME: make disk writes atomic and get rid of this.
-        self.ensure_branches = {}
+        self.parameter_map = self.io.parameter_map()
 
         # In parallel, we might make a discovery with deflation that invalidates
         # the results of other deflations ongoing. This set keeps track of the tasks
@@ -735,12 +737,10 @@ class DefconMaster(DefconThread):
         (task, priority) = self.graph.pop()
 
         send = True
-        if isinstance(task, DeflationTask):
-            knownbranches = self.io.known_branches(task.newparams)
-            if task.newparams in self.ensure_branches:
-                knownbranches = knownbranches.union(self.ensure_branches[task.newparams])
+        known_branches = self.parameter_map.get(task.newparams, [])
 
-            if len(knownbranches) >= self.problem.number_solutions(task.newparams):
+        if isinstance(task, DeflationTask):
+            if len(known_branches) >= self.problem.number_solutions(task.newparams):
             # We've found all the branches the user's asked us for, let's roll.
                 self.log("Master not dispatching %s because we have enough solutions" % task)
                 return
@@ -755,11 +755,11 @@ class DefconMaster(DefconThread):
                     break
 
         if send:
-            # OK, we're happy to send it out. Let's tell it any new information
-            # we've found out since we scheduled it.
+            # OK, we're happy to send it out. Let's tell it about all of the
+            # solutions we know about.
             if hasattr(task, 'ensure'):
-                if task.newparams in self.ensure_branches:
-                    task.ensure(self.ensure_branches[task.newparams])
+                task.ensure(known_branches)
+
             idleteam = self.idle_teams.pop(0)
             self.send_task(task, idleteam)
             self.graph.wait(task.taskid, idleteam, task)
@@ -875,9 +875,11 @@ class DefconMaster(DefconThread):
             self.log("Waiting on response for %s" % conttask)
             # Write to the journal, saying that this team is now doing continuation.
             self.journal.team_job(team, "c", task.newparams, branchid)
+            next_known_branches = self.parameter_map.get(newparams, [])
         else:
             # It's at the end of the continuation, there's no more continuation
             # to do. Mark the team as idle.
+            next_known_branches = []
             self.idle_team(team)
 
         # * Now let's ask the user if they want to do anything special,
@@ -907,9 +909,8 @@ class DefconMaster(DefconThread):
 
         # We'll also make sure that any other DeflationTasks in the queue
         # that have these parameters know about the existence of this branch.
-        if task.newparams not in self.ensure_branches:
-            self.ensure_branches[task.newparams] = set()
-        self.ensure_branches[task.newparams].add(branchid)
+        old_parameter_map = self.parameter_map.get(task.newparams, [])
+        self.parameter_map[task.newparams] = [branchid] + old_parameter_map
 
         # If the user wants us to compute stabilities, then let's
         # do that.
@@ -935,7 +936,10 @@ class DefconMaster(DefconThread):
                 self.graph.push(stabtask, newpriority)
                 self.taskid_counter += 1
 
-        # Phew! What a lot of bookkeeping. That's it.
+        # Phew! What a lot of bookkeeping. The only thing left to do is wait until the
+        # worker has finished his I/O.
+        response = Response(taskid=task.taskid, success=True, data={"ensure_branches": next_known_branches})
+        self.send_response(response, team, block=True)
         return
 
     def continuation_task(self, task, team, response):
@@ -948,6 +952,10 @@ class DefconMaster(DefconThread):
 
         # Record success.
         self.journal.entry(team, task.oldparams, task.branchid, task.newparams, response.data["functionals"], True)
+
+        # Update the parameter -> branchid map
+        old_parameter_map = self.parameter_map.get(task.newparams, [])
+        self.parameter_map[task.newparams] = [task.branchid] + old_parameter_map
 
         # Update the branch extent.
         if (task.branchid, task.freeindex) not in self.branch_extent:
@@ -968,6 +976,9 @@ class DefconMaster(DefconThread):
             # No more continuation to do, the team is now idle.
             self.idle_team(team)
         else:
+            next_known_branches = self.parameter_map.get(newparams, [])
+            response = Response(taskid=task.taskid, success=True, data={"ensure_branches": next_known_branches})
+            self.send_response(response, team)
             conttask = ContinuationTask(taskid=task.taskid,
                                         oldparams=task.newparams,
                                         freeindex=task.freeindex,

@@ -23,7 +23,7 @@ def ranktoteamno(rank, teamsize):
     return int(math.floor((rank-1)/float(teamsize)))
 
 def teamnotoranks(teamno, teamsize):
-    return range(teamno*teamsize, (teamno+1)*teamsize)
+    return range(teamno*teamsize+1, (teamno+1)*teamsize+1)
 
 if __name__ == "__main__":
     teamsize = 4
@@ -33,5 +33,8 @@ if __name__ == "__main__":
     print "rank 3 -> team ", ranktoteamno(3, teamsize)
     print "rank 4 -> team ", ranktoteamno(4, teamsize)
     print "rank 5 -> team ", ranktoteamno(5, teamsize)
+    print "rank 6 -> team ", ranktoteamno(6, teamsize)
+    print "rank 7 -> team ", ranktoteamno(7, teamsize)
+    print "rank 8 -> team ", ranktoteamno(8, teamsize)
     print "team 0 -> ranks ", teamnotoranks(0, teamsize)
     print "team 1 -> ranks ", teamnotoranks(1, teamsize)

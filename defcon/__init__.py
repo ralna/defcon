@@ -16,7 +16,7 @@ from numpy                import arange, linspace
 from bifurcationproblem   import BifurcationProblem
 from defcon               import DeflatedContinuation
 from arclength            import ArclengthContinuation
-from iomodule             import IO, SolutionIO, BranchIO, HDF5File
+from iomodule             import IO, SolutionIO
 from h5io                 import H5IO
 from tasks                import DeflationTask, ContinuationTask, StabilityTask, ArclengthTask
 from operatordeflation    import ShiftedDeflation
@@ -36,6 +36,8 @@ if backend.__name__ == "dolfin":
 
 elif backend.__name__ == "firedrake":
     backend.comm_world = MPI.COMM_WORLD
+
+from backend import HDF5File
 
 # We have to disable the GC (this is a general thing with running DOLFIN in parallel).
 # By default, each Python process decides completely by itself whether to do a

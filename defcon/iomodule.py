@@ -30,7 +30,7 @@ class IO(object):
     def __init__(self, directory):
         self.directory = directory
 
-        tmpdir = "tmp"
+        tmpdir = os.path.abspath("tmp")
         try:
             if not os.path.exists(tmpdir):
                 os.makedirs(tmpdir)
@@ -40,6 +40,12 @@ class IO(object):
 
     def __del__(self):
         shutil.rmtree(self.tmpdir, ignore_errors=True)
+
+    def parameter_map(self):
+        """
+        Return an object that stores the map of parameter tuple -> list of known branches.
+        """
+        return {}
 
     def construct(self, comm):
         pass
@@ -92,125 +98,23 @@ class IO(object):
     def fetch_stability(self, params, branchids):
         raise NotImplementedError
 
-class BranchIO(IO):
-    """ 
-    I/O module that uses one HDF5File per branch.
-    """
-
-    def __init__(self, directory):
-        self.directory = directory
-
-        # Create the output directory.
-        try: os.mkdir(directory) 
-        except OSError: pass
-
-    def dir(self, branchid):
-        return self.directory + os.path.sep + "branch-%s.hdf5" % branchid
-
-    def known_params_file(self, branchid, params, mode):
-        """ Records the existence of a solution with branchid for params. """
-        g = file(self.directory + os.path.sep + "branch-%s.txt" % branchid, mode)
-        g.write(str(params)+';')
-        g.close()
-
-    def save_solution(self, solution, funcs, params, branchid):
-        """ Save a solution to the file branch-branchid.hdf5. Also save the functionals as an attribute in the file."""
-        # Urgh... we need to check if the file already exists to decide if we use write mode or append mode. HDF5File's 'a' mode fails if the file doesn't exist.
-        # This behaviour is different from h5py's 'a' mode, which can create a file if it doesn't exist and modify otherwise.
-        if os.path.exists(self.dir(branchid)): mode='a'
-        else: mode = 'w'
-
-        with HDF5File(self.function_space.mesh().mpi_comm(), self.dir(branchid), mode) as f:
-            # First save the solution.
-            f.write(solution, "/" + parameters_to_string(self.parameters, params))
-
-            # Now save the functionals.
-            s = parameters_to_string(self.functionals, funcs)
-            f.attributes(parameters_to_string(self.parameters, params))["functional"] = s
-
-            # Flush and save the file.
-            f.flush()
-
-        # Make a note that we've discovered a solution on this branch and for these parameters. 
-        if os.path.exists(self.directory + os.path.sep + "branch-%s.txt" % branchid): mode='a'
-        else: mode = 'w'
-
-        self.known_params_file(branchid, params, mode)
-
-    def fetch_solutions(self, params, branchids):
-        """ Fetch solutions for a particular parameter value for each branchid in branchids. """
-        solns = []
-        for branchid in branchids:
-            failcount = 0
-            while True:
-                try:
-                    with HDF5File(self.function_space.mesh().mpi_comm(), self.dir(branchid), 'r') as f:
-                        soln = Function(self.function_space)
-                        f.read(soln, "/" + parameters_to_string(self.parameters, params))
-                        f.flush()
-                    solns.append(soln)
-                    break
-
-                # We failed to open/read the file. Shouldn't happen, but just in case.
-                except Exception:
-                    print "Loading file %s failed. Sleeping for a second and trying again." % self.dir(branchid)
-                    failcount += 1
-                    if failcount == 5:
-                        print "Argh. Tried 5 times to load file %s. Raising exception." % self.dir(branchid)
-                        raise
-                    time.sleep(1)
-        return solns
-
-    def known_branches(self, params):
-        """ Load the branches we know about for this particular parameter value, by opening the file and seeing which groups it has. """
-        saved_branch_files = glob.glob(self.directory + os.path.sep + "*.txt")
-        branches = []
-        for branch_file in saved_branch_files:
-            pullData = open(branch_file, 'r').read().split(';')
-            if str(params) in pullData: 
-                branches.append(int(branch_file.split('-')[-1].split('.')[0]))
-        return set(branches)
-
-    def fetch_functionals(self, params, branchid):
-        """ Gets functionals for a particular branchid, one for each param in params. """
-        funcs = []
-        with HDF5File(self.function_space.mesh().mpi_comm(), self.dir(branchid), 'r') as f:
-            for param in params: 
-                newfuncs = [float(line.split('=')[-1]) for line in f.attributes(parameters_to_string(self.parameters, param))["functional"].split('@')]
-                funcs.append(newfuncs)
-        return funcs
-
-    def known_parameters(self, fixed, branchid):
-        """ Returns a list of known parameters for a given branch. """
-        pullData = open(self.directory + os.path.sep + "branch-%s.txt" % branchid, 'r').read().split(';')[0:-1]
-        saved_params = [tuple([float(param) for param in literal_eval(params)]) for params in pullData]
-        return saved_params
-
-    def max_branch(self):
-        """ Returns the index of the maximum branch we have found. """
-        saved_branch_files = glob.glob(self.directory + os.path.sep + "*.hdf5")
-        branchids = [int(branch_file.split('-')[-1].split('.')[0]) for branch_file in saved_branch_files]
-        return max(branchids)
-
 class SolutionIO(IO):
     """An I/O class that saves one HDF5File per solution found."""
     def dir(self, params):
         return self.directory + os.path.sep + parameters_to_string(self.parameters, params) + os.path.sep
 
     def save_solution(self, solution, funcs, params, branchid):
-        with HDF5File(self.function_space.mesh().mpi_comm(), self.dir(params) + "solution-%d.h5" % branchid, 'w') as f:
-            f.write(solution, "/solution")
+        try:
+            os.makedirs(self.dir(params))
+        except OSError:
+            pass
 
-        # wait for the file to be written
-        size = 0
-        while True:
-            try:
-                size = os.stat(self.dir(params) + "solution-%d.h5" % branchid).st_size
-            except OSError:
-                pass
-            if size > 0: break
-            #print "Waiting for %s to have nonzero size" % (self.dir(params) + "solution-%d.xml.gz" % branchid)
-            time.sleep(0.1)
+        tmp = tempfile.NamedTemporaryFile("w", delete=False, dir=self.tmpdir, suffix=".h5")
+        tmp.close()
+        with HDF5File(self.function_space.mesh().mpi_comm(), tmp.name, 'w') as f:
+            f.write(solution, "/solution")
+        os.rename(tmp.name, self.dir(params) + "solution-%d.h5" % branchid)
+        assert os.path.exists(self.dir(params) + "solution-%d.h5" % branchid)
 
         f = file(self.dir(params) + "functional-%d.txt" % branchid, "w")
         s = parameters_to_string(self.functionals, funcs).replace('@', '\n') + '\n'
