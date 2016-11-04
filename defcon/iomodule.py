@@ -59,7 +59,7 @@ class IO(object):
         # written by the same person ... ?
         if function_space is not None:
             # petsc4py comm
-            self.pcomm = function_space.mesh().mpi_comm()
+            self.pcomm = PETSc.Comm(function_space.mesh().mpi_comm())
             self.mcomm = self.pcomm.tompi4py()
         else:
             self.mcomm = MPI.COMM_SELF
