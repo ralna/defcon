@@ -598,8 +598,8 @@ class DefconMaster(DefconThread):
             nguesses = len(knownbranches)
             self.log("Using %d known solutions at %s" % (nguesses, initialparams,))
 
-            for guess in range(nguesses):
-                self.insert_continuation_task(initialparams, freeindex, guess, priority=float("-inf"))
+            for branch in knownbranches:
+                self.insert_continuation_task(initialparams, freeindex, branch, priority=float("-inf"))
         else:
             self.log("Using user-supplied initial guesses at %s" % (initialparams,))
             oldparams = None
