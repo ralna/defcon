@@ -13,10 +13,12 @@ def test_bratu():
     io = problem.io()
     io.setup(problem.parameters(), problem.functionals(), None)
 
-    assert len(io.known_branches((3.0,))) == 2
+    import backend
+    if backend.comm_world.rank == 0:
+        assert len(io.known_branches((3.0,))) == 2
 
-    data = json.load(open("output/arclength/params-lambda=5.000000000000000e-01-freeindex-0-branchid-0-ds-1.00000000000000e-01.json", "r"))
-    x = [entry[0] for entry in data]
-    y = [entry[1][0] for entry in data]
-    assert len(x) == len(y)
-    assert len(x) > 0
+        data = json.load(open("output/arclength/params-lambda=5.000000000000000e-01-freeindex-0-branchid-0-ds-1.00000000000000e-01.json", "r"))
+        x = [entry[0] for entry in data]
+        y = [entry[1][0] for entry in data]
+        assert len(x) == len(y)
+        assert len(x) > 0

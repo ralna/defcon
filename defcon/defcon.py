@@ -728,6 +728,9 @@ class DefconMaster(DefconThread):
             self.send_task(quit, teamno)
             self.journal.team_job(teamno, "q")
 
+        # Delete self.parameter_map, to flush it to disk in case it's backed by a file
+        del self.parameter_map
+
     def handle_response(self, response):
         (task, team) = self.graph.finish(response.taskid)
         self.log("Received response %s about task %s from team %s" % (response, task, team))
@@ -739,7 +742,7 @@ class DefconMaster(DefconThread):
         send = True
 
         if hasattr(task, 'ensure'):
-            known_branches = self.parameter_map.get(task.newparams, [])
+            known_branches = self.parameter_map[task.newparams]
 
         if isinstance(task, DeflationTask):
             if len(known_branches) >= self.problem.number_solutions(task.newparams):
@@ -877,7 +880,7 @@ class DefconMaster(DefconThread):
             self.log("Waiting on response for %s" % conttask)
             # Write to the journal, saying that this team is now doing continuation.
             self.journal.team_job(team, "c", task.newparams, branchid)
-            next_known_branches = self.parameter_map.get(newparams, [])
+            next_known_branches = self.parameter_map[newparams]
         else:
             # It's at the end of the continuation, there's no more continuation
             # to do. Mark the team as idle.
@@ -911,8 +914,8 @@ class DefconMaster(DefconThread):
 
         # We'll also make sure that any other DeflationTasks in the queue
         # that have these parameters know about the existence of this branch.
-        old_parameter_map = self.parameter_map.get(task.newparams, [])
-        self.parameter_map[task.newparams] = [branchid] + old_parameter_map
+        old_parameter_map = self.parameter_map[task.newparams]
+        self.parameter_map[task.newparams] = old_parameter_map + [branchid]
 
         # If the user wants us to compute stabilities, then let's
         # do that.
@@ -956,7 +959,7 @@ class DefconMaster(DefconThread):
         self.journal.entry(team, task.oldparams, task.branchid, task.newparams, response.data["functionals"], True)
 
         # Update the parameter -> branchid map
-        old_parameter_map = self.parameter_map.get(task.newparams, [])
+        old_parameter_map = self.parameter_map[task.newparams]
         self.parameter_map[task.newparams] = [task.branchid] + old_parameter_map
 
         # Update the branch extent.
@@ -978,7 +981,7 @@ class DefconMaster(DefconThread):
             # No more continuation to do, the team is now idle.
             self.idle_team(team)
         else:
-            next_known_branches = self.parameter_map.get(newparams, [])
+            next_known_branches = self.parameter_map[newparams]
             response = Response(taskid=task.taskid, success=True, data={"ensure_branches": next_known_branches})
             self.send_response(response, team)
             conttask = ContinuationTask(taskid=task.taskid,

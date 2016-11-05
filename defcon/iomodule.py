@@ -22,6 +22,7 @@ from mpi4py import MPI
 from petsc4py import PETSc
 import shutil
 import atexit
+import collections
 
 class IO(object):
     """
@@ -30,6 +31,11 @@ class IO(object):
 
     def __init__(self, directory):
         self.directory = directory
+        try:
+            if not os.path.exists(directory):
+                os.makedirs(directory)
+        except OSError:
+            pass
 
         tmpdir = os.path.abspath("tmp")
         try:
@@ -38,6 +44,8 @@ class IO(object):
         except OSError:
             pass
         self.tmpdir = tmpdir
+
+        self.worldcomm = backend.comm_world
 
         atexit.register(self.cleanup)
 
@@ -48,10 +56,10 @@ class IO(object):
         """
         Return an object that stores the map of parameter tuple -> list of known branches.
         """
-        return {}
+        return collections.defaultdict(list)
 
-    def construct(self, comm):
-        pass
+    def construct(self, worldcomm):
+        self.worldcomm = worldcomm
 
     def setup(self, parameters, functionals, function_space):
         self.parameters = parameters

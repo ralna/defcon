@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 import backend
 import iomodule
+import branchio
 import nonlinearproblem, nonlinearsolver
 
 class BifurcationProblem(object):
@@ -197,7 +198,8 @@ class BifurcationProblem(object):
         The default is usually a good choice.
         """
 
-        return iomodule.SolutionIO(prefix)
+        #return iomodule.SolutionIO(prefix)
+        return branchio.BranchIO(prefix)
 
     def save_pvd(self, y, pvd):
         """
