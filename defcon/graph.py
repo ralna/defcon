@@ -83,7 +83,10 @@ class DefconGraph(object):
         for i in range(N):
             try:
                 (priority, task) = heappop(self.deferred_tasks)
-                heappush(self.new_tasks, (priority, task))
+                if isinstance(task, StabilityTask):
+                    heappush(self.stability_tasks, (priority, task))
+                else:
+                    heappush(self.new_tasks, (priority, task))
             except IndexError: break
         return
 

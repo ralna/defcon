@@ -62,13 +62,14 @@ class BranchIO(iomodule.SolutionIO):
             mode = "w"
             exists = False
 
-        # FIXME: probably need atomic mode/an MPI barrier here?
         with HDF5File(self.pcomm, fname, mode) as f:
+            f.set_mpi_atomicity(True)
             f.write(solution, key + "/solution")
 
             attrs = f.attributes(key)
             for (func, value) in zip(self.functionals, funcs):
                 attrs[func[1]] = value
+        self.pcomm.Barrier()
 
     def fetch_solutions(self, params, branchids):
         key = paramstokey(params)

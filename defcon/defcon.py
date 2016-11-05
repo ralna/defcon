@@ -759,6 +759,32 @@ class DefconMaster(DefconThread):
                     send = False
                     break
 
+        if isinstance(task, StabilityTask):
+            if task.direction > 0:
+                if self.signs[task.freeindex]*task.oldparams[task.freeindex] >= self.signs[task.freeindex]*self.branch_extent[(task.branchid, task.freeindex)][1]:
+                    send = False
+            else:
+                if self.signs[task.freeindex]*task.oldparams[task.freeindex] <= self.signs[task.freeindex]*self.branch_extent[(task.branchid, task.freeindex)][0]:
+                    send = False
+
+            # If the continuation is still ongoing, we'll defer it. If not,
+            # we'll kill it.
+            continuation_ongoing = False
+            for currenttask in self.graph.waiting(ContinuationTask):
+                if currenttask.branchid == task.branchid:
+                    continuation_ongoing = True
+
+            # We also need to check the executable tasks
+            if not continuation_ongoing:
+                for currenttask in self.graph.executable(ContinuationTask):
+                    if currenttask.branchid == task.branchid:
+                        continuation_ongoing = True
+
+            # OK, now we have computed whether the continuation is ongoing or not.
+            if not continuation_ongoing:
+                self.log("Master not dispatching %s because the continuation has ended" % task)
+                return
+
         if send:
             # OK, we're happy to send it out. Let's tell it about all of the
             # solutions we know about.
