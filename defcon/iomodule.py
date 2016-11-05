@@ -21,6 +21,7 @@ from ast import literal_eval
 from mpi4py import MPI
 from petsc4py import PETSc
 import shutil
+import atexit
 
 class IO(object):
     """
@@ -38,7 +39,9 @@ class IO(object):
             pass
         self.tmpdir = tmpdir
 
-    def __del__(self):
+        atexit.register(self.cleanup)
+
+    def cleanup(self):
         shutil.rmtree(self.tmpdir, ignore_errors=True)
 
     def parameter_map(self):

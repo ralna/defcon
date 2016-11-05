@@ -737,7 +737,9 @@ class DefconMaster(DefconThread):
         (task, priority) = self.graph.pop()
 
         send = True
-        known_branches = self.parameter_map.get(task.newparams, [])
+
+        if hasattr(task, 'ensure'):
+            known_branches = self.parameter_map.get(task.newparams, [])
 
         if isinstance(task, DeflationTask):
             if len(known_branches) >= self.problem.number_solutions(task.newparams):
