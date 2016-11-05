@@ -8,24 +8,24 @@ import iomodule
 # hardest part is figuring out which parameters have which
 # branches. I'm going to use a special HDF5 file for this
 # purpose.
+
+def paramstokey(params): return "(" + ", ".join("%.15e" % x for x in params) + ")"
 class ParameterMap(object):
     def __init__(self, directory, mode="a"):
-        os.system("ls -l output/parameter_map.h5")
         self.h5 = h5py.File(os.path.join(directory, "parameter_map.h5"), mode, driver="core")
 
     def __getitem__(self, params):
-        key = "(" + ", ".join("%.15e" % x for x in params) + ")"
+        key = paramstokey(params)
         out = list(self.h5.attrs.get(key, []))
         return out
 
     def __setitem__(self, params, value):
-        key = "(" + ", ".join("%.15e" % x for x in params) + ")"
+        key = paramstokey(params)
         self.h5.attrs[key] = value
 
 class BranchIO(iomodule.SolutionIO):
     def __init__(self, directory):
         iomodule.SolutionIO.__init__(self, directory)
-
         self.pm = None
 
     def parameter_map(self):
@@ -41,6 +41,39 @@ class BranchIO(iomodule.SolutionIO):
             self.pm = ParameterMap(self.directory)
         known = self.pm[params]
         return known
+
+    def filename(self, branchid):
+        return os.path.join(self.directory, "branchid-" + str(branchid) + ".h5")
+
+    def save_solution(self, solution, funcs, params, branchid):
+        key = paramstokey(params)
+        fname = self.filename(branchid)
+        # FFS.
+        if os.path.exists(fname):
+            mode = "a"
+            exists = True
+        else:
+            mode = "w"
+            exists = False
+
+        # FIXME: probably need atomic mode/an MPI barrier here
+        print "opening %s with mode %s " % (fname, mode)
+        with HDF5File(self.pcomm, fname, mode) as f:
+            f.write(solution, key + "/solution")
+
+            attrs = f.attributes(key)
+            for (func, value) in zip(self.functionals, funcs):
+                attrs[func[1]] = value
+
+    def fetch_solutions(self, params, branchids):
+        key = paramstokey(params)
+        solns = []
+        for branchid in branchids:
+            with HDF5File(self.pcomm, self.filename(branchid), "r") as f:
+                solution = Function(self.function_space)
+                f.read(solution, key + "/solution")
+                solns.append(solution)
+        return solns
 
 #class BranchIO(iomodule.IO):
 #    """
