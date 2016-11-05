@@ -518,7 +518,7 @@ class DefconWorker(DefconThread):
             success = True
             d = {"stable": stab[0]}
             response = Response(task.taskid, success=success, data={"stable": stab[0]})
-        except IOError:
+        except (IOError, RuntimeError, KeyError):
             # We don't know whether it's stable or not, compute.
             try:
                 self.load_solution(task.oldparams, task.branchid, -1)
