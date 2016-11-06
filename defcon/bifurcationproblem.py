@@ -198,8 +198,12 @@ class BifurcationProblem(object):
         The default is usually a good choice.
         """
 
-        #return iomodule.SolutionIO(prefix)
-        return branchio.BranchIO(prefix)
+        try:
+            import h5py
+            assert hasattr(backend.HDF5File, 'set_mpi_atomicity')
+            return branchio.BranchIO(prefix)
+        except (ImportError, AssertionError):
+            return iomodule.SolutionIO(prefix)
 
     def save_pvd(self, y, pvd):
         """

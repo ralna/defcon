@@ -17,7 +17,13 @@ from bifurcationproblem   import BifurcationProblem
 from defcon               import DeflatedContinuation
 from arclength            import ArclengthContinuation
 from iomodule             import IO, SolutionIO
-from branchio             import BranchIO
+
+# This might fail because h5py is missing.
+try:
+    from branchio         import BranchIO
+except ImportError:
+    pass
+
 from tasks                import DeflationTask, ContinuationTask, StabilityTask, ArclengthTask
 from operatordeflation    import ShiftedDeflation
 
