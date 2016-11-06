@@ -5,6 +5,7 @@ import os, os.path
 import iomodule
 import glob
 from ast import literal_eval
+import collections
 
 # If you're storing one branch per hdf5 file, the
 # hardest part is figuring out which parameters have which
@@ -15,17 +16,23 @@ def paramstokey(params): return "(" + ", ".join("%.15e" % x for x in params) + "
 def keytoparams(key): return literal_eval(key)
 
 class ParameterMap(object):
-    def __init__(self, directory, mode="a"):
-        self.h5 = h5py.File(os.path.join(directory, "parameter_map.h5"), mode, driver="core")
+    def __init__(self, directory):
+        self.path = os.path.join(directory, "parameter_map.pck")
+        try:
+            f = open(self.path, "r")
+            self.dict = pickle.load(f)
+        except:
+            self.dict = collections.defaultdict(list)
 
-    def __getitem__(self, params):
-        key = paramstokey(params)
-        out = list(self.h5.attrs.get(key, []))
-        return out
+    def close(self):
+        with open(self.path, "w") as f:
+            pickle.dump(self.dict, f)
 
-    def __setitem__(self, params, value):
-        key = paramstokey(params)
-        self.h5.attrs[key] = value
+    def __getitem__(self, key):
+        return self.dict[key]
+
+    def __setitem__(self, key, value):
+        self.dict[key] = value
 
 class BranchIO(iomodule.SolutionIO):
     def __init__(self, directory):
@@ -36,6 +43,10 @@ class BranchIO(iomodule.SolutionIO):
         if self.pm is None:
             self.pm = ParameterMap(self.directory)
         return self.pm
+
+    def close_parameter_map(self):
+        self.pm.close()
+        self.pm = None
 
     def known_branches(self, params):
         if self.worldcomm.rank != 0:

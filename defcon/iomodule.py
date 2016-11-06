@@ -58,6 +58,9 @@ class IO(object):
         """
         return collections.defaultdict(list)
 
+    def close_parameter_map(self):
+        pass
+
     def construct(self, worldcomm):
         self.worldcomm = worldcomm
 

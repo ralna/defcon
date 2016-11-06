@@ -729,6 +729,7 @@ class DefconMaster(DefconThread):
             self.journal.team_job(teamno, "q")
 
         # Delete self.parameter_map, to flush it to disk in case it's backed by a file
+        self.io.close_parameter_map()
         del self.parameter_map
 
     def handle_response(self, response):
