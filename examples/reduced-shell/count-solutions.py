@@ -5,7 +5,6 @@ import matplotlib.cm as cm
 import numpy
 
 reducedshell = __import__("reduced-shell")
-from reducedshell import c0max, cImax, Nc0, NcI, c0loadings, cIloadings
 
 import backend
 problem = reducedshell.ReducedNaghdi()
@@ -18,17 +17,19 @@ Z = problem.function_space(mesh)
 
 io.setup(parameters, functionals, Z)
 
-num_solutions = numpy.zeros((len(c0loadings), len(cIloadings)))
-num_stables   = numpy.zeros((len(c0loadings), len(cIloadings)))
+num_solutions = numpy.zeros((len(reducedshell.c0loadings), len(reducedshell.cIloadings)))
+num_stables   = numpy.zeros((len(reducedshell.c0loadings), len(reducedshell.cIloadings)))
+Nx = reducedshell.Nc0
+Ny = reducedshell.NcI
 
-for (i, c0loading) in enumerate(c0loadings):
-    for (j, cIloading) in enumerate(cIloadings):
+for (i, c0loading) in enumerate(reducedshell.c0loadings):
+    for (j, cIloading) in enumerate(reducedshell.cIloadings):
         params = (c0loading, cIloading)
         known_branches      = io.known_branches(params)
         num_solutions[Ny - j - 1, i] = len(known_branches)
         num_stables[Ny - j - 1, i]   = sum(io.fetch_stability(params, known_branches))
 
-plt.imshow(num_solutions, extent=(0, c0max, 0, cImax), interpolation='nearest', cmap=cm.gist_rainbow)
+plt.imshow(num_solutions, extent=(0, reducedshell.c0max, 0, reducedshell.cImax), interpolation='nearest', cmap=cm.gist_rainbow)
 plt.xlabel(r'$c_0$')
 plt.ylabel(r'$c_I$')
 plt.title('Number of solutions')

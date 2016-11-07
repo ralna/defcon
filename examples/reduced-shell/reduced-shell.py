@@ -205,9 +205,9 @@ class ReducedNaghdi(BifurcationProblem):
 c0max = 3
 cImax = 3
 Nc0   = 151
-Nc1   = 151
+NcI   = 151
 c0loadings = linspace(0, c0max, Nc0)
-cIloadings = linspace(0, cImax, Nc1)
+cIloadings = linspace(0, cImax, NcI)
 
 if __name__ == "__main__":
     dc = DeflatedContinuation(problem=ReducedNaghdi(), teamsize=1, verbose=True, clear_output=True, logfiles=True)
