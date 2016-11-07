@@ -1,11 +1,16 @@
 from backend import HDF5File, Function
 import h5py # FIXME: remove dependency on h5py, eventually
+
 import cPickle as pickle
 import os, os.path
 import iomodule
 import glob
 from ast import literal_eval
 import collections
+import sys
+import time
+import traceback
+import tempfile
 
 # If you're storing one branch per hdf5 file, the
 # hardest part is figuring out which parameters have which
@@ -69,11 +74,15 @@ class BranchIO(iomodule.SolutionIO):
         if os.path.exists(fname):
             mode = "a"
             exists = True
+            aname = fname # name to open
         else:
             mode = "w"
             exists = False
+            tmpfile = tempfile.NamedTemporaryFile("w", delete=False, dir=self.tmpdir)
+            tmpfile.close()
+            aname = tmpfile.name
 
-        with HDF5File(self.pcomm, fname, mode) as f:
+        with HDF5File(self.pcomm, aname, mode) as f:
             if self.pcomm.size > 1:
                 f.set_mpi_atomicity(True)
             f.write(solution, key + "/solution")
@@ -83,14 +92,34 @@ class BranchIO(iomodule.SolutionIO):
                 attrs[func[1]] = value
         self.pcomm.Barrier()
 
+        # Trick from Lawrence Mitchell: POSIX guarantees that mv is atomic
+        if not exists:
+            os.rename(aname, fname)
+
     def fetch_solutions(self, params, branchids):
         key = paramstokey(params)
         solns = []
         for branchid in branchids:
-            with HDF5File(self.pcomm, self.solution_filename(branchid), "r") as f:
-                solution = Function(self.function_space)
-                f.read(solution, key + "/solution")
-                solns.append(solution)
+            failcount = 0
+            filename = self.solution_filename(branchid)
+
+            while True:
+                try:
+                    with HDF5File(self.pcomm, filename, "r") as f:
+                        solution = Function(self.function_space)
+                        f.read(solution, key + "/solution")
+                        solns.append(solution)
+                        break
+                except Exception:
+                    # This should never happen. I'm going for the belt-and-braces approach here.
+                    sys.stderr.write("Could not load %s from file %s; exception follows\n" % (key, filename))
+                    traceback.print_exc()
+                    failcount += 1
+                    if failcount == 10:
+                        sys.stderr.write("Failed 10 times. Raising exception.\n")
+                        raise
+                    time.sleep(1)
+
         return solns
 
     def fetch_functionals(self, params, branchid):
