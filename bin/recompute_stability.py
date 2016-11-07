@@ -4,7 +4,7 @@
 
 # Use like
 
-# python computestability.py /path/to/my/problem.py /path/to/output
+# python recompute_stability.py /path/to/my/problem.py /path/to/output
 
 import sys
 import scriptcommon

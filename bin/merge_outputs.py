@@ -5,7 +5,7 @@
 
 # Use like
 
-# python mergeoutputs.py /path/to/my/problem.py /path/to/output1 /path/to/output2
+# python merge_outputs.py /path/to/my/problem.py /path/to/output1 /path/to/output2
 
 import sys
 import scriptcommon
