@@ -761,12 +761,15 @@ class DefconMaster(DefconThread):
                     break
 
         if isinstance(task, StabilityTask):
-            if task.direction > 0:
-                if self.signs[task.freeindex]*task.oldparams[task.freeindex] >= self.signs[task.freeindex]*self.branch_extent[(task.branchid, task.freeindex)][1]:
-                    send = False
+            if (task.branchid, task.freeindex) not in self.branch_extent:
+                send = False
             else:
-                if self.signs[task.freeindex]*task.oldparams[task.freeindex] <= self.signs[task.freeindex]*self.branch_extent[(task.branchid, task.freeindex)][0]:
-                    send = False
+                if task.direction > 0:
+                    if self.signs[task.freeindex]*task.oldparams[task.freeindex] >= self.signs[task.freeindex]*self.branch_extent[(task.branchid, task.freeindex)][1]:
+                        send = False
+                else:
+                    if self.signs[task.freeindex]*task.oldparams[task.freeindex] <= self.signs[task.freeindex]*self.branch_extent[(task.branchid, task.freeindex)][0]:
+                        send = False
 
             # If the continuation is still ongoing, we'll defer it. If not,
             # we'll kill it.
