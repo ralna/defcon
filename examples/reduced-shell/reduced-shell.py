@@ -191,29 +191,24 @@ class ReducedNaghdi(BifurcationProblem):
     def branch_found(self, task):
         # If we find a branch along cI = 0, continue in cI
         if task.freeindex == 0 and task.oldparams[1] == 0:
-            out = []
             conttask = ContinuationTask(taskid=task.taskid + 1,
                                         oldparams=task.oldparams,
                                         freeindex=1,
                                         branchid=task.branchid,
                                         newparams=None,
                                         direction=+1)
-            out.append(conttask)
-
-            if 'compute_stability' in self.__class__.__dict__:
-                stabtask = StabilityTask(taskid=task.taskid + 2,
-                                            oldparams=task.oldparams,
-                                            freeindex=1,
-                                            branchid=task.branchid,
-                                            direction=+1,
-                                            hint=None)
-                out.append(stabtask)
-            return out
+            return [conttask]
         else:
             return []
 
+
+c0max = 3
+cImax = 3
+Nc0   = 151
+Nc1   = 151
+c0loadings = linspace(0, c0max, Nc0)
+cIloadings = linspace(0, cImax, Nc1)
+
 if __name__ == "__main__":
     dc = DeflatedContinuation(problem=ReducedNaghdi(), teamsize=1, verbose=True, clear_output=True, logfiles=True)
-    c0loadings = linspace(0, 3, 301)
-    cIloadings = linspace(0, 3, 301)
     dc.run(values={"c_0": c0loadings, "c_I": cIloadings}, freeparam="c_0")
