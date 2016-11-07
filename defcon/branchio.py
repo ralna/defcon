@@ -71,18 +71,22 @@ class BranchIO(iomodule.SolutionIO):
     def save_solution(self, solution, funcs, params, branchid):
         key = paramstokey(params)
         fname = self.solution_filename(branchid)
+
+        tmpfile = tempfile.NamedTemporaryFile("w", delete=False, dir=self.tmpdir)
+        tmpfile.close()
+        tmpname = tmpfile.name
+
         if os.path.exists(fname):
             mode = "a"
             exists = True
-            aname = fname # name to open
+
+            # I can't believe I have to do this to get filesystem synchronisation right.
+            os.rename(fname, tmpname)
         else:
             mode = "w"
             exists = False
-            tmpfile = tempfile.NamedTemporaryFile("w", delete=False, dir=self.tmpdir)
-            tmpfile.close()
-            aname = tmpfile.name
 
-        with HDF5File(self.pcomm, aname, mode) as f:
+        with HDF5File(self.pcomm, tmpname, mode) as f:
             if self.pcomm.size > 1:
                 f.set_mpi_atomicity(True)
             f.write(solution, key + "/solution")
@@ -93,8 +97,13 @@ class BranchIO(iomodule.SolutionIO):
         self.pcomm.Barrier()
 
         # Trick from Lawrence Mitchell: POSIX guarantees that mv is atomic
-        if not exists:
-            os.rename(aname, fname)
+        os.rename(tmpname, fname)
+
+        # Belt-and-braces: sleep until the path exists
+        while not os.path.exists(fname):
+            time.sleep(0.1)
+
+        return
 
     def fetch_solutions(self, params, branchids):
         key = paramstokey(params)
@@ -206,7 +215,8 @@ class BranchIO(iomodule.SolutionIO):
             with HDF5File(self.pcomm, fname, "r") as f:
                 attrs = f.attributes(key + "/stability")
                 if "stable" not in attrs:
-                    raise KeyError
+                    msg = "Could not find stability information for %s in %s." % (params, fname)
+                    raise KeyError(msg)
                 stables.append(self.unpickle(attrs["stable"]))
 
         return stables
