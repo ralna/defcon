@@ -512,26 +512,17 @@ class DefconWorker(DefconThread):
             opts[k] = options[k]
 
         try:
-            # Have we already computed the stability? For good reasons
-            # we sometimes get the same task twice.
-            stab = self.io.fetch_stability(task.oldparams, [task.branchid])
-            success = True
-            d = {"stable": stab[0]}
-            response = Response(task.taskid, success=success, data={"stable": stab[0]})
-        except (IOError, RuntimeError, KeyError):
-            # We don't know whether it's stable or not, compute.
-            try:
-                self.load_solution(task.oldparams, task.branchid, -1)
-                self.load_parameters(task.oldparams)
+            self.load_solution(task.oldparams, task.branchid, -1)
+            self.load_parameters(task.oldparams)
 
-                d = self.problem.compute_stability(task.oldparams, task.branchid, self.state, hint=task.hint)
-                success = True
-                response = Response(task.taskid, success=success, data={"stable": d["stable"]})
-            except:
-                self.log("Stability task %s failed; exception follows." % task, warning=True)
-                traceback.print_exc()
-                success = False
-                response = Response(task.taskid, success=success)
+            d = self.problem.compute_stability(task.oldparams, task.branchid, self.state, hint=task.hint)
+            success = True
+            response = Response(task.taskid, success=success, data={"stable": d["stable"]})
+        except:
+            self.log("Stability task %s failed; exception follows." % task, warning=True)
+            traceback.print_exc()
+            success = False
+            response = Response(task.taskid, success=success)
 
         if success:
             # Save the data to disk with the I/O module
@@ -765,10 +756,10 @@ class DefconMaster(DefconThread):
                 send = False
             else:
                 if task.direction > 0:
-                    if self.signs[task.freeindex]*task.oldparams[task.freeindex] >= self.signs[task.freeindex]*self.branch_extent[(task.branchid, task.freeindex)][1]:
+                    if self.signs[task.freeindex]*task.oldparams[task.freeindex] > self.signs[task.freeindex]*self.branch_extent[(task.branchid, task.freeindex)][1]:
                         send = False
                 else:
-                    if self.signs[task.freeindex]*task.oldparams[task.freeindex] <= self.signs[task.freeindex]*self.branch_extent[(task.branchid, task.freeindex)][0]:
+                    if self.signs[task.freeindex]*task.oldparams[task.freeindex] < self.signs[task.freeindex]*self.branch_extent[(task.branchid, task.freeindex)][0]:
                         send = False
 
             # Two cases if we have decided not to send it:
@@ -1057,8 +1048,8 @@ class DefconMaster(DefconThread):
             self.idle_team(team)
             return
 
-        # Check if this is the end of the known data: if it is, don't
-        # continue
+        # Check if this is the end of the known data: if it is,
+        # don't continue
         success = True
         if task.direction > 0:
             if self.signs[task.freeindex]*task.oldparams[task.freeindex] >= self.signs[task.freeindex]*self.branch_extent[(task.branchid, task.freeindex)][1]:

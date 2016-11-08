@@ -5,12 +5,14 @@ import cPickle as pickle
 import os, os.path
 import iomodule
 import glob
-from ast import literal_eval
 import collections
 import sys
 import time
 import traceback
 import tempfile
+
+from ast import literal_eval
+from numpy import array
 
 # If you're storing one branch per hdf5 file, the
 # hardest part is figuring out which parameters have which
@@ -195,8 +197,12 @@ class BranchIO(iomodule.SolutionIO):
             mode = "w"
             exists = False
 
-        # FIXME: probably need atomic mode/an MPI barrier here?
         with HDF5File(self.pcomm, fname, mode) as f:
+            if self.pcomm.size > 1:
+                f.set_mpi_atomicity(True)
+
+            # dummy dataset so that we can actually store the attribute
+            f.write(array([0.0]), key + "/stability")
             attrs = f.attributes(key + "/stability")
             attrs["stable"] = self.pickle(stable)
 
@@ -205,6 +211,7 @@ class BranchIO(iomodule.SolutionIO):
                     ekey = key + "/stability/eigenfunction-%d" % j
                     f.write(eigfun, ekey)
                     f.attributes(ekey)["eigenvalue"] = eigval
+        self.pcomm.barrier()
 
     def fetch_stability(self, params, branchids):
         stables = []
