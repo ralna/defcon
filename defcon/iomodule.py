@@ -9,6 +9,7 @@ import backend
 import json
 import tempfile
 import shutil
+import sys
 
 from backend import HDF5File, Function, File
 from parametertools import parameters_to_string
@@ -51,6 +52,23 @@ class IO(object):
 
     def cleanup(self):
         shutil.rmtree(self.tmpdir, ignore_errors=True)
+
+    def log(self, msg, warning=False):
+        if self.pcomm.rank != 0: return
+
+        if warning:
+            fmt = RED = "\033[1;37;31m%s\033[0m\n"
+        else:
+            fmt = GREEN = "\033[1;37;32m%s\033[0m\n"
+
+        timestamp = "[%s] " % time.strftime("%H:%M:%S")
+
+        if warning:
+            sys.stderr.write(fmt % (timestamp + msg))
+            sys.stderr.flush()
+        else:
+            sys.stdout.write(fmt % (timestamp + msg))
+            sys.stdout.flush()
 
     def parameter_map(self):
         """

@@ -123,11 +123,12 @@ class BranchIO(iomodule.SolutionIO):
                         break
                 except Exception:
                     # This should never happen. I'm going for the belt-and-braces approach here.
-                    sys.stderr.write("Could not load %s from file %s; exception follows\n" % (key, filename))
+                    self.log("Could not load %s from file %s; backtrace and exception follows" % (key, filename), warning=True)
+                    traceback.print_stack()
                     traceback.print_exc()
                     failcount += 1
                     if failcount == 10:
-                        sys.stderr.write("Failed 10 times. Raising exception.\n")
+                        self.log("Failed 10 times. Raising exception.", warning=True)
                         raise
                     time.sleep(1)
 
