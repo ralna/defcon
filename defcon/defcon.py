@@ -999,7 +999,10 @@ class DefconMaster(DefconThread):
 
         # Update the branch extent.
         if (task.branchid, task.freeindex) not in self.branch_extent:
-            self.branch_extent[(task.branchid, task.freeindex)] = [task.oldparams[task.freeindex], task.newparams[task.freeindex]]
+            if task.direction > 0:
+                self.branch_extent[(task.branchid, task.freeindex)] = [task.oldparams[task.freeindex], task.newparams[task.freeindex]]
+            else:
+                self.branch_extent[(task.branchid, task.freeindex)] = [task.newparams[task.freeindex], task.oldparams[task.freeindex]]
         else:
             if task.direction > 0:
                 self.branch_extent[(task.branchid, task.freeindex)][1] = task.newparams[task.freeindex]
