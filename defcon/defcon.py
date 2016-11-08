@@ -109,6 +109,14 @@ Launch with mpiexec: mpiexec -n <number of processes> python %s
 
         parameters = Parameters(problem_parameters, values)
 
+        # If we only have one value for each parameter, don't bother continuing backwards
+        should_continue_backwards = True
+        for key in values:
+            if len(values[param]) == 1:
+                should_continue_backwards = False
+        if not should_continue_backwards:
+            self.thread.continue_backwards = False
+
         # Aaaand .. run.
 
         self.thread.run(parameters, freeparam)
@@ -923,15 +931,18 @@ class DefconMaster(DefconThread):
 
         # * If we want to continue backwards, well, let's add that task too
         if self.continue_backwards:
-            newparams = self.parameters.previous(task.newparams, task.freeindex)
-            if newparams is not None:
+            back_branchid = self.branchid_counter
+            self.branchid_counter += 1
+
+            if task.oldparams is not None:
                 bconttask = ContinuationTask(taskid=self.taskid_counter,
                                             oldparams=task.newparams,
                                             freeindex=task.freeindex,
-                                            branchid=branchid,
-                                            newparams=newparams,
+                                            branchid=back_branchid,
+                                            newparams=task.oldparams,
                                             direction=-1)
-                newpriority = self.signs[task.freeindex]*bconttask.newparams[task.freeindex]
+                bconttask.source_branchid = branchid
+                newpriority = self.signs[task.freeindex]*task.oldparams[task.freeindex]
                 self.graph.push(bconttask, newpriority)
                 self.taskid_counter += 1
 
@@ -955,9 +966,9 @@ class DefconMaster(DefconThread):
 
             if self.continue_backwards and task.oldparams is not None:
                 stabtask = StabilityTask(taskid=self.taskid_counter,
-                                         oldparams=task.newparams,
+                                         oldparams=task.oldparams,
                                          freeindex=task.freeindex,
-                                         branchid=branchid,
+                                         branchid=back_branchid,
                                          direction=-1,
                                          hint=None)
                 newpriority = self.signs[task.freeindex]*stabtask.oldparams[task.freeindex]
@@ -1141,22 +1152,26 @@ class DefconMaster(DefconThread):
 
             if self.continue_backwards:
                 newparams = self.parameters.previous(oldparams, freeindex)
+                back_branchid = self.branchid_counter
+                self.branchid_counter += 1
+
                 if newparams is not None:
                     task = ContinuationTask(taskid=self.taskid_counter,
                                             oldparams=oldparams,
                                             freeindex=freeindex,
-                                            branchid=branchid,
+                                            branchid=back_branchid,
                                             newparams=newparams,
                                             direction=-1)
+                    task.source_branchid = branchid
                     self.log("Scheduling task: %s" % task)
                     self.graph.push(task, priority)
                     self.taskid_counter += 1
 
                     if self.compute_stability:
                         stabtask = StabilityTask(taskid=self.taskid_counter,
-                                                 oldparams=oldparams,
+                                                 oldparams=newparams,
                                                  freeindex=freeindex,
-                                                 branchid=branchid,
+                                                 branchid=back_branchid,
                                                  direction=-1,
                                                  hint=None)
                         newpriority = self.signs[freeindex]*stabtask.oldparams[freeindex]
