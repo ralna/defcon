@@ -14,7 +14,8 @@ def test_elastica():
     import backend
     if backend.comm_world.rank == 0:
         final = (values[-1], 0.5)
-        assert len(io.known_branches(final)) == 3
+        branches = io.known_branches(final)
+        assert len(branches) == 3
 
-        stabilities = io.fetch_stability(final, [0, 1, 2])
+        stabilities = io.fetch_stability(final, branches)
         assert sum(stabilities) == 2 # Two stable, one unstable
