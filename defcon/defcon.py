@@ -931,18 +931,19 @@ class DefconMaster(DefconThread):
 
         # * If we want to continue backwards, well, let's add that task too
         if self.continue_backwards:
+            newparams = self.parameters.previous(task.newparams, task.freeindex)
             back_branchid = self.branchid_counter
             self.branchid_counter += 1
 
-            if task.oldparams is not None:
+            if newparams is not None:
                 bconttask = ContinuationTask(taskid=self.taskid_counter,
                                             oldparams=task.newparams,
                                             freeindex=task.freeindex,
                                             branchid=back_branchid,
-                                            newparams=task.oldparams,
+                                            newparams=newparams,
                                             direction=-1)
                 bconttask.source_branchid = branchid
-                newpriority = self.signs[task.freeindex]*task.oldparams[task.freeindex]
+                newpriority = self.signs[task.freeindex]*newparams[task.freeindex]
                 self.graph.push(bconttask, newpriority)
                 self.taskid_counter += 1
 
@@ -964,9 +965,9 @@ class DefconMaster(DefconThread):
             self.graph.push(stabtask, newpriority)
             self.taskid_counter += 1
 
-            if self.continue_backwards and task.oldparams is not None:
+            if self.continue_backwards and newparams is not None:
                 stabtask = StabilityTask(taskid=self.taskid_counter,
-                                         oldparams=task.oldparams,
+                                         oldparams=newparams,
                                          freeindex=task.freeindex,
                                          branchid=back_branchid,
                                          direction=-1,

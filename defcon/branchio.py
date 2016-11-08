@@ -122,11 +122,11 @@ class BranchIO(iomodule.SolutionIO):
                         solns.append(solution)
                         break
                 except Exception:
-                    # This should never happen. I'm going for the belt-and-braces approach here.
-                    self.log("Could not load %s from file %s; backtrace and exception follows" % (key, filename), warning=True)
-                    traceback.print_stack()
-                    traceback.print_exc()
                     failcount += 1
+                    if failcount % 5 == 0:
+                        self.log("Could not load %s from file %s; backtrace and exception follows" % (key, filename), warning=True)
+                        traceback.print_stack()
+                        traceback.print_exc()
                     if failcount == 10:
                         self.log("Failed 10 times. Raising exception.", warning=True)
                         raise
