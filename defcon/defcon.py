@@ -186,6 +186,18 @@ class DefconThread(object):
         self.configure_comms()
         self.configure_logs()
 
+        # How many tasks to do before calling the garbage collector
+        self.collect_frequency = 100
+        self.collect_call = 0 # counter for the garbage collector
+
+    def collect(self):
+        """
+        Garbage collection.
+        """
+        self.collect_call += 1
+        if self.collect_call % self.collect_frequency == 0:
+            gc.collect()
+
     def configure_io(self, parameters):
         """
         parameters is a parametertools.Parameters object.
@@ -307,7 +319,7 @@ class DefconWorker(DefconThread):
 
         task = None
         while True:
-            gc.collect()
+            self.collect()
 
             if task is None:
                 task = self.fetch_task()
@@ -717,7 +729,7 @@ class DefconMaster(DefconThread):
             if len(self.graph.waiting()) > 0:
                 self.compute_sweep(freeindex, freeparam)
                 self.log("Cannot dispatch any tasks, waiting for response.")
-                gc.collect()
+                self.collect()
 
                 response = self.fetch_response()
                 self.handle_response(response)
