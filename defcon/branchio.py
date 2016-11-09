@@ -136,6 +136,10 @@ class BranchIO(iomodule.SolutionIO):
 
     def fetch_functionals(self, params, branchid):
         funcs = []
+        filename = self.solution_filename(branchid)
+        if not os.path.exists(filename):
+            return funcs
+
         with HDF5File(self.pcomm, self.solution_filename(branchid), "r") as f:
             for param in params:
                 key = paramstokey(param)
@@ -151,6 +155,9 @@ class BranchIO(iomodule.SolutionIO):
 
     def known_parameters(self, fixed, branchid):
         out = []
+        filename = self.solution_filename(branchid)
+        if not os.path.exists(filename):
+            return out
 
         fixedindices = []
         fixedvalues  = []
@@ -161,7 +168,7 @@ class BranchIO(iomodule.SolutionIO):
                 fixedindices.append(i)
                 fixedvalues.append(fixed[param[1]])
 
-        with h5py.File(self.solution_filename(branchid), "r") as f:
+        with h5py.File(filename, "r") as f:
             for key in f['/']:
                 params = keytoparams(key)
                 add = True

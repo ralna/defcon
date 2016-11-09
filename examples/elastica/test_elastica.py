@@ -1,6 +1,7 @@
 from defcon import *
 from elastica import ElasticaProblem
 from math import pi
+import matplotlib.pyplot as plt
 
 def test_elastica():
     problem = ElasticaProblem()
@@ -19,3 +20,8 @@ def test_elastica():
 
         stabilities = io.fetch_stability(final, branches)
         assert sum(stabilities) == 2 # Two stable, one unstable
+
+    # Check that this doesn't crash
+    dc.bifurcation_diagram("signedL2", fixed={"mu": 0.5})
+    plt.title(r"Buckling of an Euler elastica, $\mu = 1/2$")
+    plt.savefig("bifurcation.pdf")
