@@ -20,6 +20,7 @@ import sys
 import gc
 import os
 import traceback
+import math
 
 class DeflatedContinuation(object):
     """
@@ -236,9 +237,12 @@ class DefconThread(object):
                 stdout_filename = "defcon.log.master"
                 stderr_filename = "defcon.err.master"
             else:
+                # Zero pad filenames to ensure they line up.
+                nzeros = int(math.floor(math.log(self.nteams, 10))) + 1
+                pattern = "%%0%dd" % nzeros # e.g. "%05d" to make five zeros before the teamno
                 if self.teamrank == 0:
-                    stdout_filename = "defcon.log.%d" % self.teamno
-                    stderr_filename = "defcon.err.%d" % self.teamno
+                    stdout_filename = ("defcon.log." + pattern) % self.teamno
+                    stderr_filename = ("defcon.err." + pattern) % self.teamno
                 else:
                     stdout_filename = os.devnull
                     stderr_filename = os.devnull
