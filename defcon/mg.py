@@ -6,9 +6,23 @@ if backend.__name__ == "dolfin":
     from backend import as_backend_type, Function, MixedElement, VectorElement, \
                         FunctionSpace
 
+# Set up multigrid support
+def create_dm(V, problem=None):
+    comm = V.mesh().mpi_comm()
+    coarse_meshes = problem.coarse_meshes(comm)
+    coarse_fs = []
+    for coarse_mesh in coarse_meshes:
+        coarse_fs.append(problem.function_space(coarse_mesh))
+
+    all_meshes = coarse_meshes + [V.mesh()]
+    all_fs     = coarse_fs + [V]
+    all_dms    = [create_fs_dm(W) for W in all_fs]
+
+    return all_dms[-1]
+
 # This code is needed to set up shell DM's that hold the index
 # sets and allow nice field-splitting to happen.
-def create_dm(V, problem=None):
+def create_fs_dm(V):
     # firedrake does its own MG, we have nothing to do with it
     if backend.__name__ == "firedrake":
         return None

@@ -26,6 +26,28 @@ class BifurcationProblem(object):
         """
         raise NotImplementedError
 
+    def coarse_meshes(self, comm):
+        """
+        This method supplies additional coarsenings of the mesh for use
+        in multigrid methods.
+
+        Return
+
+        [coarsest_mesh, next_finer, next_finer, ...]
+
+        where the last mesh returned is the coarsening of the mesh returned by
+        the .mesh() method.
+
+        Of course, you may wish to make the mesh returned by .mesh() by refining
+        the meshes returned here; defcon guarantees that this method is called
+        after .mesh(), so construct the hierarchy of meshes in .mesh(), return the
+        finest, and return the remainder here.
+
+        The reason why this is split into two routines is because many users
+        will not want to use multigrid, and this API design is simpler for them.
+        """
+        return []
+
     def function_space(self, mesh):
         """
         This method creates the function space for the prognostic variables of
