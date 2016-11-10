@@ -50,6 +50,10 @@ if backend.__name__ == "dolfin":
             if "pc_type" in solver_parameters:
                 snes.ksp.pc.setType(solver_parameters["pc_type"])
 
+            dm = kwargs.get("dm", None)
+            if dm is not None:
+                snes.setDM(dm) # dm is passed via kwargs to make it easy
+                               # to keep interface consistent with firedrake
             snes.setFromOptions()
             self.snes = snes
 

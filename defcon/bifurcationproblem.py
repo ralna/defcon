@@ -243,7 +243,7 @@ class BifurcationProblem(object):
         else:
             return backend.NonlinearVariationalProblem(F, y, bcs)
 
-    def solver(self, problem, solver_params, prefix=""):
+    def solver(self, problem, solver_params, prefix="", **kwargs):
         """
         The class used to solve the nonlinear problem.
 
@@ -256,12 +256,14 @@ class BifurcationProblem(object):
         if backend.__name__ == "dolfin":
             return nonlinearsolver.SNUFLSolver(
                 problem, prefix=prefix,
-                solver_parameters=solver_params
+                solver_parameters=solver_params,
+                **kwargs
             )
         else:
             return backend.NonlinearVariationalSolver(
                 problem, options_prefix=prefix,
-                solver_parameters=solver_params
+                solver_parameters=solver_params,
+                **kwargs
             )
 
     def compute_stability(self, params, branchid, solution, hint=None):

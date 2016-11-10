@@ -71,10 +71,8 @@ def newton(F, y, bcs, problemclass, solverclass, solver_params,
     comm = y.function_space().mesh().mpi_comm()
     problem = problemclass(F, y, bcs)
 
-    solver = solverclass(problem, solver_params, prefix=prefix)
+    solver = solverclass(problem, solver_params, prefix=prefix, dm=dm)
     snes = solver.snes
-    if dm is not None:
-        snes.setDM(dm)
 
     # all of this is likely defcon-specific and so shouldn't go
     # into the (general-purpose) SNUFLSolver.

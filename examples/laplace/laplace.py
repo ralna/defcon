@@ -11,6 +11,9 @@ class LaplaceProblem(BifurcationProblem):
     def mesh(self, comm):
         return UnitSquareMesh(comm, 40, 40)
 
+    def coarse_meshes(self, comm):
+        return [UnitSquareMesh(comm, 20, 20)]
+
     def function_space(self, mesh):
         return FunctionSpace(mesh, "CG", 1)
 
@@ -57,9 +60,10 @@ class LaplaceProblem(BifurcationProblem):
                "snes_view": None,
                "ksp_type": "richardson",
                "ksp_monitor_true_residual": None,
-               "ksp_atol": 1.0e-9,
-               "ksp_rtol": 1.0e-9,
+               "ksp_atol": 1.0e-10,
+               "ksp_rtol": 1.0e-10,
                "pc_type": "mg",
+               "pc_mg_galerkin": None,
                }
         return args
 
