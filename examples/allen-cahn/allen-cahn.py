@@ -10,7 +10,9 @@ class AllenCahnProblem(BifurcationProblem):
         return UnitSquareMesh(comm, 100, 100, "crossed")
 
     def coarse_meshes(self, comm):
-        return [UnitSquareMesh(comm, 25, 25, "crossed"), UnitSquareMesh(comm, 50, 50, "crossed")]
+        # For maximal efficiency, we would use nested meshes (i.e. "crossed").
+        # But we want to test here the GMG efficiency with non-nested meshes.
+        return [UnitSquareMesh(comm, 25, 25, "left"), UnitSquareMesh(comm, 50, 50, "right")]
 
     def function_space(self, mesh):
         return FunctionSpace(mesh, "CG", 1)
