@@ -324,8 +324,8 @@ if backend.__name__ == "dolfin":
                  found_elsewhere_global_row_indices.push_back(fine_local_to_global_dofs[i]);
              }
         }
-        std::cout << "Rank: " << mpi_rank << "; We own: " << found_ids.size() << "; Found elsewhere: " << which_processor.size() << "; Not found: " << not_found_global_row_indices.size() << std::endl;
-        std::cout << "Rank: " << mpi_rank << "; Check 1: " << not_found_global_row_indices.size() << " = " << not_found_points_senders.size() << std::endl;
+        //std::cout << "Rank: " << mpi_rank << "; We own: " << found_ids.size() << "; Found elsewhere: " << which_processor.size() << "; Not found: " << not_found_global_row_indices.size() << std::endl;
+        //std::cout << "Rank: " << mpi_rank << "; Check 1: " << not_found_global_row_indices.size() << " = " << not_found_points_senders.size() << std::endl;
         auto old_found_ids_size = found_ids.size();
         auto old_not_found_size = not_found_global_row_indices.size();
 
@@ -363,7 +363,7 @@ if backend.__name__ == "dolfin":
 
             // how many fine nodes do we need to check?
             how_many = found_elsewhere_recv[sender].size()/dim;
-            std::cout << "Rank: " << mpi_rank << "; how many: " << how_many << std::endl;
+            //std::cout << "Rank: " << mpi_rank << "; how many: " << how_many << std::endl;
             // If there is nothing to do, then just do nothing
             if (how_many == 0)
                 continue;
@@ -414,9 +414,9 @@ if backend.__name__ == "dolfin":
                 }
             }
         }
-        std::cout << "Rank: " << mpi_rank << "; We evaluate: " << found_ids.size() << "; Newly responsible for: " << found_ids.size() - old_found_ids_size << std::endl;
-        std::cout << "Rank: " << mpi_rank << "; Not found: " << not_found_global_row_indices.size() << "; New not found: " << not_found_global_row_indices.size() - old_not_found_size << std::endl;
-        std::cout << "Rank: " << mpi_rank << "; Check 2: " << not_found_global_row_indices.size() << " = " << not_found_points_senders.size() << std::endl;
+        //std::cout << "Rank: " << mpi_rank << "; We evaluate: " << found_ids.size() << "; Newly responsible for: " << found_ids.size() - old_found_ids_size << std::endl;
+        //std::cout << "Rank: " << mpi_rank << "; Not found: " << not_found_global_row_indices.size() << "; New not found: " << not_found_global_row_indices.size() - old_not_found_size << std::endl;
+        //std::cout << "Rank: " << mpi_rank << "; Check 2: " << not_found_global_row_indices.size() << " = " << not_found_points_senders.size() << std::endl;
 
 
         // communicate the not found list to all the processors
@@ -439,7 +439,7 @@ if backend.__name__ == "dolfin":
         std::vector<int> not_found_global_row_indices_flattened;
         std::vector<unsigned int> not_found_points_senders_flattened;
 
-        std::cout << "GO!!!\n\n";
+        //std::cout << "GO!!!\n\n";
 
         // we loop over all the processors were a fine node was found
         // note that from now on, every processor is doing the same check:
@@ -449,7 +449,7 @@ if backend.__name__ == "dolfin":
         for (unsigned int proc=0; proc<mpi_size; proc++)
         {
             how_many = not_found_points_recv[proc].size()/dim;
-            std::cout << "Rank: " << mpi_rank << " ; proc: " << proc << " ; Not found, how many: " << how_many << std::endl;
+            //std::cout << "Rank: " << mpi_rank << " ; proc: " << proc << " ; Not found, how many: " << how_many << std::endl;
 
             if (how_many == 0)
                 continue;
@@ -496,7 +496,7 @@ if backend.__name__ == "dolfin":
             }
         }
 
-        std::cout << "ALMOST...\n\n";
+        //std::cout << "ALMOST...\n\n";
 
         // communicate all distances to all processor so that each one can tell
         // which processor owns the closest coarse cell to the not found point
@@ -512,7 +512,7 @@ if backend.__name__ == "dolfin":
         unsigned int sender; // processor that asked to search for the not found fine node
 
         how_many = not_found_cell_indices.size();
-        std::cout << "Rank: " << mpi_rank << " ; Not found to process, how many: " << how_many << " ; check: " << not_found_points_senders_flattened.size() << " = " << not_found_global_row_indices_flattened.size() << std::endl;
+        //std::cout << "Rank: " << mpi_rank << " ; Not found to process, how many: " << how_many << " ; check: " << not_found_points_senders_flattened.size() << " = " << not_found_global_row_indices_flattened.size() << std::endl;
         for (unsigned i=0; i<how_many; i++)
         {
             // loop over the distances and find the processor who has
@@ -543,7 +543,7 @@ if backend.__name__ == "dolfin":
             }
         }
 
-        std::cout << "DONE!!!\n\n";
+        //std::cout << "DONE!!!\n\n";
         // Now every processor should have the information needed to assemble its portion of the matrix
         // the ids of coarse cell owned by each processor are currently stored in found_ids
         // and their respective global row indices are stored in global_row_indices.
@@ -553,7 +553,7 @@ if backend.__name__ == "dolfin":
         // m_owned is the number of rows the current processor needs to set
         // note that the processor might not own these rows
         std::size_t m_owned = found_ids.size();
-        std::cout << "m_owned: " << m_owned << "; M: " << M << " ; eldim: " << eldim << " ; check: " << found_points.size()/dim << " = " << found_points_senders.size() << std::endl;
+        //std::cout << "m_owned: " << m_owned << "; M: " << M << " ; eldim: " << eldim << " ; check: " << found_points.size()/dim << " = " << found_points_senders.size() << std::endl;
 
         // initialise row and column indices and values of the transfer matrix
         int row_indices = 0;
