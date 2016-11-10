@@ -18,18 +18,21 @@ def create_dm(V, problem=None):
     all_fs     = coarse_fs + [V]
     all_dms    = [create_fs_dm(W) for W in all_fs]
 
+    def fetcher(dm_, comm, j=None):
+        return all_dms[j]
+
     # Now make DM i+1 out of DM i via refinement;
     # this builds PETSc's linked list of refinements and coarsenings
     for i in range(len(all_meshes)-1):
         dm = all_dms[i]
-
-        refine  = lambda dm_, comm: all_dms[i+1]
-        coarsen = lambda dm_, comm: dm
-        dm.setRefine(refine)
+        dm.setRefine(fetcher, kargs=dict(j=i+1))
 
         rdm = dm.refine()
-        rdm.setCoarsen(coarsen)
         all_dms[i+1] = rdm
+
+    for i in range(len(all_meshes)-1, 0, -1):
+        dm = all_dms[i]
+        dm.setCoarsen(fetcher, kargs=dict(j=i-1))
 
     return all_dms[-1]
 

@@ -12,7 +12,7 @@ class LaplaceProblem(BifurcationProblem):
         return UnitSquareMesh(comm, 40, 40)
 
     def coarse_meshes(self, comm):
-        return [UnitSquareMesh(comm, 20, 20)]
+        return [UnitSquareMesh(comm, 10, 10), UnitSquareMesh(comm, 20, 20)]
 
     def function_space(self, mesh):
         return FunctionSpace(mesh, "CG", 1)
