@@ -200,7 +200,7 @@ class BifurcationProblem(object):
 
         try:
             import h5py
-            assert hasattr(backend.HDF5File, 'set_mpi_atomicity')
+            #assert hasattr(backend.HDF5File, 'set_mpi_atomicity')
             return branchio.BranchIO(prefix)
         except (ImportError, AssertionError):
             return iomodule.SolutionIO(prefix)
