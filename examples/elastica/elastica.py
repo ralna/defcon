@@ -47,15 +47,7 @@ class ElasticaProblem(BifurcationProblem):
             g = project(grad(theta)[0], theta.function_space())
             return j*g((0.0,))
 
-        def max(theta, params):
-            return theta.vector().max()
-
-        def min(theta, params):
-            return theta.vector().min()
-
-        return [(signedL2, "signedL2", r"$\theta'(0) \|\theta\|$"),
-                (max, "max", r"$\max{\theta}$"),
-                (min, "min", r"$\min{\theta}$")]
+        return [(signedL2, "signedL2", r"$\theta'(0) \|\theta\|$")]
 
     def trivial_solutions(self, V, params, freeindex):
         # check we're continuing in lambda:
