@@ -67,12 +67,14 @@ class DeflatedKSP(object):
         self.ksp.view(viewer)
 
 def newton(F, y, bcs, problemclass, solverclass, solver_params,
-           teamno, deflation=None, prefix=""):
+           teamno, deflation=None, dm=None, prefix=""):
     comm = y.function_space().mesh().mpi_comm()
     problem = problemclass(F, y, bcs)
 
     solver = solverclass(problem, solver_params, prefix=prefix)
     snes = solver.snes
+    if dm is not None:
+        snes.setDM(dm)
 
     # all of this is likely defcon-specific and so shouldn't go
     # into the (general-purpose) SNUFLSolver.

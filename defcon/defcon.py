@@ -8,6 +8,7 @@ from tasks import QuitTask, ContinuationTask, DeflationTask, StabilityTask, Resp
 from iomodule import remap_c_streams
 from journal import FileJournal, task_to_code
 from graph import DefconGraph
+from mg import create_dm
 
 import backend
 
@@ -277,6 +278,7 @@ class DefconWorker(DefconThread):
         # Fetch data from the problem.
         self.mesh = self.problem.mesh(PETSc.Comm(self.teamcomm))
         self.function_space = self.problem.function_space(self.mesh)
+        self.dm = create_dm(self.function_space, self.problem)
 
         self.state = backend.Function(self.function_space)
         self.trivial_solutions = None
@@ -390,7 +392,7 @@ class DefconWorker(DefconThread):
                          self.problem.nonlinear_problem,
                          self.problem.solver,
                          self.problem.solver_parameters(task.newparams, task.__class__),
-                         self.teamno, self.deflation)
+                         self.teamno, self.deflation, self.dm)
 
         self.state_id = (None, None) # not sure if it is a solution we care about yet
 
@@ -453,7 +455,7 @@ class DefconWorker(DefconThread):
                          self.problem.nonlinear_problem,
                          self.problem.solver,
                          self.problem.solver_parameters(task.newparams, task.__class__),
-                         self.teamno, self.deflation)
+                         self.teamno, self.deflation, self.dm)
 
         if success:
             self.state_id = (task.newparams, task.branchid)
