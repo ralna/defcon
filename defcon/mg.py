@@ -3,11 +3,14 @@ import backend
 from petsc4py import PETSc
 
 if backend.__name__ == "dolfin":
-    from backend import as_backend_type, Function, MixedElement, VectorElement, \
-                        FunctionSpace
+    from backend import as_backend_type, Function, MixedElement, VectorElement, FunctionSpace
 
 # Set up multigrid support
 def create_dm(V, problem=None):
+    # firedrake does its own MG, we have nothing to do with it
+    if backend.__name__ == "firedrake":
+        return None
+
     comm = V.mesh().mpi_comm()
     coarse_meshes = problem.coarse_meshes(comm)
     coarse_fs = []
@@ -39,10 +42,6 @@ def create_dm(V, problem=None):
 # This code is needed to set up shell DM's that hold the index
 # sets and allow nice field-splitting to happen.
 def create_fs_dm(V):
-    # firedrake does its own MG, we have nothing to do with it
-    if backend.__name__ == "firedrake":
-        return None
-
     comm = V.mesh().mpi_comm()
 
     # this way the DM knows the function space it comes from
