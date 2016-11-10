@@ -9,6 +9,9 @@ class AllenCahnProblem(BifurcationProblem):
     def mesh(self, comm):
         return UnitSquareMesh(comm, 100, 100, "crossed")
 
+    def coarse_meshes(self, comm):
+        return [UnitSquareMesh(comm, 25, 25, "crossed"), UnitSquareMesh(comm, 50, 50, "crossed")]
+
     def function_space(self, mesh):
         return FunctionSpace(mesh, "CG", 1)
 
@@ -53,10 +56,17 @@ class AllenCahnProblem(BifurcationProblem):
         return {
                "snes_max_it": 50,
                "snes_atol": 1.0e-9,
-               "snes_rtol": 0.0,
+               "snes_rtol": 1.0e-9,
                "snes_monitor": None,
-               "ksp_type": "preonly",
-               "pc_type": "lu"
+               "ksp_type": "gmres",
+               "ksp_monitor": None,
+               "ksp_rtol": 1.0e-10,
+               "ksp_atol": 1.0e-10,
+               "pc_type": "mg",
+               "pc_mg_galerkin": None,
+               "mg_levels_ksp_type": "chebyshev",
+               "mg_levels_ksp_max_it": 2,
+               "mg_levels_pc_type": "sor",
                }
 
 if __name__ == "__main__":
