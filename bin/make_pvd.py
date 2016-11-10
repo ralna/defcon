@@ -2,7 +2,7 @@
 
 # A script that converts saved data to PVD.
 # Use like
-# python makepvd.py /path/to/my/problem.py /path/to/output/directory
+# python make_pvd.py /path/to/my/problem.py /path/to/output/directory
 
 import sys
 import scriptcommon
