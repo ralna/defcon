@@ -10,6 +10,8 @@ import matplotlib.pyplot as plt
 from petsc4py import PETSc
 
 class ElasticaProblem(BifurcationProblem):
+    def __init__(self):
+        self.bcs = None
     def mesh(self, comm):
         return IntervalMesh(comm, 1000, 0, 1)
 
@@ -35,7 +37,9 @@ class ElasticaProblem(BifurcationProblem):
         return F
 
     def boundary_conditions(self, V, params):
-        return [DirichletBC(V, 0.0, "on_boundary")]
+        if self.bcs is None:
+            self.bcs = [DirichletBC(V, 0.0, "on_boundary")]
+        return self.bcs
 
     def functionals(self):
         def signedL2(theta, params):
