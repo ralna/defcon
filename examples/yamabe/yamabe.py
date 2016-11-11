@@ -14,6 +14,9 @@ class YamabeProblem(BifurcationProblem):
     def mesh(self, comm):
         return Mesh(comm, "mesh/doughnut.xml")
 
+    def coarse_meshes(self, comm):
+        return [Mesh(comm, "mesh/doughnut.2.xml"), Mesh(comm, "mesh/doughnut.1.xml")]
+
     def function_space(self, mesh):
         return FunctionSpace(mesh, "CG", 1)
 
@@ -61,14 +64,14 @@ class YamabeProblem(BifurcationProblem):
                "snes_trtol": 0.0,
                "snes_monitor": None,
                "snes_divergence_tolerance": -1,
-               "ksp_monitor_cancel": None,
-               "ksp_type": "preonly",
+               "ksp_monitor": None,
+               "ksp_type": "gcr",
                "ksp_gmres_restart": 100,
-               "ksp_monitor_short": None,
                "ksp_max_it": 1000,
                "ksp_atol": 1.0e-10,
                "ksp_rtol": 1.0e-10,
-               "pc_type": "lu",
+               "pc_type": "mg",
+               "pc_mg_galerkin": None,
                "pc_gamg_verbose": 10,
                "pc_gamg_type": "agg",
                "pc_gamg_coarse_eq_limit": 2000,
