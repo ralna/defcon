@@ -15,11 +15,11 @@ def create_dm(V, problem=None):
     coarse_meshes = problem.coarse_meshes(comm)
     coarse_fs = []
     for coarse_mesh in coarse_meshes:
-        coarse_fs.append(problem.function_space(coarse_mesh))
+        coarse_fs.append(FunctionSpace(coarse_mesh, V.ufl_element()))
 
     all_meshes = coarse_meshes + [V.mesh()]
     all_fs     = coarse_fs + [V]
-    all_dms    = [create_fs_dm(W) for W in all_fs]
+    all_dms    = [create_fs_dm(W, problem) for W in all_fs]
 
     def fetcher(dm_, comm, j=None):
         return all_dms[j]
@@ -41,12 +41,13 @@ def create_dm(V, problem=None):
 
 # This code is needed to set up shell DM's that hold the index
 # sets and allow nice field-splitting to happen.
-def create_fs_dm(V):
+def create_fs_dm(V, problem=None):
     comm = V.mesh().mpi_comm()
 
     # this way the DM knows the function space it comes from
     dm = PETSc.DMShell().create(comm=comm)
     dm.setAttr('__fs__', V)
+    dm.setAttr('__problem__', problem)
 
     # this gives the DM a template to create vectors inside snes
     dm.setGlobalVector(as_backend_type(Function(V).vector()).vec())
@@ -70,9 +71,10 @@ def create_fs_dm(V):
 # dms for the resulting subspaces.
 def create_field_decomp(dm, *args, **kwargs):
     W = dm.getAttr('__fs__')
+    problem = dm.getAttr('__problem__')
     Wsubs = [Wsub.collapse() for Wsub in W.split()]
     names = [None for Wsub in Wsubs]
-    dms = [funcspace2dm(Wsub) for Wsub in Wsubs]
+    dms = [create_dm(Wsub, problem) for Wsub in Wsubs]
     return (names, funcspace_to_index_sets(W), dms)
 
 # For a non-mixed function space, this converts the array of dofs
@@ -95,18 +97,19 @@ def funcspace_to_index_sets(fs):
 # the relevant subspaces in order to have recursive field splitting.
 def create_subdm(dm, fields, *args, **kwargs):
     W = dm.getAttr('__fs__')
+    problem = dm.getAttr('__problem__')
     comm = W.mesh().mpi_comm()
     if len(fields) == 1:
         f = int(fields[0])
         subel = W.sub(f).ufl_element()
         subspace = FunctionSpace(W.mesh(), subel)
-        subdm = funcspace2dm(subspace)
+        subdm = create_dm(subspace, problem)
         iset = PETSc.IS().createGeneral(W.sub(f).dofmap().dofs(), comm)
         return iset, subdm
     else:
         subel = MixedElement([W.sub(int(f)).ufl_element() for f in fields])
         subspace = FunctionSpace(W.mesh(), subel)
-        subdm = create_dm(subspace)
+        subdm = create_dm(subspace, problem)
 
         alldofs = numpy.concatenate(
             [W.sub(int(f)).dofmap().dofs() for f in fields])

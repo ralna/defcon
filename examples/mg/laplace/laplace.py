@@ -9,10 +9,10 @@ from petsc4py import PETSc
 
 class LaplaceProblem(BifurcationProblem):
     def mesh(self, comm):
-        return UnitSquareMesh(comm, 40, 40)
+        return UnitSquareMesh(comm, 200, 200)
 
     def coarse_meshes(self, comm):
-        return [UnitSquareMesh(comm, 10, 10), UnitSquareMesh(comm, 20, 20)]
+        return [UnitSquareMesh(comm, 25, 25), UnitSquareMesh(comm, 50, 50), UnitSquareMesh(comm, 100, 100)]
 
     def function_space(self, mesh):
         return FunctionSpace(mesh, "CG", 1)
