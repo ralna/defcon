@@ -5,6 +5,8 @@ from petsc4py import PETSc
 
 class LaplaceProblem(BifurcationProblem):
     def mesh(self, comm):
+        self.comm = comm
+
         mesh = Mesh(comm, "mesh/canal.xml.gz")
         facets = MeshFunction("size_t", mesh, "mesh/facets.xml.gz")
         self.facets = facets
@@ -39,7 +41,7 @@ class LaplaceProblem(BifurcationProblem):
         facets = self.facets
 
         zerovector = Constant((0.0, 0.0))
-        inflow = Expression(("0.25 * (4 - x[1] * x[1])", "0.0"), mpi_comm=Z.mesh().mpi_comm(), degree=2)
+        inflow = Expression(("0.25 * (4 - x[1] * x[1])", "0.0"), mpi_comm=self.comm, degree=2)
         bcs = [DirichletBC(Z.sub(0), inflow, facets, 2),
                DirichletBC(Z.sub(0), (0, 0), facets, 1),
                DirichletBC(Z.sub(0), (0, 0), facets, 4)]
@@ -62,6 +64,43 @@ class LaplaceProblem(BifurcationProblem):
     def number_solutions(self, params):
         return 1
 
+    def solver(self, problem, solver_params, prefix="", **kwargs):
+        solver = SNUFLSolver(problem, prefix=prefix, solver_parameters=solver_params, **kwargs)
+        snes = solver.snes
+        dm = snes.dm
+
+        if snes.ksp.pc.type == "fieldsplit":
+            # Set the Schur complement approximation: use solves on the mass matrix to precondition
+            # the Schur complement
+            (names, ises, dms) = dm.createFieldDecomposition() # fetch subdm corresponding to pressure space
+
+            Z = self.Z
+            (u, p) = TrialFunctions(Z)
+            (v, q) = TestFunctions(Z)
+            form = -inner(p, q)*dx
+            M = PETScMatrix(self.comm)
+            assemble(form, tensor=M)
+            mass = M.mat().getSubMatrix(ises[1], ises[1]) # fetch submatrix
+
+            ksp_mass = PETSc.KSP().create(comm=self.comm)
+            ksp_mass.setDM(dms[1])
+            ksp_mass.setDMActive(False) # don't try to build the operator from the DM
+            ksp_mass.setOperators(mass)
+            ksp_mass.setOptionsPrefix("mass_")
+            ksp_mass.setFromOptions()
+
+            class SchurApproxInv(object):
+                def mult(self, mat, x, y):
+                    ksp_mass.solve(x, y)
+            schurpc = PETSc.Mat()
+            schurpc.createPython(mass.getSizes(), SchurApproxInv(), comm=self.comm)
+            schurpc.setUp()
+
+            snes.ksp.pc.setFieldSplitSchurPreType(PETSc.PC.SchurPreType.USER, schurpc)
+
+        return solver
+
+
     def solver_parameters(self, params, klass):
         args = {
                "snes_max_it": 10,
@@ -69,13 +108,28 @@ class LaplaceProblem(BifurcationProblem):
                "snes_rtol": 1.0e-9,
                "snes_monitor": None,
                "snes_view": None,
-               "ksp_type": "richardson",
+               "ksp_type": "fbcgs",
                "ksp_monitor_true_residual": None,
                "ksp_atol": 1.0e-10,
                "ksp_rtol": 1.0e-10,
-               "pc_type": "lu",
-               "pc_factor_mat_solver_package": "mumps",
-               "pc_mg_galerkin": None,
+               "pc_type": "fieldsplit",
+               "pc_fieldsplit_type": "schur",
+               "pc_fieldsplit_schur_factorization_type": "full",
+               "pc_fieldsplit_schur_precondition": "user",
+               "fieldsplit_0_ksp_type": "richardson",
+               "fieldsplit_0_ksp_max_it": 1,
+               "fieldsplit_0_pc_type":  "lu",
+               "fieldsplit_0_pc_factor_mat_solver_package": "mumps",
+               "fieldsplit_1_ksp_type": "gmres",
+               "fieldsplit_1_ksp_converged_reason": None,
+               "fieldsplit_1_ksp_atol": 1.0e-10,
+               "fieldsplit_1_ksp_rtol": 1.0e-10,
+               "fieldsplit_1_ksp_monitor_true_residual": None,
+               "fieldsplit_1_pc_type":  "mat",
+               "mass_ksp_type": "richardson",
+               "mass_pc_type": "lu",
+               "mass_pc_factor_mat_solver_package": "mumps",
+               "mass_pc_mg_galerkin": None,
                }
         return args
 
