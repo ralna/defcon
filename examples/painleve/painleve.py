@@ -1,11 +1,7 @@
-# -*- coding: utf-8 -*-
-import sys
-
 from defcon import *
 from dolfin import *
 
 L = 10 # length of domain
-parameters["form_compiler"]["representation"] = "quadrature" # "uflacs" crashes
 
 class PainleveProblem(BifurcationProblem):
     def mesh(self, comm):

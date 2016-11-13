@@ -53,6 +53,7 @@ class LaplaceProblem(BifurcationProblem):
 
     def solver_parameters(self, params, klass):
         args = {
+               "snes_type": "ksponly",
                "snes_max_it": 10,
                "snes_atol": 1.0e-9,
                "snes_rtol": 1.0e-9,

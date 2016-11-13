@@ -1,13 +1,5 @@
-# -*- coding: utf-8 -*-
-import sys
-
 from defcon import *
 from dolfin import *
-
-import matplotlib.pyplot as plt
-from   numpy import array
-
-parameters["form_compiler"]["representation"] = "quadrature" # crashes with "uflacs"
 
 class BratuProblem(BifurcationProblem):
     def mesh(self, comm):
@@ -64,6 +56,8 @@ class BratuProblem(BifurcationProblem):
                }
 
 if __name__ == "__main__":
+    import matplotlib.pyplot as plt
+
     dc = DeflatedContinuation(problem=BratuProblem(), teamsize=1, verbose=True, clear_output=True)
     dc.run(values={"lambda": list(arange(0.0, 3.6, 0.01)) + [3.6]})
 
