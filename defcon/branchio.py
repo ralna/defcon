@@ -20,7 +20,10 @@ from numpy import array
 # purpose.
 
 def paramstokey(params): return "(" + ", ".join("%.15e" % x for x in params) + ")"
-def keytoparams(key): return literal_eval(key)
+def keytoparams(key):
+    out = literal_eval(key)
+    if isinstance(out, float): return (out,)
+    else:                      return out
 
 class ParameterMap(object):
     def __init__(self, directory):
