@@ -12,6 +12,9 @@ class LaplaceProblem(BifurcationProblem):
         self.facets = facets
         return mesh
 
+    def coarse_meshes(self, comm):
+        return [Mesh(comm, "mesh/canal.1.xml.gz")]
+
     def function_space(self, mesh):
         Ve = VectorElement("CG", mesh.ufl_cell(), 2)
         Qe = FiniteElement("CG", mesh.ufl_cell(), 1)
@@ -103,6 +106,7 @@ class LaplaceProblem(BifurcationProblem):
 
     def solver_parameters(self, params, klass):
         args = {
+               "snes_type": "ksponly",
                "snes_max_it": 10,
                "snes_atol": 1.0e-9,
                "snes_rtol": 1.0e-9,
@@ -124,11 +128,11 @@ class LaplaceProblem(BifurcationProblem):
                "fieldsplit_1_ksp_converged_reason": None,
                "fieldsplit_1_ksp_atol": 1.0e-10,
                "fieldsplit_1_ksp_rtol": 1.0e-10,
-               "fieldsplit_1_ksp_monitor_true_residual": None,
+               #"fieldsplit_1_ksp_monitor_true_residual": None,
                "fieldsplit_1_pc_type":  "mat",
                "mass_ksp_type": "richardson",
-               "mass_pc_type": "lu",
-               "mass_pc_factor_mat_solver_package": "mumps",
+               "mass_ksp_max_it": 1,
+               "mass_pc_type": "mg",
                "mass_pc_mg_galerkin": None,
                }
         return args
