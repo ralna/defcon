@@ -1,6 +1,9 @@
 from defcon import *
 from dolfin import *
 
+# Warning: I get spurious results on this problem with uflacs
+parameters["form_compiler"]["representation"] = "quadrature"
+
 class BratuProblem(BifurcationProblem):
     def mesh(self, comm):
         return IntervalMesh(comm, 400, 0, 1)
