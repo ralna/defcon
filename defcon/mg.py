@@ -308,26 +308,26 @@ if backend.__name__ == "dolfin":
         // Some sanity checks.
         {
             std::shared_ptr<const FiniteElement> elf = fine_space->element();
-	    // Check that function ranks match
-	    if (el->value_rank() != elf->value_rank())
-	    {
-	      dolfin_error("create_transfer_matrix",
-	      	     "Creating interpolation matrix",
-                     "Ranks of function spaces do not match: %d, %d.",
-	      	     el->value_rank(), elf->value_rank());
-	    }
+            // Check that function ranks match
+            if (el->value_rank() != elf->value_rank())
+            {
+              dolfin_error("create_transfer_matrix",
+                     "Creating interpolation matrix",
+                         "Ranks of function spaces do not match: %d, %d.",
+                     el->value_rank(), elf->value_rank());
+            }
 
-	    // Check that function dims match
-	    for (std::size_t i = 0; i < el->value_rank(); ++i)
-	    {
-	      if (el->value_dimension(i) != elf->value_dimension(i))
-	      {
-	        dolfin_error("create_transfer_matrix",
-	      	       "Creating interpolation matrix",
-	      	       "Dimension %d of function space (%d) does not match dimension %d of function space (%d)",
-	      	       i, el->value_dimension(i), i, elf->value_dimension(i));
-	      }
-	    }
+            // Check that function dims match
+            for (std::size_t i = 0; i < el->value_rank(); ++i)
+            {
+              if (el->value_dimension(i) != elf->value_dimension(i))
+              {
+                dolfin_error("create_transfer_matrix",
+                       "Creating interpolation matrix",
+                       "Dimension %d of function space (%d) does not match dimension %d of function space (%d)",
+                       i, el->value_dimension(i), i, elf->value_dimension(i));
+              }
+            }
         }
         // number of dofs per cell for the finite element.
         std::size_t eldim = el->space_dimension();
@@ -693,7 +693,7 @@ if backend.__name__ == "dolfin":
             values[i] = new double[eldim];
         }
         // initialise a single chunk of values (needed for later)
-        double temp_values[eldim];
+        double temp_values[eldim*(el->value_rank() + 1)];
 
         // initialise column ownership range
         std::size_t n_own_begin;
