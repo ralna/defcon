@@ -689,7 +689,13 @@ if backend.__name__ == "dolfin":
         {
             row_indices = global_row_indices[i];
             ierr = MatSetValues(I, 1, &row_indices, eldim, col_indices[i], values[i], INSERT_VALUES); CHKERRABORT(PETSC_COMM_WORLD, ierr);
+
+            delete [] col_indices[i];
+            delete [] values[i];
         }
+
+        delete [] col_indices;
+        delete [] values;
 
         // Assemble the transfer matrix
         ierr = MatAssemblyBegin(I, MAT_FINAL_ASSEMBLY); CHKERRABORT(PETSC_COMM_WORLD, ierr);
