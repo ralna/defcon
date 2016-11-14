@@ -136,10 +136,104 @@ if backend.__name__ == "dolfin":
     #include <dolfin/geometry/BoundingBoxTree.h>
     #include <dolfin/fem/FiniteElement.h>
     #include <dolfin/fem/GenericDofMap.h>
+    #include <dolfin/common/RangedIndexSet.h>
     #include <petscmat.h>
 
     namespace dolfin
     {
+        // Coordinate comparison operator
+        struct lt_coordinate
+        {
+          lt_coordinate(double tolerance) : TOL(tolerance) {}
+
+          bool operator() (const std::vector<double>& x,
+                           const std::vector<double>& y) const
+          {
+            const std::size_t n = std::max(x.size(), y.size());
+            for (std::size_t i = 0; i < n; ++i)
+            {
+              double xx = 0.0;
+              double yy = 0.0;
+              if (i < x.size())
+                xx = x[i];
+              if (i < y.size())
+                yy = y[i];
+
+              if (xx < (yy - TOL))
+                return true;
+              else if (xx > (yy + TOL))
+                return false;
+            }
+            return false;
+          }
+
+          // Tolerance
+          const double TOL;
+        };
+
+        std::map<std::vector<double>, std::vector<std::size_t>, lt_coordinate>
+        tabulate_coordinates_to_dofs(const FunctionSpace& V)
+        {
+          std::map<std::vector<double>, std::vector<std::size_t>, lt_coordinate>
+            coords_to_dofs(lt_coordinate(1.0e-12));
+
+          // Extract mesh, dofmap and element
+          dolfin_assert(V.dofmap());
+          dolfin_assert(V.element());
+          dolfin_assert(V.mesh());
+          const GenericDofMap& dofmap = *V.dofmap();
+          const FiniteElement& element = *V.element();
+          const Mesh& mesh = *V.mesh();
+
+          // Geometric dimension
+          const std::size_t gdim = mesh.geometry().dim();
+
+          // Loop over cells and tabulate dofs
+          boost::multi_array<double, 2> coordinates;
+          std::vector<double> coordinate_dofs;
+          std::vector<double> coors(gdim);
+
+          // Speed up the computations by only visiting (most) dofs once
+          const std::size_t local_size = dofmap.ownership_range().second
+            - dofmap.ownership_range().first;
+          RangedIndexSet already_visited(std::make_pair(0, local_size));
+
+          for (CellIterator cell(mesh); !cell.end(); ++cell)
+          {
+            // Update UFC cell
+            cell->get_coordinate_dofs(coordinate_dofs);
+
+            // Get local-to-global map
+            const ArrayView<const dolfin::la_index> dofs
+              = dofmap.cell_dofs(cell->index());
+
+            // Tabulate dof coordinates on cell
+            element.tabulate_dof_coordinates(coordinates, coordinate_dofs, *cell);
+
+            // Map dofs into coords_to_dofs
+            for (std::size_t i = 0; i < dofs.size(); ++i)
+            {
+              const std::size_t dof = dofs[i];
+              if (dof < local_size)
+              {
+                // Skip already checked dofs
+                if (!already_visited.insert(dof))
+                  continue;
+
+                // Put coordinates in coors
+                std::copy(coordinates[i].begin(), coordinates[i].end(), coors.begin());
+
+                // Add dof to list at this coord
+                const auto ins = coords_to_dofs.insert
+                  (std::make_pair(coors, std::vector<std::size_t>{dof}));
+                if (!ins.second)
+                  ins.first->second.push_back(dof);
+              }
+            }
+          }
+          return coords_to_dofs;
+        }
+
         std::shared_ptr<PETScMatrix> create_transfer_matrix(std::shared_ptr<const FunctionSpace> coarse_space, std::shared_ptr<const FunctionSpace> fine_space)
         {
         // Initialise PETSc Mat and error code
@@ -210,8 +304,37 @@ if backend.__name__ == "dolfin":
         // the basis functions for each cell.
         // (we assume it is the same type of finite element for both spaces)
         std::shared_ptr<const FiniteElement> el = coarse_space->element();
+
+        // Some sanity checks.
+        {
+            std::shared_ptr<const FiniteElement> elf = fine_space->element();
+	    // Check that function ranks match
+	    if (el->value_rank() != elf->value_rank())
+	    {
+	      dolfin_error("create_transfer_matrix",
+	      	     "Creating interpolation matrix",
+                     "Ranks of function spaces do not match: %d, %d.",
+	      	     el->value_rank(), elf->value_rank());
+	    }
+
+	    // Check that function dims match
+	    for (std::size_t i = 0; i < el->value_rank(); ++i)
+	    {
+	      if (el->value_dimension(i) != elf->value_dimension(i))
+	      {
+	        dolfin_error("create_transfer_matrix",
+	      	       "Creating interpolation matrix",
+	      	       "Dimension %d of function space (%d) does not match dimension %d of function space (%d)",
+	      	       i, el->value_dimension(i), i, elf->value_dimension(i));
+	      }
+	    }
+        }
         // number of dofs per cell for the finite element.
         std::size_t eldim = el->space_dimension();
+
+        // Create map from coordinates to dofs sharing that coordinate
+        std::map<std::vector<double>, std::vector<std::size_t>, lt_coordinate>
+        coords_to_dofs = tabulate_coordinates_to_dofs(*fine_space);
 
         // Miscellaneous initialisations, these will all be needed later
         Point curr_point; // point variable
