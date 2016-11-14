@@ -59,7 +59,7 @@ def create_fs_dm(V, problem=None):
     # how to divvy up the different parts of the function space.
     # This is not needed for non-mixed elements.
     ufl_el = V.ufl_element()
-    if isinstance(ufl_el, MixedElement) and not isinstance(ufl_el, VectorElement):
+    if isinstance(ufl_el, (MixedElement, VectorElement)):
         dm.setCreateSubDM(create_subdm)
         dm.setCreateFieldDecomposition(create_field_decomp)
 
@@ -84,7 +84,7 @@ def create_field_decomp(dm, *args, **kwargs):
 def funcspace_to_index_sets(fs):
     uflel = fs.ufl_element()
     comm = fs.mesh().mpi_comm()
-    if isinstance(uflel, MixedElement) and not isinstance(uflel, VectorElement):
+    if isinstance(uflel, (MixedElement, VectorElement)):
         splitdofs = [V.dofmap().dofs() for V in fs.split()]
         ises = [PETSc.IS().createGeneral(sd, comm=comm)
                 for sd in splitdofs]
