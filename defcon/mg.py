@@ -654,7 +654,9 @@ if backend.__name__ == "dolfin":
         MPI::all_gather(mpi_comm, global_o_nnz, global_o_nnz_recv);
 
         // initialise local sparsity pattern to 0
-        int d_nnz[m], o_nnz[m];
+        // We use new here rather than std::vector because we need to pass this to C.
+        int* d_nnz = new int[m];
+        int* o_nnz = new int[m];
         memset(d_nnz, 0, m*sizeof(int));
         memset(o_nnz, 0, m*sizeof(int));
 
@@ -683,6 +685,9 @@ if backend.__name__ == "dolfin":
         {
             ierr = MatSeqAIJSetPreallocation(I, PETSC_DEFAULT, d_nnz); CHKERRABORT(PETSC_COMM_WORLD, ierr);
         }
+
+        delete [] d_nnz;
+        delete [] o_nnz;
 
         // Setting transfer matrix values row by row
         for (unsigned i=0;i<m_owned;i++)
