@@ -184,6 +184,8 @@ if backend.__name__ == "dolfin":
           const GenericDofMap& dofmap = *V.dofmap();
           const FiniteElement& element = *V.element();
           const Mesh& mesh = *V.mesh();
+          std::vector<std::size_t> local_to_global;
+          dofmap.tabulate_local_to_global_dofs(local_to_global);
 
           // Geometric dimension
           const std::size_t gdim = mesh.geometry().dim();
@@ -225,9 +227,9 @@ if backend.__name__ == "dolfin":
 
                 // Add dof to list at this coord
                 const auto ins = coords_to_dofs.insert
-                  (std::make_pair(coors, std::vector<std::size_t>{dof}));
+                  (std::make_pair(coors, std::vector<std::size_t>{local_to_global[dof]}));
                 if (!ins.second)
-                  ins.first->second.push_back(dof);
+                  ins.first->second.push_back(local_to_global[dof]);
               }
             }
           }
@@ -682,6 +684,8 @@ if backend.__name__ == "dolfin":
         std::size_t n_own_end;
 
         // initialise global sparsity pattern
+        // FIXME: this is a major problem, we can't afford
+        // to allocate something O(global dofs) on each process.
         std::vector<int> global_d_nnz(M,0);
         std::vector<int> global_o_nnz(M,0);
 
@@ -753,10 +757,14 @@ if backend.__name__ == "dolfin":
                     n_own_begin = global_n_range_recv[sender][0];
                     n_own_end = global_n_range_recv[sender][1];
                     // check and allocate sparsity pattern
-                    if ((n_own_begin <= col_indices[fine_row][j]) && (col_indices[fine_row][j] < n_own_end))
-                        global_d_nnz[fine_row] += 1;
+                    if ((n_own_begin <= coarse_dof) && (coarse_dof < n_own_end))
+                    {
+                        global_d_nnz[global_fine_dof] += 1;
+                    }
                     else
-                        global_o_nnz[fine_row] += 1;
+                    {
+                        global_o_nnz[global_fine_dof] += 1;
+                    }
                 } // end loop over all coarse dofs in the cell
             } // end loop over fine dofs associated with this collision
         } // end loop over found points
