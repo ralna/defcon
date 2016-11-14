@@ -667,8 +667,7 @@ if backend.__name__ == "dolfin":
         // initialise row and column indices and values of the transfer matrix
         int row_indices = 0;
         int** col_indices = new int*[m_owned];
-        int*  fine_indices = new int[m_owned];
-        memset(fine_indices, 0, m_owned*sizeof(int));
+        int*  fine_row_indices = new int[m_owned];
         double** values = new double*[m_owned];
         for(unsigned i = 0; i < m_owned; ++i)
         {
@@ -725,32 +724,28 @@ if backend.__name__ == "dolfin":
                                    coordinate_dofs.data(),
                                    ufc_cell.orientation);
 
-            // Loop over dofs of the coarse cell
+            // Get the coarse dofs associated with this cell
             ArrayView<const dolfin::la_index> temp_dofs = coarsemap->cell_dofs(id);
-            for (unsigned j=0; j < eldim; j++)
-            {
-                // Loop over the fine dofs this coarse dof contributes to
-                for (unsigned k=0; k < eldim; k++)
-                {
-                    // Get the fine dof <-> coarse_dof
-                    int coarse_dof = coarse_local_to_global_dofs[temp_dofs[j]];
-                    int fine_dof   = global_row_indices[data_size*i + k];
 
-                    // Get the index into the arrays
-                    int fine_index = fine_indices[fine_dof];
+            // Loop over the fine dofs associated with this collision
+            for (unsigned k = 0; k < data_size; k++)
+            {
+                // Loop over the coarse dofs and stuff their contributions
+                for (unsigned j = 0; j < eldim; j++)
+                {
+                    unsigned fine_row = i*data_size + k;
+                    PetscInt global_fine_dof = global_row_indices[fine_row];
+                    PetscInt coarse_dof = coarse_local_to_global_dofs[temp_dofs[j]];
 
                     // Set the column
-                    col_indices[fine_dof][fine_index] = coarse_local_to_global_dofs[temp_dofs[j]];
+                    col_indices[fine_row][j] = coarse_dof;
                     // Set the value
-                    values[fine_dof][fine_index] = temp_values[data_size*j + k];
+                    values[fine_row][j] = temp_values[data_size*j + k];
+                    // Record which global row we're actually talking about
+                    fine_row_indices[fine_row] = global_fine_dof;
 
-                    // Increment the fine index for the next time we find this fine dof.
-                    fine_indices[fine_dof]++;
-
-                    // once we have the global column indices,
-                    // determine sparsity pattern:
-                    // which columns are owned by the process that
-                    // owns the fine point?
+                    // Once we have the global column indices, determine the sparsity pattern.
+                    // Which columns are owned by the process that owns the fine point?
 
                     // get the fine point owner processor
                     sender = found_points_senders[i];
@@ -758,14 +753,13 @@ if backend.__name__ == "dolfin":
                     n_own_begin = global_n_range_recv[sender][0];
                     n_own_end = global_n_range_recv[sender][1];
                     // check and allocate sparsity pattern
-                    if ((n_own_begin <= col_indices[fine_dof][fine_index]) && (col_indices[fine_dof][fine_index] < n_own_end))
-                        global_d_nnz[fine_dof] += 1;
+                    if ((n_own_begin <= col_indices[fine_row][j]) && (col_indices[fine_row][j] < n_own_end))
+                        global_d_nnz[fine_row] += 1;
                     else
-                        global_o_nnz[fine_dof] += 1;
-                }
-            } // end loop over coarse dofs
+                        global_o_nnz[fine_row] += 1;
+                } // end loop over all coarse dofs in the cell
+            } // end loop over fine dofs associated with this collision
         } // end loop over found points
-        delete [] fine_indices;
 
         // need to send the d_nnz and o_nnz to the correct processor
         // at the moment can only do global communication
@@ -811,17 +805,18 @@ if backend.__name__ == "dolfin":
         delete [] o_nnz;
 
         // Setting transfer matrix values row by row
-        for (unsigned i=0; i < m_owned;i++)
+        for (unsigned fine_row = 0; fine_row < m_owned; fine_row++)
         {
-            row_indices = global_row_indices[i];
-            ierr = MatSetValues(I, 1, &row_indices, eldim, col_indices[i], values[i], INSERT_VALUES); CHKERRABORT(PETSC_COMM_WORLD, ierr);
+            PetscInt fine_dof = fine_row_indices[fine_row];
+            ierr = MatSetValues(I, 1, &fine_dof, eldim, col_indices[fine_row], values[fine_row], INSERT_VALUES); CHKERRABORT(PETSC_COMM_WORLD, ierr);
 
-            delete [] col_indices[i];
-            delete [] values[i];
+            delete [] col_indices[fine_row];
+            delete [] values[fine_row];
         }
 
         delete [] col_indices;
         delete [] values;
+        delete [] fine_row_indices;
 
         // Assemble the transfer matrix
         ierr = MatAssemblyBegin(I, MAT_FINAL_ASSEMBLY); CHKERRABORT(PETSC_COMM_WORLD, ierr);
