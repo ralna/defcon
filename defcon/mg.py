@@ -285,11 +285,11 @@ if backend.__name__ == "dolfin":
         // we also keep track of the ownership range
         std::size_t mbegin = finemap->ownership_range().first;
         std::size_t mend = finemap->ownership_range().second;
-        std::size_t m = mend - mbegin;
+        std::size_t m = finemap->dofs().size();
 
         std::size_t nbegin = coarsemap->ownership_range().first;
         std::size_t nend = coarsemap->ownership_range().second;
-        std::size_t n = nend - nbegin;
+        std::size_t n = coarsemap->dofs().size();
 
         // we store the ownership range of the fine dofs so that
         // we can communicate it to the other workers.
@@ -683,11 +683,22 @@ if backend.__name__ == "dolfin":
         std::size_t n_own_begin;
         std::size_t n_own_end;
 
-        // initialise global sparsity pattern
-        // FIXME: this is a major problem, we can't afford
-        // to allocate something O(global dofs) on each process.
-        std::vector<int> global_d_nnz(M,0);
-        std::vector<int> global_o_nnz(M,0);
+        // initialise global sparsity pattern: record on-process and off-process dependencies of fine dofs
+        Vec vd_nnz;
+        Vec vo_nnz;
+        if (mpi_size == 0)
+        {
+            ierr = VecCreateSeq(mpi_comm, M, &vd_nnz); CHKERRABORT(PETSC_COMM_WORLD, ierr);
+            ierr = VecCreateSeq(mpi_comm, M, &vo_nnz); CHKERRABORT(PETSC_COMM_WORLD, ierr);
+        }
+        else
+        {
+            ierr = VecCreateMPI(mpi_comm, m, M, &vd_nnz); CHKERRABORT(PETSC_COMM_WORLD, ierr);
+            ierr = VecCreateMPI(mpi_comm, m, M, &vo_nnz); CHKERRABORT(PETSC_COMM_WORLD, ierr);
+        }
+        ierr = VecSet(vd_nnz, 0); CHKERRABORT(PETSC_COMM_WORLD, ierr);
+        ierr = VecSet(vo_nnz, 0); CHKERRABORT(PETSC_COMM_WORLD, ierr);
+        const PetscScalar one = 1.0;
 
         // loop over the found coarse cells
         for (unsigned i=0; i<found_ids.size(); i++)
@@ -759,46 +770,43 @@ if backend.__name__ == "dolfin":
                     // check and allocate sparsity pattern
                     if ((n_own_begin <= coarse_dof) && (coarse_dof < n_own_end))
                     {
-                        global_d_nnz[global_fine_dof] += 1;
+                        // Add one to the vd_nnz[global_fine_dof]
+                        ierr = VecSetValue(vd_nnz, global_fine_dof, one, ADD_VALUES); CHKERRABORT(PETSC_COMM_WORLD, ierr);
                     }
                     else
                     {
-                        global_o_nnz[global_fine_dof] += 1;
+                        ierr = VecSetValue(vo_nnz, global_fine_dof, one, ADD_VALUES); CHKERRABORT(PETSC_COMM_WORLD, ierr);
                     }
                 } // end loop over all coarse dofs in the cell
             } // end loop over fine dofs associated with this collision
         } // end loop over found points
 
-        // need to send the d_nnz and o_nnz to the correct processor
-        // at the moment can only do global communication
-        std::vector<std::vector<int>> global_d_nnz_recv(mpi_size);
-        std::vector<std::vector<int>> global_o_nnz_recv(mpi_size);
-        MPI::all_gather(mpi_comm, global_d_nnz, global_d_nnz_recv);
-        MPI::all_gather(mpi_comm, global_o_nnz, global_o_nnz_recv);
+        // Now communicate the cached vd_nnz and vo_nnz; PETSc takes care of the gory details
+        ierr = VecAssemblyBegin(vd_nnz); CHKERRABORT(PETSC_COMM_WORLD, ierr);
+        ierr = VecAssemblyBegin(vo_nnz); CHKERRABORT(PETSC_COMM_WORLD, ierr);
+        ierr = VecAssemblyEnd(vd_nnz); CHKERRABORT(PETSC_COMM_WORLD, ierr);
+        ierr = VecAssemblyEnd(vo_nnz); CHKERRABORT(PETSC_COMM_WORLD, ierr);
 
-        // initialise local sparsity pattern to 0
+        // Now copy sparsity pattern into integer arrays (we had to use floats before because
+        // we wanted to store it in a PETSc Vec).
         // We use new here rather than std::vector because we need to pass this to C.
-        int* d_nnz = new int[m];
-        int* o_nnz = new int[m];
-        memset(d_nnz, 0, m*sizeof(int));
-        memset(o_nnz, 0, m*sizeof(int));
+        PetscScalar *pd_nnz;
+        PetscScalar *po_nnz;
+        ierr = VecGetArray(vd_nnz, &pd_nnz); CHKERRABORT(PETSC_COMM_WORLD, ierr);
+        ierr = VecGetArray(vo_nnz, &po_nnz); CHKERRABORT(PETSC_COMM_WORLD, ierr);
 
-        int index = 0;
-        for (unsigned i=0; i<M; i++)
+        PetscInt* d_nnz = new PetscInt[m];
+        PetscInt* o_nnz = new PetscInt[m];
+        for (dolfin::la_index i = 0; i < m; i++)
         {
-            // local row index
-            index = i - mbegin;
-            // if within local row range, sum the global sparsity pattern
-            // into the local sparsity pattern
-            if ((index >= 0) && (index < m))
-            {
-                for (unsigned proc = 0; proc<mpi_size; proc++)
-                {
-                    d_nnz[index] = d_nnz[index] + global_d_nnz_recv[proc][i];
-                    o_nnz[index] = o_nnz[index] + global_o_nnz_recv[proc][i];
-                }
-            }
+            d_nnz[i] = (PetscInt) pd_nnz[i];
+            o_nnz[i] = (PetscInt) po_nnz[i];
         }
+
+        ierr = VecRestoreArray(vd_nnz, &pd_nnz); CHKERRABORT(PETSC_COMM_WORLD, ierr);
+        ierr = VecRestoreArray(vo_nnz, &po_nnz); CHKERRABORT(PETSC_COMM_WORLD, ierr);
+        ierr = VecDestroy(&vd_nnz); CHKERRABORT(PETSC_COMM_WORLD, ierr);
+        ierr = VecDestroy(&vo_nnz); CHKERRABORT(PETSC_COMM_WORLD, ierr);
 
         if (mpi_size > 1)
         {
