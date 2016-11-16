@@ -9,7 +9,6 @@ import collections
 import sys
 import time
 import traceback
-import tempfile
 
 from ast import literal_eval
 from numpy import array
@@ -70,23 +69,24 @@ class BranchIO(iomodule.SolutionIO):
     def solution_filename(self, branchid):
         return os.path.join(self.directory, "solution-" + str(branchid) + ".h5")
 
+    def temp_solution_filename(self, branchid):
+        return os.path.join(self.tmpdir, "solution-" + str(branchid) + ".h5")
+
     def stability_filename(self, branchid):
         return os.path.join(self.directory, "stability-" + str(branchid) + ".h5")
 
     def save_solution(self, solution, funcs, params, branchid):
         key = paramstokey(params)
         fname = self.solution_filename(branchid)
-
-        tmpfile = tempfile.NamedTemporaryFile("w", delete=False, dir=self.tmpdir)
-        tmpfile.close()
-        tmpname = tmpfile.name
+        tmpname = self.temp_solution_filename(branchid)
 
         if os.path.exists(fname):
             mode = "a"
             exists = True
 
             # I can't believe I have to do this to get filesystem synchronisation right.
-            os.rename(fname, tmpname)
+            if self.pcomm.rank == 0:
+                os.rename(fname, tmpname)
         else:
             mode = "w"
             exists = False
@@ -102,7 +102,8 @@ class BranchIO(iomodule.SolutionIO):
         self.pcomm.Barrier()
 
         # Trick from Lawrence Mitchell: POSIX guarantees that mv is atomic
-        os.rename(tmpname, fname)
+        if self.pcomm.rank == 0:
+            os.rename(tmpname, fname)
 
         # Belt-and-braces: sleep until the path exists
         while not os.path.exists(fname):

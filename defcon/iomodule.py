@@ -141,11 +141,11 @@ class SolutionIO(IO):
         except OSError:
             pass
 
-        tmp = tempfile.NamedTemporaryFile("w", delete=False, dir=self.tmpdir, suffix=".h5")
-        tmp.close()
-        with HDF5File(self.function_space.mesh().mpi_comm(), tmp.name, 'w') as f:
+        tmpname = os.path.join(self.tmpdir, 'solution-%d.h5' % branchid)
+        with HDF5File(self.function_space.mesh().mpi_comm(), tmpname, 'w') as f:
             f.write(solution, "/solution")
-        os.rename(tmp.name, self.dir(params) + "solution-%d.h5" % branchid)
+        if self.pcomm.rank == 0:
+            os.rename(tmp.name, self.dir(params) + "solution-%d.h5" % branchid)
         assert os.path.exists(self.dir(params) + "solution-%d.h5" % branchid)
 
         f = file(self.dir(params) + "functional-%d.txt" % branchid, "w")
@@ -252,7 +252,8 @@ class SolutionIO(IO):
         os.fsync(f.file.fileno())
         f.close()
         filename = self.dir(params) + "stability-%d.txt" % branchid
-        os.rename(f.name, filename)
+        if self.pcomm.rank == 0:
+            os.rename(f.name, filename)
 
     def save_arclength(self, params, freeindex, branchid, ds, data):
         try:
@@ -267,7 +268,8 @@ class SolutionIO(IO):
         f.file.flush()
         os.fsync(f.file.fileno())
         f.close()
-        os.rename(f.name, self.directory + os.path.sep + "arclength/params-%s-freeindex-%s-branchid-%s-ds-%.14e.json" % (parameters_to_string(self.parameters, params), freeindex, branchid, ds))
+        if self.pcomm.rank == 0:
+            os.rename(f.name, self.directory + os.path.sep + "arclength/params-%s-freeindex-%s-branchid-%s-ds-%.14e.json" % (parameters_to_string(self.parameters, params), freeindex, branchid, ds))
 
     def fetch_stability(self, params, branchids):
         stables = []

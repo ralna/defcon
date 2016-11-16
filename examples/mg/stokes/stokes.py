@@ -3,7 +3,7 @@ from dolfin import *
 
 from petsc4py import PETSc
 
-class LaplaceProblem(BifurcationProblem):
+class StokesProblem(BifurcationProblem):
     def mesh(self, comm):
         self.comm = comm
 
@@ -145,5 +145,5 @@ class LaplaceProblem(BifurcationProblem):
         pvd << u
 
 if __name__ == "__main__":
-    dc = DeflatedContinuation(problem=LaplaceProblem(), teamsize=1, verbose=True, clear_output=True)
+    dc = DeflatedContinuation(problem=StokesProblem(), teamsize=2, verbose=True, clear_output=True)
     dc.run(values={"f": [1.0]})
