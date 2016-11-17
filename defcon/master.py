@@ -14,6 +14,10 @@ class DefconMaster(DefconThread):
     def __init__(self, *args, **kwargs):
         DefconThread.__init__(self, *args, **kwargs)
 
+        # Master should always collect infrequently, it never allocates
+        # anything large
+        self.gc_frequency = 100
+
         # A map from the type of task we're dealing with to the code that handles it.
         self.callbacks = {DeflationTask:    self.deflation_task,
                           StabilityTask:    self.stability_task,

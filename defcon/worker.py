@@ -17,6 +17,9 @@ class DefconWorker(DefconThread):
     def __init__(self, problem, **kwargs):
         DefconThread.__init__(self, problem, **kwargs)
 
+        # Record gc_frequency from kwargs
+        self.gc_frequency = kwargs.get("gc_frequency")
+
         # A map from the type of task we've received to the code that handles it.
         self.callbacks = {DeflationTask:    self.deflation_task,
                           StabilityTask:    self.stability_task,
@@ -30,6 +33,13 @@ class DefconWorker(DefconThread):
         self.mesh = self.problem.mesh(PETSc.Comm(self.teamcomm))
         self.function_space = self.problem.function_space(self.mesh)
         self.dm = create_dm(self.function_space, self.problem)
+
+        # Configure garbage collection frequency:
+        if self.gc_frequency is None:
+            dofs_per_core = self.function_space.dim() / self.teamcomm.size
+            if dofs_per_core > 100000: self.gc_frequency = 1
+            if dofs_per_core < 10000:  self.gc_frequency = 100
+            else:                      self.gc_frequency = 10
 
         self.state = backend.Function(self.function_space)
         self.trivial_solutions = None

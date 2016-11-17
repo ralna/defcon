@@ -33,6 +33,10 @@ class DeflatedContinuation(object):
             Whether defcon should also continue backwards when it finds a new branch with deflation.
           clear_output (:py:class:`bool`)
             Whether defcon should first clear any old output.
+          gc_frequency (:py:class:`int`)
+            How many solves should pass before we call the garbage collector.
+            Set to a small value (e.g. 1) for very large problems, and a large value (e.g. 100)
+            for very small problems. We try to do something sensible by default.
           comm (MPI.Comm)
             The communicator that gathers all processes involved in this computation
         """
