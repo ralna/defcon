@@ -202,7 +202,7 @@ class PlotConstructor():
         except Exception: pass
 
         # Redraw the sweepline.
-        self.sweepline = bfdiag.axvline(x=self.sweep, linewidth=1, linestyle=SWEEPSTYLE, color=SWEEP)
+        #self.sweepline = bfdiag.axvline(x=self.sweep, linewidth=1, linestyle=SWEEPSTYLE, color=SWEEP)
 
         # Reset the scale of the x axis. 
         self.setx(bfdiag)
@@ -215,9 +215,9 @@ class PlotConstructor():
                 x = float(xs[self.freeindex])
                 y = float(ys[self.func_index])
                 self.ax.plot(x, y, marker=CONTPLOT, color=MAIN, linestyle='None')
-                self.animsweep = self.sweeplines_iter.next()
-                if self.animsweepline is not None: self.animsweepline.remove()
-                self.animsweepline = self.ax.axvline(x=self.animsweep, linewidth=1, linestyle=SWEEPSTYLE, color=SWEEP)                
+                #self.animsweep = self.sweeplines_iter.next()
+                #'if self.animsweepline is not None: self.animsweepline.remove()
+                #self.animsweepline = self.ax.axvline(x=self.animsweep, linewidth=1, linestyle=SWEEPSTYLE, color=SWEEP)
             except StopIteration: return
 
         # Let's output a log of how we're doing, so the user can see that something is in fact being done.
@@ -387,10 +387,11 @@ class PlotConstructor():
                 for eachLine in dataList[self.lines_read:]:
                     if len(eachLine) > 1:
                         if eachLine[0] == '$':
+                            pass
                             # This line of the journal is telling us about the sweep line.
-                            self.sweep = float(eachLine[1:])
-                            if self.sweepline is not None: self.sweepline.remove()
-                            self.sweepline = bfdiag.axvline(x=self.sweep, linewidth=1, linestyle=SWEEPSTYLE, color=SWEEP)
+                            #self.sweep = float(eachLine[1:])
+                            #if self.sweepline is not None: self.sweepline.remove()
+                            #self.sweepline = bfdiag.axvline(x=self.sweep, linewidth=1, linestyle=SWEEPSTYLE, color=SWEEP)
 
                         elif eachLine[0] == '~':
                             # This line of the journal is telling us about what the teams are doing. 
@@ -537,9 +538,9 @@ class PlotConstructor():
 
         # Make an iterator of the points list and sweepline list.
         self.points_iter = iter(self.points)
-        self.sweeplines_iter = iter(self.sweeplines)
+        #self.sweeplines_iter = iter(self.sweeplines)
 
-        self.animsweepline = None
+        #self.animsweepline = None
 
         # Set up the animated figure.
         self.anim_fig = plt.figure()
