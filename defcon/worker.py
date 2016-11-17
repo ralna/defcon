@@ -770,6 +770,9 @@ class ProfiledDefconWorker(DefconThread):
         defl_time  = PETSc.Log.Event("deflation task").getPerfInfo()['time']
         cont_time  = PETSc.Log.Event("continuation task").getPerfInfo()['time']
         stab_time  = PETSc.Log.Event("stability task").getPerfInfo()['time']
+        defl_cnt   = PETSc.Log.Event("deflation task").getPerfInfo()['count']
+        cont_cnt   = PETSc.Log.Event("continuation task").getPerfInfo()['count']
+        stab_cnt   = PETSc.Log.Event("stability task").getPerfInfo()['count']
         print "     total time:            %12.4f s" % total_time
         print "     initialisation:        %12.4f s (%05.2f%%)" % (init_time,  100*init_time/total_time)
         print "     garbage collection:    %12.4f s (%05.2f%%)" % (gc_time,    100*gc_time/total_time)
@@ -778,9 +781,9 @@ class ProfiledDefconWorker(DefconThread):
         print "     sending responses:     %12.4f s (%05.2f%%)" % (send_time, 100*send_time/total_time)
         print "     loading solutions:     %12.4f s (%05.2f%%)" % (load_time, 100*load_time/total_time)
         print "     computing functionals: %12.4f s (%05.2f%%)" % (func_time, 100*func_time/total_time)
-        print "     deflation [all]:       %12.4f s (%05.2f%%)" % (defl_time, 100*defl_time/total_time)
-        print "     continuation [all]:    %12.4f s (%05.2f%%)" % (cont_time, 100*cont_time/total_time)
-        print "     stability [all]:       %12.4f s (%05.2f%%)" % (stab_time, 100*stab_time/total_time)
+        print "     deflation    [%04d]:   %12.4f s (%05.2f%%)" % (defl_cnt, defl_time, 100*defl_time/total_time)
+        print "     continuation [%04d]:   %12.4f s (%05.2f%%)" % (cont_cnt, cont_time, 100*cont_time/total_time)
+        print "     stability    [%04d]:   %12.4f s (%05.2f%%)" % (stab_cnt, stab_time, 100*stab_time/total_time)
 
         if defl_time > 0:
             print
@@ -797,6 +800,7 @@ class ProfiledDefconWorker(DefconThread):
             func_time  = PETSc.Log.Event("deflation: functionals").getPerfInfo()['time']
             save_time  = PETSc.Log.Event("deflation: saving").getPerfInfo()['time']
             print "     total time:            %12.4f s" % defl_time
+            print "     time per execution:    %12.4f s" % (defl_time/defl_cnt)
             print "     loading solutions:     %12.4f s (%05.2f%%)" % (load_time, 100*load_time/defl_time)
             print "     constructing BCs:      %12.4f s (%05.2f%%)" % (bc_time, 100*bc_time/defl_time)
             print "     solve:                 %12.4f s (%05.2f%%)" % (solve_time, 100*solve_time/defl_time)
@@ -820,6 +824,7 @@ class ProfiledDefconWorker(DefconThread):
             func_time  = PETSc.Log.Event("continuation: functionals").getPerfInfo()['time']
             save_time  = PETSc.Log.Event("continuation: saving").getPerfInfo()['time']
             print "     total time:            %12.4f s" % cont_time
+            print "     time per execution:    %12.4f s" % (cont_time/cont_cnt)
             print "     loading solutions:     %12.4f s (%05.2f%%)" % (load_time, 100*load_time/cont_time)
             print "     constructing BCs:      %12.4f s (%05.2f%%)" % (bc_time, 100*bc_time/cont_time)
             print "     solve:                 %12.4f s (%05.2f%%)" % (solve_time, 100*solve_time/cont_time)
@@ -841,6 +846,7 @@ class ProfiledDefconWorker(DefconThread):
             send_time  = PETSc.Log.Event("stability: sending").getPerfInfo()['time']
             save_time  = PETSc.Log.Event("stability: saving").getPerfInfo()['time']
             print "     total time:            %12.4f s" % stab_time
+            print "     time per execution:    %12.4f s" % (stab_time/stab_cnt)
             print "     loading solutions:     %12.4f s (%05.2f%%)" % (load_time, 100*load_time/stab_time)
             print "     solve:                 %12.4f s (%05.2f%%)" % (solve_time, 100*solve_time/stab_time)
             print "     receiving responses:   %12.4f s (%05.2f%%)" % (recv_time, 100*recv_time/stab_time)
