@@ -533,7 +533,7 @@ class ProfiledDefconWorker(DefconThread):
         if not response.success:
             # the master has instructed us not to bother with this solution.
             # move on.
-            devlev.end()
+            deflev.end()
             return
         branchid = response.data["branchid"]
 
@@ -610,7 +610,7 @@ class ProfiledDefconWorker(DefconThread):
                          self.problem.nonlinear_problem,
                          self.problem.solver,
                          self.problem.solver_parameters(task.newparams, task.__class__),
-                         self.teamno, self.continuation, self.dm)
+                         self.teamno, self.deflation, self.dm)
         solveev.end()
 
         if success:
