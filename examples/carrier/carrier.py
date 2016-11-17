@@ -53,7 +53,7 @@ class CarrierProblem(BifurcationProblem):
             g = project(grad(y)[0], V)((-1.0,))
             return j*g
 
-        return [(signedL2, "signedL2", r"$y'(-1) \|y\|^2$")]
+        return [(signedL2, "signedL2", r"$y'({-1}) \|y\|^2$")]
 
     def number_initial_guesses(self, params):
         return 1
@@ -68,6 +68,16 @@ class CarrierProblem(BifurcationProblem):
         # correctness of the calculations.
         eps = params[0]
 
+        if eps > 0.468508: return 2
+        if eps > 0.284605: return 4
+        if eps > 0.234521: return 6
+        if eps > 0.171756: return 8
+        if eps > 0.156844: return 10
+        if eps > 0.124097: return 12
+        if eps > 0.117898: return 14
+        if eps > 0.1:      return 16
+
+        # Or alternatively use Jon Chapman's asymptotic formulae:
         nbifurcations = len([x for x in self.pitchbfs + self.foldbfs if x >= eps])
         return (nbifurcations+1)*2
 
@@ -89,7 +99,7 @@ class CarrierProblem(BifurcationProblem):
 
 if __name__ == "__main__":
     dc = DeflatedContinuation(problem=CarrierProblem(), teamsize=1, verbose=True)
-    epssq = linspace(0.25, 0.01, 481) # a step of -0.0005
+    epssq = list(linspace(0.25, 0.03, 441)) + list(linspace(0.03, 0.01, 201))[1:]
     eps   = nsqrt(epssq)
     dc.run(values={"epsilon": list(eps)})
 
