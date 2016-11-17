@@ -69,5 +69,5 @@ class LaplaceProblem(BifurcationProblem):
         return args
 
 if __name__ == "__main__":
-    dc = DeflatedContinuation(problem=LaplaceProblem(), teamsize=1, verbose=True, clear_output=True)
+    dc = DeflatedContinuation(problem=LaplaceProblem(), teamsize=1, verbose=True, clear_output=True, profile=True)
     dc.run(values={"f": [1.0]})

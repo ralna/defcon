@@ -1,7 +1,7 @@
 from thread import DefconThread
 from tasks import QuitTask, ContinuationTask, DeflationTask, StabilityTask, Response
 from journal import FileJournal, task_to_code
-from graph import DefconGraph
+from graph import DefconGraph, ProfiledDefconGraph
 
 from mpi4py import MPI
 from numpy  import isinf
@@ -17,6 +17,10 @@ class DefconMaster(DefconThread):
         # Master should always collect infrequently, it never allocates
         # anything large
         self.gc_frequency = 100
+
+        # Collect profiling statistics? This decides whether we instantiate
+        # a DefconGraph or a ProfiledDefconGraph.
+        self.profile = kwargs.get("profile", False)
 
         # A map from the type of task we're dealing with to the code that handles it.
         self.callbacks = {DeflationTask:    self.deflation_task,
@@ -101,7 +105,10 @@ class DefconMaster(DefconThread):
         # has overridden the compute_stability method or not
         self.compute_stability = "compute_stability" in self.problem.__class__.__dict__
 
-        self.graph = DefconGraph()
+        if self.profile:
+            self.graph = ProfiledDefconGraph(self.nteams)
+        else:
+            self.graph = DefconGraph()
 
         # We need to keep a map of parameters -> branches.
         # FIXME: make disk writes atomic and get rid of this.
@@ -170,6 +177,9 @@ class DefconMaster(DefconThread):
         # Delete self.parameter_map, to flush it to disk in case it's backed by a file
         self.io.close_parameter_map()
         del self.parameter_map
+
+        if self.profile:
+            self.graph.report_profile()
 
     def handle_response(self, response):
         (task, team) = self.graph.finish(response.taskid)

@@ -37,6 +37,8 @@ class DeflatedContinuation(object):
             How many solves should pass before we call the garbage collector.
             Set to a small value (e.g. 1) for very large problems, and a large value (e.g. 100)
             for very small problems. We try to do something sensible by default.
+          profile (:py:class:`bool`)
+            Whether profiling statistics should be collected.
           comm (MPI.Comm)
             The communicator that gathers all processes involved in this computation
         """
