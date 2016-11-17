@@ -3,6 +3,9 @@ import gc
 import json
 
 import defcon
+import thread
+import master
+import worker
 import newton
 import backend
 
@@ -155,7 +158,7 @@ Launch with mpiexec: mpiexec -n <number of processes> python %s
         plt.xlabel(parameters[paramindex][2])
         plt.ylabel(functionals[funcindex][2])
 
-class ArclengthThread(defcon.DefconThread):
+class ArclengthThread(thread.DefconThread):
     """
     The base class for ArclengthWorker/ArclengthMaster.
     """
@@ -173,7 +176,7 @@ class ArclengthThread(defcon.DefconThread):
         self.configure_comms()
         self.configure_logs()
 
-class ArclengthWorker(defcon.DefconWorker, ArclengthThread):
+class ArclengthWorker(worker.DefconWorker, ArclengthThread):
     """
     This class handles the actual execution of the tasks necessary
     to do arclength continuation.
@@ -419,7 +422,7 @@ class ArclengthWorker(defcon.DefconWorker, ArclengthThread):
         else:
             raise NotImplementedError("Don't know how to do this in firedrake")
 
-class ArclengthMaster(defcon.DefconMaster, ArclengthThread):
+class ArclengthMaster(master.DefconMaster, ArclengthThread):
     """
     This class implements the core logic of running arclength continuation
     in parallel.
