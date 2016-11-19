@@ -48,6 +48,16 @@ class DefconWorker(DefconThread):
 
         self.parameters = parameters
 
+        # If we're going downwards in continuation parameter, we need to change
+        # signs in a few places
+        self.signs = []
+        for label in self.parameters.labels:
+            values = self.parameters.values[label]
+            if values[0] < values[-1]:
+                self.signs.append(+1)
+            else:
+                self.signs.append(-1)
+
         # Fetch data from the problem.
         self.mesh = self.problem.mesh(PETSc.Comm(self.teamcomm))
         self.function_space = self.problem.function_space(self.mesh)
@@ -369,13 +379,20 @@ class DefconWorker(DefconThread):
             return
 
         # If we're successful, we expect a command from master: should we go ahead, or not?
-        with Event("stability: receiving"):
-            response = self.fetch_response()
+        proceed = True
+        sign = self.signs[task.freeindex]
+        if task.direction > 0:
+            if sign*task.oldparams[task.freeindex] >= sign*task.extent[1]:
+                proceed = False
+        else:
+            if sign*task.oldparams[task.freeindex] <= sign*task.extent[0]:
+                proceed = False
 
-        if not response.success:
+        if not proceed:
             # Master doesn't want us to continue. This is probably because the
             # ContinuationTask that needs to be finished before we can compute
             # its stability is still ongoing. We'll pick it up later.
+            self.log("Stability task not proceeding (computed up to: %s, extent: %s)" % (task.oldparams, task.extent))
             stabev.end()
             return
 
@@ -385,14 +402,15 @@ class DefconWorker(DefconThread):
             newparams = self.parameters.previous(task.oldparams, task.freeindex)
 
         if newparams is not None:
-            task = StabilityTask(taskid=task.taskid,
+            newtask = StabilityTask(taskid=task.taskid,
                                  oldparams=newparams,
                                  freeindex=task.freeindex,
                                  branchid=task.branchid,
                                  direction=task.direction,
                                  hint=d.get("hint", None))
+            newtask.set_extent(task.extent)
             stabev.end()
-            return task
+            return newtask
         else:
             # No more continuation to do, we're finished
             stabev.end()

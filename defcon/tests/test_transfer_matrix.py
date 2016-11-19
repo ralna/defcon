@@ -45,8 +45,8 @@ def test_scalar_p2():
     assert diff.vector().norm("l2") < 1.0e-12
 
 def test_vector_p1_2d():
-    meshc = UnitSquareMesh(1, 1)
-    meshf = UnitSquareMesh(2, 2)
+    meshc = UnitSquareMesh(3, 3)
+    meshf = UnitSquareMesh(5, 5)
 
     Vc = VectorFunctionSpace(meshc, "CG", 1)
     Vf = VectorFunctionSpace(meshf, "CG", 1)
@@ -85,8 +85,8 @@ def test_vector_p2_2d():
     assert diff.vector().norm("l2") < 1.0e-12
 
 def test_vector_p1_3d():
-    meshc = UnitCubeMesh(1, 1, 1)
-    meshf = UnitCubeMesh(2, 2, 2)
+    meshc = UnitCubeMesh(2, 3, 4)
+    meshf = UnitCubeMesh(3, 4, 5)
 
     Vc = VectorFunctionSpace(meshc, "CG", 1)
     Vf = VectorFunctionSpace(meshf, "CG", 1)

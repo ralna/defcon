@@ -111,9 +111,17 @@ class StabilityTask(Task):
         self.branchid = branchid
         self.direction = direction
         self.hint = hint
+        self.extent = None
 
     def __str__(self):
         return "StabilityTask(taskid=%s, params=%s, freeindex=%s, branchid=%s, direction=%s)" % (self.taskid, self.oldparams, self.freeindex, self.branchid, self.direction)
+
+    def set_extent(self, extent):
+        # Set the known branch extent: this is used by the task to decide whether to keep
+        # going or not
+        if self.extent is not None:
+            assert False # only allow it to be set once
+        self.extent = list(extent)
 
 class ArclengthTask(Task):
     """
@@ -154,4 +162,4 @@ class Response(object):
         self.data = data
 
     def __str__(self):
-        return "Response(taskid=%s, success=%s)" % (self.taskid, self.success)
+        return "Response(taskid=%s, success=%s, data=%s)" % (self.taskid, self.success, self.data)

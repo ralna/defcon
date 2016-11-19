@@ -262,6 +262,8 @@ class DefconMaster(DefconThread):
             # solutions we know about.
             if hasattr(task, 'ensure'):
                 task.ensure(known_branches)
+            if hasattr(task, 'extent'):
+                task.set_extent(self.branch_extent[(task.branchid, task.freeindex)])
 
             idleteam = self.idle_teams.pop(0)
             self.send_task(task, idleteam)
@@ -537,27 +539,31 @@ class DefconMaster(DefconThread):
 
         # Check if this is the end of the known data: if it is,
         # don't continue
-        success = True
+        proceed = True
+        sign = self.signs[task.freeindex]
         if task.direction > 0:
-            if self.signs[task.freeindex]*task.oldparams[task.freeindex] >= self.signs[task.freeindex]*self.branch_extent[(task.branchid, task.freeindex)][1]:
-                success = False
+            if sign*task.oldparams[task.freeindex] >= sign*task.extent[1]:
+                proceed = False
         else:
-            if self.signs[task.freeindex]*task.oldparams[task.freeindex] <= self.signs[task.freeindex]*self.branch_extent[(task.branchid, task.freeindex)][0]:
-                success = False
-        responseback = Response(task.taskid, success=success)
-        self.send_response(responseback, team)
+            if sign*task.oldparams[task.freeindex] <= sign*task.extent[0]:
+                proceed = False
 
-        if not success:
+        if not proceed:
             # We've told the worker to stop. The team is now idle.
             self.idle_team(team)
 
             # If the continuation is still ongoing, we'll insert another stability
             # task into the queue.
             continuation_ongoing = False
-            for currenttask in self.graph.waiting(ContinuationTask):
-                if currenttask.branchid == task.branchid:
-                    continuation_ongoing = True
-                    break
+
+            if task.extent != self.branch_extent[(task.branchid, task.freeindex)]:
+                continuation_ongoing = True
+
+            if not continuation_ongoing:
+                for currenttask in self.graph.waiting(ContinuationTask):
+                    if currenttask.branchid == task.branchid:
+                        continuation_ongoing = True
+                        break
 
             if not continuation_ongoing:
                 for currenttask in self.graph.executable(ContinuationTask):
@@ -566,6 +572,7 @@ class DefconMaster(DefconThread):
                         break
 
             if continuation_ongoing:
+                self.log("Stability task has finished early. Inserting another.")
                 # Insert another StabilityTask into the queue.
                 if task.direction > 0:
                     newparams = self.parameters.next(task.oldparams, task.freeindex)
@@ -581,6 +588,8 @@ class DefconMaster(DefconThread):
                                              hint=None)
                     newpriority = self.signs[task.freeindex]*nexttask.oldparams[task.freeindex]
                     self.graph.push(nexttask, newpriority)
+            else:
+                self.log("Stability task has finished and continuation not ongoing. Not inserting another.")
             return
 
         # The worker will keep continuing, record that fact
@@ -596,6 +605,7 @@ class DefconMaster(DefconThread):
                                      oldparams=newparams,
                                      direction=task.direction,
                                      hint=None)
+            nexttask.set_extent(task.extent)
             self.graph.wait(task.taskid, team, nexttask)
             self.log("Waiting on response for %s" % nexttask)
             self.journal.team_job(team, task_to_code(nexttask), nexttask.oldparams, task.branchid)
