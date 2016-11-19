@@ -1,6 +1,6 @@
 from parametertools import Parameters
 from thread import DefconThread
-from worker import DefconWorker, ProfiledDefconWorker
+from worker import DefconWorker
 from master import DefconMaster
 
 from mpi4py   import MPI
@@ -56,16 +56,10 @@ class DeflatedContinuation(object):
 
         io.construct(worldcomm)
 
-        profile = kwargs.get("profile", False)
-        if profile:
-            WorkerClass = ProfiledDefconWorker
-        else:
-            WorkerClass = DefconWorker
-
         if worldcomm.rank == 0:
             self.thread = DefconMaster(problem, **kwargs)
         else:
-            self.thread = WorkerClass(problem, **kwargs)
+            self.thread = DefconWorker(problem, **kwargs)
 
     def run(self, values, freeparam=None):
         """
