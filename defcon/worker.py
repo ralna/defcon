@@ -191,7 +191,7 @@ class DefconWorker(DefconThread):
             else: functionals = None
 
         with Event("deflation: sending"):
-            response = Response(task.taskid, success=success, data={"functionals": functionals})
+            response = Response(task.taskid, success=success, data={"functionals": functionals, "iterations": iters})
             self.send_response(response)
 
         if not success:

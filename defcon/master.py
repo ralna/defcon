@@ -20,7 +20,7 @@ class DefconMaster(DefconThread):
 
         # Collect profiling statistics? This decides whether we instantiate
         # a DefconGraph or a ProfiledDefconGraph.
-        self.profile = kwargs.get("profile", False)
+        self.profile = kwargs.get("profile", True)
 
         # A map from the type of task we're dealing with to the code that handles it.
         self.callbacks = {DeflationTask:    self.deflation_task,
@@ -137,6 +137,12 @@ class DefconMaster(DefconThread):
                 self.signs.append(-1)
                 self.minvals.append(max)
 
+        # We also want to keep some statistics around how many Newton iterations it took
+        # for any successful deflations to succeed
+        self.max_deflation = 0
+        self.total_deflation_iterations = 0
+        self.total_deflation_successes  = 0
+
         # Initialise Journal
         self.journal = FileJournal(self.io.directory, self.parameters.parameters, self.functionals, freeindex, self.signs[freeindex])
         self.journal.setup(self.nteams, min(self.parameters.values[freeparam]), max(self.parameters.values[freeparam]))
@@ -180,6 +186,17 @@ class DefconMaster(DefconThread):
 
         if self.profile:
             self.graph.report_profile()
+            self.report_statistics()
+
+    def report_statistics(self):
+        avg = float(self.total_deflation_iterations) / self.total_deflation_successes
+        print "-" * 80
+        print "| Deflation statistics" + " "*57 + "|"
+        print "-" * 80
+        print
+        print "    total number of successful deflations: %d" % self.total_deflation_successes
+        print "    maximum number of iterations required: %d" % self.max_deflation
+        print "    average number of iterations required: %.2f" % avg
 
     def handle_response(self, response):
         (task, team) = self.graph.finish(response.taskid)
@@ -313,6 +330,11 @@ class DefconMaster(DefconThread):
 
         # OK, we're good! The search succeeded and nothing has invalidated it.
         # In this case, we want the master to
+        # * Do some stats around how many Newton iterations it took to succeed
+        self.total_deflation_successes += 1
+        self.total_deflation_iterations += response.data["iterations"]
+        self.max_deflation = max(self.max_deflation, response.data["iterations"])
+
         # * Record any currently ongoing searches that this discovery
         #   invalidates.
         for othertask in self.graph.waiting(DeflationTask):

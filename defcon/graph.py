@@ -162,6 +162,7 @@ class ProfiledDefconGraph(DefconGraph):
         ev.end()
         total_time = ev.getPerfInfo()['time']
         print "Total time: ", total_time
+        print
 
         for team in range(self.nteams):
             print " " + "*"*12
@@ -174,9 +175,11 @@ class ProfiledDefconGraph(DefconGraph):
             stab_time = PETSc.Log.Event("%5d: stability" % team).getPerfInfo()['time']
             arcl_time = PETSc.Log.Event("%5d: arclength" % team).getPerfInfo()['time']
 
-            print "     idle: %12.4f s (%05.2f%%)" % (idle_time, 100*idle_time/total_time)
-            print "     cont: %12.4f s (%05.2f%%)" % (cont_time, 100*cont_time/total_time)
-            print "     defl: %12.4f s (%05.2f%%)" % (defl_time, 100*defl_time/total_time)
-            print "     stab: %12.4f s (%05.2f%%)" % (stab_time, 100*stab_time/total_time)
-            print "     arcl: %12.4f s (%05.2f%%)" % (arcl_time, 100*arcl_time/total_time)
+            print "     idle:         %12.4f s (%05.2f%%)" % (idle_time, 100*idle_time/total_time)
+            print "     continuation: %12.4f s (%05.2f%%)" % (cont_time, 100*cont_time/total_time)
+            print "     deflation:    %12.4f s (%05.2f%%)" % (defl_time, 100*defl_time/total_time)
+            print "     stability:    %12.4f s (%05.2f%%)" % (stab_time, 100*stab_time/total_time)
+            print "     arclength:    %12.4f s (%05.2f%%)" % (arcl_time, 100*arcl_time/total_time)
+
+            print
 
