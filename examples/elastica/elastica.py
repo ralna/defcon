@@ -122,7 +122,7 @@ class ElasticaProblem(BifurcationProblem):
 
     def solver_parameters(self, params, klass):
         args = {
-               "snes_max_it": 100,
+               "snes_max_it": 40,
                "snes_atol": 1.0e-9,
                "snes_rtol": 0.0,
                "snes_monitor": None,
