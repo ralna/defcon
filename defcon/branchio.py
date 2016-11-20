@@ -127,11 +127,11 @@ class BranchIO(iomodule.SolutionIO):
                         break
                 except Exception:
                     failcount += 1
-                    if failcount % 5 == 0:
+                    if failcount % 100 == 0:
                         self.log("Could not load %s from file %s; backtrace and exception follows" % (key, filename), warning=True)
                         traceback.print_stack()
                         traceback.print_exc()
-                    if failcount == 100:
+                    if failcount == 100000:
                         self.log("Failed a great many times. Raising exception.", warning=True)
                         raise
                     time.sleep(0.1)
