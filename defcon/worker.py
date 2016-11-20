@@ -424,9 +424,9 @@ class DefconWorker(DefconThread):
         print "| Profiling statistics collected by team %3d" % self.teamno + " "*35 + "|"
         print "-" * 80
 
-        print " " + "*"*22
+        print " " + "*"*21
         print " * Global statistics *"
-        print " " + "*"*22
+        print " " + "*"*21
 
         total_time = Event("run").getPerfInfo()['time']
         init_time  = Event("initialisation").getPerfInfo()['time']
@@ -481,9 +481,9 @@ class DefconWorker(DefconThread):
         if cont_time > 0:
             print
 
-            print " " + "*"*27
+            print " " + "*"*26
             print " * Continuation breakdown *"
-            print " " + "*"*27
+            print " " + "*"*26
 
             load_time  = Event("continuation: loading").getPerfInfo()['time']
             bc_time    = Event("continuation: boundary conditions").getPerfInfo()['time']
@@ -505,9 +505,9 @@ class DefconWorker(DefconThread):
         if stab_time > 0:
             print
 
-            print " " + "*"*22
+            print " " + "*"*23
             print " * Stability breakdown *"
-            print " " + "*"*22
+            print " " + "*"*23
 
             load_time  = Event("stability: loading").getPerfInfo()['time']
             solve_time = Event("stability: solve").getPerfInfo()['time']
