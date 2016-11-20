@@ -464,6 +464,20 @@ class DefconMaster(DefconThread):
             self.idle_team(team)
             return
 
+        # Before doing anything else, send the message to the worker
+        if task.direction > 0:
+            newparams = self.parameters.next(task.newparams, task.freeindex)
+        else:
+            newparams = self.parameters.previous(task.newparams, task.freeindex)
+
+        if newparams is None:
+            # No more continuation to do, the team is now idle.
+            self.idle_team(team)
+        else:
+            next_known_branches = self.parameter_map[newparams]
+            responseback = Response(taskid=task.taskid, success=True, data={"ensure_branches": next_known_branches})
+            self.send_response(responseback, team)
+
         # Record success.
         self.journal.entry(team, task.oldparams, task.branchid, task.newparams, response.data["functionals"], True)
 
@@ -484,18 +498,8 @@ class DefconMaster(DefconThread):
                 self.branch_extent[(task.branchid, task.freeindex)][0] = task.newparams[task.freeindex]
 
         # The worker will keep continuing, record that fact
-        if task.direction > 0:
-            newparams = self.parameters.next(task.newparams, task.freeindex)
-        else:
-            newparams = self.parameters.previous(task.newparams, task.freeindex)
 
-        if newparams is None:
-            # No more continuation to do, the team is now idle.
-            self.idle_team(team)
-        else:
-            next_known_branches = self.parameter_map[newparams]
-            response = Response(taskid=task.taskid, success=True, data={"ensure_branches": next_known_branches})
-            self.send_response(response, team)
+        if newparams is not None:
             conttask = ContinuationTask(taskid=task.taskid,
                                         oldparams=task.newparams,
                                         freeindex=task.freeindex,
