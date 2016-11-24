@@ -1,5 +1,8 @@
 # A dummy event for neutering profiling code
 class DummyEvent(object):
+    def __init__(self, *args, **kwargs):
+        pass
+
     def __enter__(self):
         pass
 
