@@ -37,10 +37,16 @@ h5s = glob.glob(os.path.join(outputdir, "*.h5"))
 for h5 in h5s:
     basename = os.path.basename(h5)
     branchid = int(basename[9:-3])
-    with h5py.File(h5, "r", driver="mpio", comm=backend.comm_world.tompi4py()) as f:
-        for key in f.keys():
-            params = defcon.branchio.keytoparams(key)
-            old_pm = pm[params]
-            pm[params] = [branchid] + old_pm
+
+    if backend.comm_world.size > 1:
+        f = h5py.File(h5, "r", driver="mpio", comm=backend.comm_world.tompi4py())
+    else:
+        f = h5py.File(h5, "r")
+
+    for key in f.keys():
+        params = defcon.branchio.keytoparams(key)
+        old_pm = pm[params]
+        pm[params] = [branchid] + old_pm
+    f.close()
 
 io.close_parameter_map()
