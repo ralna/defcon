@@ -15,7 +15,12 @@ class AllenCahnProblem(BifurcationProblem):
         return [UnitSquareMesh(comm, 25, 25, "left"), UnitSquareMesh(comm, 50, 50, "right")]
 
     def function_space(self, mesh):
-        return FunctionSpace(mesh, "CG", 1)
+        V = FunctionSpace(mesh, "CG", 1)
+
+        # Construct BCs here for efficiency
+        self._bcs = [DirichletBC(V, +1.0, "x[0] == 0.0 || x[0] == 1"),
+                     DirichletBC(V, -1.0, "x[1] == 0.0 || x[1] == 1")]
+        return V
 
     def parameters(self):
         delta = Constant(0)
@@ -32,9 +37,7 @@ class AllenCahnProblem(BifurcationProblem):
         return F
 
     def boundary_conditions(self, V, params):
-        bcs = [DirichletBC(V, +1.0, "x[0] == 0.0 || x[0] == 1"),
-               DirichletBC(V, -1.0, "x[1] == 0.0 || x[1] == 1")]
-        return bcs
+        return self._bcs
 
     def functionals(self):
         def sqL2(y, params):
