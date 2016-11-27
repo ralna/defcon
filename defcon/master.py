@@ -702,7 +702,11 @@ class DefconMaster(DefconThread):
 
             if hasattr(user_task, 'newparams'):
                 # Set the new parameter values to be investigated
-                user_task.newparams = self.parameters.next(user_task.oldparams, user_task.freeindex)
+                if user_task.direction == +1:
+                    user_task.newparams = self.parameters.next(user_task.oldparams, user_task.freeindex)
+                else:
+                    user_task.newparams = self.parameters.previous(user_task.oldparams, user_task.freeindex)
+
                 if user_task.newparams is None:
                     self.log("Warning: disregarding user-inserted task %s" % user_task, warning=True)
                     continue
