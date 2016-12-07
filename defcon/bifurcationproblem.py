@@ -111,7 +111,7 @@ class BifurcationProblem(object):
         """
         raise NotImplementedError
 
-    def jacobian(self, F, state, params, trial):
+    def jacobian(self, F, state, params, test, trial):
         """
         This method defines the Jacobian to use in Newton's method.
 
@@ -131,6 +131,8 @@ class BifurcationProblem(object):
             a Function in the FunctionSpace
           params (tuple of :py:class:`dolfin.Constant`)
             the parameters to use, in the same order returned by parameters()
+          test (:py:class:`dolfin.TestFunction`)
+            the test function to use in defining the Jacobian
           trial (:py:class:`dolfin.TrialFunction`)
             the trial function to use in defining the Jacobian
         *Returns*

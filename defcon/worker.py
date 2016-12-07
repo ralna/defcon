@@ -72,8 +72,9 @@ class DefconWorker(DefconThread):
 
         self.state = backend.Function(self.function_space)
         self.trivial_solutions = None
-        self.residual = self.problem.residual(self.state, parameters.constants, backend.TestFunction(self.function_space))
-        self.jacobian = self.problem.jacobian(self.residual, self.state, parameters.constants, backend.TrialFunction(self.function_space))
+        test_ = backend.TestFunction(self.function_space)
+        self.residual = self.problem.residual(self.state, parameters.constants, test_)
+        self.jacobian = self.problem.jacobian(self.residual, self.state, parameters.constants, test_, backend.TrialFunction(self.function_space))
 
         self.configure_io(parameters)
         self.construct_deflation(parameters)
