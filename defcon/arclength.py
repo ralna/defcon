@@ -224,6 +224,7 @@ class ArclengthWorker(worker.DefconWorker, ArclengthThread):
                        + mu*backend.inner(lmbda - lmbda_prev, lmbda - lmbda_prev)*backend.dx
                        - mu*self.ds**2*backend.dx  # arclength criterion
                         )
+        self.jacobian = backend.derivative(self.residual, self.state, backend.TrialFunction(self.mixed_space))
 
         # We pass in None here because for arclength we can't have the
         # boundary conditions depend on the parameter values (well, one
@@ -330,11 +331,12 @@ class ArclengthWorker(worker.DefconWorker, ArclengthThread):
                 normalisation_condition = lmbda_tlm - backend.Constant(copysign(1.0, sign))
 
             F = self.state_residual_derivative + mu*normalisation_condition*backend.dx
+            J = backend.derivative(F, self.tangent, backend.TrialFunction(self.tangent.function_space()))
             self.log("Computing tangent")
             solverparams = self.problem.solver_parameters(current_params, task.__class__)
             solverparams["snes_linesearch_type"] = "basic"
             solverparams["snes_max_it"] = 1
-            (success, iters) = newton.newton(F, self.tangent, self.hbcs,
+            (success, iters) = newton.newton(F, J, self.tangent, self.hbcs,
                                     self.problem.nonlinear_problem,
                                     self.problem.solver,
                                     solverparams,
@@ -361,7 +363,7 @@ class ArclengthWorker(worker.DefconWorker, ArclengthThread):
                     self.deflation.deflate([self.prevprev])
 
                 self.log("Computing arclength step")
-                (success, iters) = newton.newton(self.residual, self.state, self.bcs,
+                (success, iters) = newton.newton(self.residual, self.jacobian, self.state, self.bcs,
                                         self.problem.nonlinear_problem,
                                         self.problem.solver,
                                         self.problem.solver_parameters(current_params, task.__class__),

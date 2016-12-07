@@ -111,6 +111,33 @@ class BifurcationProblem(object):
         """
         raise NotImplementedError
 
+    def jacobian(self, F, state, params, trial):
+        """
+        This method defines the Jacobian to use in Newton's method.
+
+        If you would solve the PDE via
+
+        solve(F == 0, state, ...)
+
+        then this method should return derivative(F, state, trial).
+
+        The parameters will be varied internally by the continuation algorithm,
+        i,e.  this will not be called multiple times for multiple parameters.
+
+        *Arguments*
+          F (:py:class:`ufl.form.Form`)
+            the output of BifurcationProblem.residual
+          state (:py:class:`dolfin.Function`)
+            a Function in the FunctionSpace
+          params (tuple of :py:class:`dolfin.Constant`)
+            the parameters to use, in the same order returned by parameters()
+          trial (:py:class:`dolfin.TrialFunction`)
+            the trial function to use in defining the Jacobian
+        *Returns*
+          jacobian (:py:class:`ufl.form.Form`)
+        """
+        return backend.derivative(F, state, trial)
+
     def boundary_conditions(self, function_space, params):
         """
         This method returns a list of DirichletBC objects to impose on the
@@ -237,7 +264,7 @@ class BifurcationProblem(object):
         """
         pvd << y
 
-    def nonlinear_problem(self, F, y, bcs):
+    def nonlinear_problem(self, F, J, y, bcs):
         """
         The class used to assemble the nonlinear problem.
 
@@ -245,9 +272,9 @@ class BifurcationProblem(object):
         want to do something unusual in the assembly process.
         """
         if backend.__name__ == "dolfin":
-            return nonlinearproblem.GeneralProblem(F, y, bcs)
+            return nonlinearproblem.GeneralProblem(F, y, bcs, J=J)
         else:
-            return backend.NonlinearVariationalProblem(F, y, bcs)
+            return backend.NonlinearVariationalProblem(F, y, bcs, J=J)
 
     def solver(self, problem, solver_params, prefix="", **kwargs):
         """

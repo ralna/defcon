@@ -73,6 +73,7 @@ class DefconWorker(DefconThread):
         self.state = backend.Function(self.function_space)
         self.trivial_solutions = None
         self.residual = self.problem.residual(self.state, parameters.constants, backend.TestFunction(self.function_space))
+        self.jacobian = self.problem.jacobian(self.residual, self.state, parameters.constants, backend.TrialFunction(self.function_space))
 
         self.configure_io(parameters)
         self.construct_deflation(parameters)
@@ -187,7 +188,7 @@ class DefconWorker(DefconThread):
         with Event("deflation: solve"):
             self.log("Deflating other branches %s" % task.ensure_branches)
             self.deflation.deflate(other_solutions + self.trivial_solutions)
-            (success, iters) = newton(self.residual, self.state, bcs,
+            (success, iters) = newton(self.residual, self.jacobian, self.state, bcs,
                              self.problem.nonlinear_problem,
                              self.problem.solver,
                              self.problem.solver_parameters(task.newparams, task.__class__),
@@ -282,7 +283,7 @@ class DefconWorker(DefconThread):
         with Event("continuation: solve"):
             self.log("Deflating other branches %s" % task.ensure_branches)
             self.deflation.deflate(other_solutions + self.trivial_solutions)
-            (success, iters) = newton(self.residual, self.state, bcs,
+            (success, iters) = newton(self.residual, self.jacobian, self.state, bcs,
                              self.problem.nonlinear_problem,
                              self.problem.solver,
                              self.problem.solver_parameters(task.newparams, task.__class__),
