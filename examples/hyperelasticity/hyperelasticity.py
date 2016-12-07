@@ -103,10 +103,10 @@ class HyperelasticityProblem(BifurcationProblem):
     def squared_norm(self, a, b, params):
         return inner(a - b, a - b)*dx + inner(grad(a - b), grad(a - b))*dx
 
-    def solver(self, problem, solver_params, prefix=""):
+    def solver(self, problem, solver_params, prefix="", **kwargs):
         # Set the rigid body modes for use in AMG
 
-        s = SNUFLSolver(problem, solver_parameters=solver_params, prefix=prefix)
+        s = SNUFLSolver(problem, solver_parameters=solver_params, prefix=prefix, **kwargs)
         snes = s.snes
         snes.setFromOptions()
 
