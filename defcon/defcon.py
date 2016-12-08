@@ -101,12 +101,8 @@ Launch with mpiexec: mpiexec -n <number of processes> python %s
 
         parameters = Parameters(problem_parameters, values)
 
-        # If we only have one value for each parameter, don't bother continuing backwards
-        should_continue_backwards = True
-        for key in values:
-            if len(values[param]) == 1:
-                should_continue_backwards = False
-        if not should_continue_backwards:
+        # If we only have one value for the parameter, don't bother continuing backwards
+        if len(values[freeparam]) == 1:
             self.thread.continue_backwards = False
 
         # Aaaand .. run.
