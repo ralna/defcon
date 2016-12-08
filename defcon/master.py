@@ -189,14 +189,15 @@ class DefconMaster(DefconThread):
             self.report_statistics()
 
     def report_statistics(self):
-        avg = float(self.total_deflation_iterations) / self.total_deflation_successes
         print "-" * 80
         print "| Deflation statistics" + " "*57 + "|"
         print "-" * 80
         print
         print "    total number of successful deflations: %d" % self.total_deflation_successes
-        print "    maximum number of iterations required: %d" % self.max_deflation
-        print "    average number of iterations required: %.2f" % avg
+        if self.total_deflation_successes > 0:
+            avg = float(self.total_deflation_iterations) / self.total_deflation_successes
+            print "    maximum number of iterations required: %d" % self.max_deflation
+            print "    average number of iterations required: %.2f" % avg
 
     def handle_response(self, response):
         (task, team) = self.graph.finish(response.taskid)
