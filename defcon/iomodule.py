@@ -39,9 +39,11 @@ class IO(object):
             pass
 
         tmpdir = os.path.abspath("tmp")
+        self.made_tmp = False
         try:
             if not os.path.exists(tmpdir):
                 os.makedirs(tmpdir)
+                self.made_tmp = True
         except OSError:
             pass
         self.tmpdir = tmpdir
@@ -51,7 +53,8 @@ class IO(object):
         atexit.register(self.cleanup)
 
     def cleanup(self):
-        shutil.rmtree(self.tmpdir, ignore_errors=True)
+        if self.made_tmp:
+            shutil.rmtree(self.tmpdir, ignore_errors=True)
 
     def log(self, msg, warning=False):
         if self.pcomm.rank != 0: return
