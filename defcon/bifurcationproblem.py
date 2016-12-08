@@ -108,6 +108,7 @@ class BifurcationProblem(object):
             the test function to use in defining the residual
         *Returns*
           residual (:py:class:`ufl.form.Form`)
+            the form for the residual
         """
         raise NotImplementedError
 
@@ -137,8 +138,37 @@ class BifurcationProblem(object):
             the trial function to use in defining the Jacobian
         *Returns*
           jacobian (:py:class:`ufl.form.Form`)
+            the form for the Jacobian
         """
         return backend.derivative(F, state, trial)
+
+    def objective(self, F, state, params):
+        """
+        WARNING: this method is currently unused, pending the implementation
+        of necessary features in PETSc.
+
+        This method computes the norm of the residual.
+
+        The default is to compute the l_2 norm of the assembled
+        residual vector. This has the advantage of speed, but is
+        mesh-dependent. For mesh-independent termination criteria
+        the appropriate dual norm should be coded here.
+
+        Most users will not override this method; if you're not sure
+        you want it, you don't need it.
+
+        *Arguments*
+          F (:py:class:`ufl.form.Form`)
+            the output of BifurcationProblem.residual
+          state (:py:class:`dolfin.Function`)
+            a Function in the FunctionSpace
+          params (tuple of :py:class:`dolfin.Constant`)
+            the parameters to use, in the same order returned by parameters()
+        *Returns*
+          objective (:py:class:`float`)
+            the dual norm of the residual
+        """
+        pass
 
     def boundary_conditions(self, function_space, params):
         """
@@ -274,7 +304,7 @@ class BifurcationProblem(object):
         want to do something unusual in the assembly process.
         """
         if backend.__name__ == "dolfin":
-            return nonlinearproblem.GeneralProblem(F, y, bcs, J=J)
+            return nonlinearproblem.GeneralProblem(F, y, bcs, J=J, problem=self)
         else:
             return backend.NonlinearVariationalProblem(F, y, bcs, J=J)
 

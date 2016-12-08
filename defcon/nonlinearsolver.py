@@ -1,5 +1,7 @@
 import backend
+import ufl.algorithms
 from petsc4py import PETSc
+
 if backend.__name__ == "dolfin":
     from backend import as_backend_type, PETScVector, PETScMatrix, \
         MixedElement, VectorElement, Function, FunctionSpace, \
@@ -45,6 +47,10 @@ if backend.__name__ == "dolfin":
             snes.setJacobian(self.jacobian, self.A.mat(), self.P.mat())
             # why isn't this done in setJacobian?
             snes.ksp.setOperators(self.A.mat(), self.P.mat())
+
+            # If the user wants to correctly compute dual norms, let them
+            if hasattr(problem, 'problem') and "objective" in problem.problem.__class__.__dict__:
+                snes.setObjective(self.objective)
 
             # Workaround for bug in Cray PETSc on ARCHER
             if "pc_type" in solver_parameters:
@@ -94,6 +100,12 @@ if backend.__name__ == "dolfin":
             self.ass.assemble(A_wrap)
             if self.problem.P is not None:
                 self.Pass.assemble(P_wrap)
+
+        def objective(self, snes, b):
+            F = self.problem.F
+            v = ufl.algorithms.extract_arguments(F)[0]
+            r = self.problem.problem.objective(self.problem.F, self.problem.u, v)
+            return r
 
         def solve(self):
             # Need a copy for line searches etc. to work correctly.
