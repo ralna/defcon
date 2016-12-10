@@ -23,12 +23,14 @@ if backend.__name__ == "dolfin":
             snes = PETSc.SNES().create(comm=comm)
             snes.setOptionsPrefix(prefix)
 
-            # Fix what must be one of the worst defaults in PETSc
+            # Fix the worst defaults in PETSc
             opts = PETSc.Options()
             if "snes_linesearch_type" not in solver_parameters:
                 opts[prefix + "snes_linesearch_type"] = "basic"
             if "snes_divergence_tolerance" not in solver_parameters:
                 opts[prefix + "snes_divergence_tolerance"] = -1.0
+            if "snes_stol" not in solver_parameters:
+                opts[prefix + "snes_stol"] = 0.0
 
             # set the petsc options from the solver_parameters
             for k in solver_parameters:
