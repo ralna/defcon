@@ -39,6 +39,7 @@ params = consts
 filename = os.path.join(outputdir, "viz", "values-%s.pvd" % (sys.argv[3],))
 pvd = backend.File(filename)
 branches = io.known_branches(values)
+print "Known branches at %s: %s" % (values, branches)
 solutions = io.fetch_solutions(values, branches)
 for solution in solutions:
     solution.rename("Solution", "Solution")
