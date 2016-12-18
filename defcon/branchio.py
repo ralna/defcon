@@ -33,7 +33,7 @@ class ParameterMap(object):
         except:
             self.dict = collections.defaultdict(list)
 
-    def close(self):
+    def write(self):
         with open(self.path, "w") as f:
             pickle.dump(self.dict, f)
 
@@ -42,6 +42,7 @@ class ParameterMap(object):
 
     def __setitem__(self, key, value):
         self.dict[key] = value
+        self.write()
 
 class BranchIO(iomodule.SolutionIO):
     def __init__(self, directory):
@@ -54,7 +55,7 @@ class BranchIO(iomodule.SolutionIO):
         return self.pm
 
     def close_parameter_map(self):
-        self.pm.close()
+        self.pm.write()
         self.pm = None
 
     def known_branches(self, params):
@@ -92,8 +93,8 @@ class BranchIO(iomodule.SolutionIO):
             exists = False
 
         with HDF5File(self.pcomm, tmpname, mode) as f:
-            if self.pcomm.size > 1:
-                f.set_mpi_atomicity(True)
+            #if self.pcomm.size > 1:
+            #    f.set_mpi_atomicity(True)
             f.write(solution, key + "/solution")
 
             attrs = f.attributes(key)
@@ -210,8 +211,8 @@ class BranchIO(iomodule.SolutionIO):
             exists = False
 
         with HDF5File(self.pcomm, fname, mode) as f:
-            if self.pcomm.size > 1:
-                f.set_mpi_atomicity(True)
+            #if self.pcomm.size > 1:
+            #    f.set_mpi_atomicity(True)
 
             # dummy dataset so that we can actually store the attribute
             f.write(array([0.0]), key + "/stability")
