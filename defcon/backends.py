@@ -46,7 +46,6 @@ def import_backend():
         sys.modules['backend'] = firedrake
         import backend
 
-        firedrake.parameters["assembly_cache"]["enabled"] = False
         firedrake.parameters["pyop2_options"]["lazy_evaluation"] = False
 
         from firedrake.petsc import PETSc
