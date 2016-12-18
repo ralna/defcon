@@ -1,3 +1,4 @@
+import backend
 from backend import HDF5File, Function
 import h5py # FIXME: remove dependency on h5py, eventually
 
@@ -215,7 +216,11 @@ class BranchIO(iomodule.SolutionIO):
             #    f.set_mpi_atomicity(True)
 
             # dummy dataset so that we can actually store the attribute
-            f.write(array([0.0]), key + "/stability")
+            if backend.__name__ == "firedrake":
+                f._h5file[key + "/stability"] = array([0.0])
+            else:
+                f.write(array([0.0]), key + "/stability")
+
             attrs = f.attributes(key + "/stability")
             attrs["stable"] = self.pickle(stable)
 
