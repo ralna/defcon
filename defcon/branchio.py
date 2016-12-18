@@ -92,7 +92,7 @@ class BranchIO(iomodule.SolutionIO):
             mode = "w"
             exists = False
 
-        with HDF5File(self.pcomm, tmpname, mode) as f:
+        with HDF5File(comm=self.pcomm, filename=tmpname, file_mode=mode) as f:
             #if self.pcomm.size > 1:
             #    f.set_mpi_atomicity(True)
             f.write(solution, key + "/solution")
@@ -121,7 +121,7 @@ class BranchIO(iomodule.SolutionIO):
 
             while True:
                 try:
-                    with HDF5File(self.pcomm, filename, "r") as f:
+                    with HDF5File(comm=self.pcomm, filename=filename, file_mode="r") as f:
                         solution = Function(self.function_space)
                         f.read(solution, key + "/solution")
                         solns.append(solution)
@@ -145,7 +145,7 @@ class BranchIO(iomodule.SolutionIO):
         if not os.path.exists(filename):
             return funcs
 
-        with HDF5File(self.pcomm, self.solution_filename(branchid), "r") as f:
+        with HDF5File(comm=self.pcomm, filename=self.solution_filename(branchid), file_mode="r") as f:
             for param in params:
                 key = paramstokey(param)
 
@@ -210,7 +210,7 @@ class BranchIO(iomodule.SolutionIO):
             mode = "w"
             exists = False
 
-        with HDF5File(self.pcomm, fname, mode) as f:
+        with HDF5File(comm=self.pcomm, filename=fname, file_mode=mode) as f:
             #if self.pcomm.size > 1:
             #    f.set_mpi_atomicity(True)
 
@@ -232,7 +232,7 @@ class BranchIO(iomodule.SolutionIO):
 
         for branchid in branchids:
             fname = self.stability_filename(branchid)
-            with HDF5File(self.pcomm, fname, "r") as f:
+            with HDF5File(comm=self.pcomm, filename=fname, file_mode="r") as f:
                 attrs = f.attributes(key + "/stability")
                 if "stable" not in attrs:
                     msg = "Could not find stability information for %s in %s." % (params, fname)
