@@ -4,6 +4,7 @@ from mg import create_dm
 from thread import DefconThread
 from operatordeflation import ShiftedDeflation
 from profiling import DummyEvent
+from compatibility import function_space_dimension
 
 import backend
 from petsc4py import PETSc
@@ -65,7 +66,7 @@ class DefconWorker(DefconThread):
 
         # Configure garbage collection frequency:
         if self.gc_frequency is None:
-            dofs_per_core = self.function_space.dim() / self.teamcomm.size
+            dofs_per_core = function_space_dimension(self.function_space) / self.teamcomm.size
             if dofs_per_core > 100000: self.gc_frequency = 1
             if dofs_per_core < 10000:  self.gc_frequency = 100
             else:                      self.gc_frequency = 10
