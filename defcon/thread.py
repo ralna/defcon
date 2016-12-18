@@ -7,6 +7,7 @@ import gc
 import math
 import time
 import sys
+import os
 
 
 class DefconThread(object):
