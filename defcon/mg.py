@@ -840,6 +840,7 @@ if backend.__name__ == "dolfin":
 
         // create shared pointer and return the pointer to the transfer matrix
         std::shared_ptr<PETScMatrix> ptr = std::make_shared<PETScMatrix>(I);
+        MatDestroy(&I); CHKERRABORT(PETSC_COMM_WORLD, ierr);
         return ptr;
         }
     }'''
