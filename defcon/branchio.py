@@ -82,20 +82,20 @@ class BranchIO(iomodule.SolutionIO):
         fname = self.solution_filename(branchid)
         tmpname = self.temp_solution_filename(branchid)
 
-        if os.path.exists(fname):
-            mode = "a"
-            exists = True
-
-            # I can't believe I have to do this to get filesystem synchronisation right.
-            if self.pcomm.rank == 0:
+        # I can't believe I have to do this to get filesystem synchronisation right.
+        if self.pcomm.rank == 0:
+            if os.path.exists(fname):
+                mode = "a"
                 os.rename(fname, tmpname)
+            else:
+                mode = "w"
+            self.mcomm.bcast(mode)
         else:
-            mode = "w"
-            exists = False
+            mode = self.mcomm.bcast(None)
 
         with HDF5File(comm=self.pcomm, filename=tmpname, file_mode=mode) as f:
-            #if self.pcomm.size > 1:
-            #    f.set_mpi_atomicity(True)
+            if self.pcomm.size > 1:
+                f.set_mpi_atomicity(True)
             f.write(solution, key + "/solution")
 
             attrs = f.attributes(key)
@@ -107,9 +107,10 @@ class BranchIO(iomodule.SolutionIO):
         if self.pcomm.rank == 0:
             os.rename(tmpname, fname)
 
-        # Belt-and-braces: sleep until the path exists
-        while not os.path.exists(fname):
-            time.sleep(0.1)
+            # Belt-and-braces: sleep until the path exists
+            while not os.path.exists(fname):
+                time.sleep(0.1)
+        self.pcomm.Barrier()
 
         return
 
@@ -212,8 +213,8 @@ class BranchIO(iomodule.SolutionIO):
             exists = False
 
         with HDF5File(comm=self.pcomm, filename=fname, file_mode=mode) as f:
-            #if self.pcomm.size > 1:
-            #    f.set_mpi_atomicity(True)
+            if self.pcomm.size > 1:
+                f.set_mpi_atomicity(True)
 
             # dummy dataset so that we can actually store the attribute
             if backend.__name__ == "firedrake":
