@@ -145,7 +145,7 @@ class SolutionIO(IO):
             pass
 
         tmpname = os.path.join(self.tmpdir, 'solution-%d.h5' % branchid)
-        with HDF5File(self.function_space.mesh().mpi_comm(), tmpname, 'w') as f:
+        with HDF5File(comm=self.function_space.mesh().mpi_comm(), filename=tmpname, file_mode='w') as f:
             f.write(solution, "/solution")
         if self.pcomm.rank == 0:
             os.rename(tmp.name, self.dir(params) + "solution-%d.h5" % branchid)
@@ -162,7 +162,7 @@ class SolutionIO(IO):
             failcount = 0
             while True:
                 try:
-                    with HDF5File(self.function_space.mesh().mpi_comm(), filename, 'r') as f:
+                    with HDF5File(comm=self.function_space.mesh().mpi_comm(), filename=filename, file_mode='r') as f:
                         soln = Function(self.function_space)
                         f.read(soln, "/solution")
                         f.flush()
@@ -230,7 +230,7 @@ class SolutionIO(IO):
         assert len(eigenvalues) == len(eigenfunctions)
 
         if len(eigenvalues) > 0:
-            with HDF5File(self.function_space.mesh().mpi_comm(), self.dir(params) + "eigenfunctions-%d.h5" % branchid, 'w') as f:
+            with HDF5File(comm=self.function_space.mesh().mpi_comm(), filename=(self.dir(params) + "eigenfunctions-%d.h5" % branchid), file_mode='w') as f:
                 for (i, (eigval, eigfun)) in enumerate(zip(eigenvalues, eigenfunctions)):
                     f.write(eigfun, "/eigenfunction-%d" % i)
                     f.attributes("/eigenfunction-%d" % i)['eigenvalue'] = eigval
