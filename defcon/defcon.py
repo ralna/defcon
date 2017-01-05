@@ -97,7 +97,10 @@ Launch with mpiexec: mpiexec -n <number of processes> python %s
 
         # Apply list to concretely instantiate the values
         for param in values:
-            values[param] = list(values[param])
+            if isinstance(values[param], (float, int)):
+                values[param] = [values[param]]
+            else:
+                values[param] = list(values[param])
 
         parameters = Parameters(problem_parameters, values)
 
