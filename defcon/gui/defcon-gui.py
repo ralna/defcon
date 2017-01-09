@@ -475,7 +475,15 @@ class PlotConstructor():
             self.annotated_point = (xs, branchid)  
             if cont: s = "continuation"
             else: s = "deflation"
-            aw.set_output_box("Solution on branch %d\nFound by team %d\nUsing %s\nAs event #%d\n\nx = %s\ny = %s" % (branchid, teamno, s, time, x, y))
+
+            # Try to compute the stability
+            stab = io.fetch_stability(xs, [branchid])[0]
+            if stab is not None:
+                stabstr = "stability: %s\n" % stab
+            else:
+                stabstr = ""
+
+            aw.set_output_box("Solution on branch: %d\nfound by team: %d\nvia: %s\n%s\nas event: #%d\n\nx = %s\ny = %s" % (branchid, teamno, s, stabstr, time, x, y))
             self.changed = True
         return self.changed
 
