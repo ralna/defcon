@@ -477,7 +477,11 @@ class PlotConstructor():
             else: s = "deflation"
 
             # Try to compute the stability
-            stab = io.fetch_stability(xs, [branchid])[0]
+            try:
+                stab = io.fetch_stability(xs, [branchid])[0]
+            except RuntimeError:
+                stab = None
+
             if stab is not None:
                 stabstr = "stability: %s\n" % stab
             else:
