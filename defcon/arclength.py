@@ -37,6 +37,12 @@ class ArclengthContinuation(object):
             Activate debugging output.
           logfiles (:py:class:`bool`)
             Whether defcon should remap stdout/stderr to logfiles (useful for many processes).
+          sleep_time (:py:class:`double`)
+            How long in seconds master sleeps between repeated attempts when
+            probing workers for response. Negative value means busy waiting,
+            positive value saves up to one core of CPU time. Unspecified or
+            None results in adaptive value given as 5 percent of last response
+            time but at most 1.0 second.
           comm (MPI.Comm)
             The communicator that gathers all processes involved in this computation
         """
