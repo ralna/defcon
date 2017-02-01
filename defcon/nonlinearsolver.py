@@ -80,7 +80,7 @@ if backend.__name__ == "dolfin":
             if self.problem.P is None:
                 return A
             P = PETScMatrix(self.comm)
-            self.Pass.init_global_tensor(P, Form(self.P))
+            self.Pass.init_global_tensor(P, Form(self.problem.P))
             return P
 
         def update_x(self, x):

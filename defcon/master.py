@@ -6,6 +6,8 @@ from graph import DefconGraph, ProfiledDefconGraph
 from mpi4py import MPI
 from numpy  import isinf
 
+import time
+
 class DefconMaster(DefconThread):
     """
     This class implements the core logic of running deflated continuation
@@ -42,6 +44,17 @@ class DefconMaster(DefconThread):
             self.teamcomms[team].barrier()
 
     def fetch_response(self):
+        # NOTE: option documentation: sleep time in seconds, negative value means busy-waiting
+        _sleep_time = 0.001  # FIXME: Parametrize me
+        # FIXME: Could be same heuristics like with gc frequency
+
+        # Nonbusy-waiting if given time is non-negative
+        if _sleep_time >= 0:
+            # Sleep for a while if senders are not done yet
+            while not self.worldcomm.Iprobe(source=MPI.ANY_SOURCE, tag=self.responsetag):
+                time.sleep(_sleep_time)
+
+        # Receive response (or busy-wait for it) and return it
         response = self.worldcomm.recv(source=MPI.ANY_SOURCE, tag=self.responsetag)
         return response
 

@@ -28,7 +28,7 @@ elif backend.__name__ == "firedrake":
     def setSnesMonitor(prefix):
         from backend.petsc import PETSc
         opts = PETSc.Options()
-        opts.setValue(prefix + "cancel_snes_monitor", "")
+        opts.setValue(prefix + "snes_monitor_cancel", "")
         opts.setValue(prefix + "snes_monitor", "")
 
 else:
