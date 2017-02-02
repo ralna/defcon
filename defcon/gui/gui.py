@@ -1,7 +1,5 @@
 from __future__ import absolute_import
 
-#!/usr/bin/env python
-
 # Urgh. We need this to ignore matplotlibs warnings.
 import warnings
 warnings.filterwarnings("ignore", module="matplotlib")
@@ -12,19 +10,14 @@ matplotlib.use("Qt4Agg")
 # Get the window and figure code.
 # NOTE: The figure, colours and markers, and a couple of utility functions will be imported from here.
 # If necessary, make changes in qtwindows.py.
-from qtwindows import *
+from defcon.gui.qtwindows import *
 
-import sys, getopt
-
-# Put the defcon directories on the path.
-sys.path.insert(0, os.path.dirname(os.path.realpath(sys.argv[0])) + os.path.sep + "..")
-sys.path.insert(0, os.path.dirname(os.path.realpath(sys.argv[0])) + os.path.sep + ".." + os.path.sep + "..")
-
+import sys, getopt, os, inspect
 import time as TimeModule
 
 # Imports for the paraview and hdf5topvd methods.
 from subprocess import Popen
-from parametertools import parameters_to_string
+from defcon.parametertools import parameters_to_string
 
 # We'll use literal_eval to get lists and tuples back from the journal. 
 # This is not as bad as eval, as it only recognises: strings, bytes, numbers, tuples, lists, dicts, booleans, sets, and None.
@@ -45,98 +38,6 @@ except Exception:
     issuewarning("Could not import the library matplotlib2tikz. You will unable to save the file as a .tikz.\nTo use this functionality, install matplotlib2tikz, eg with:\n     # pip install matplotlib2tikz")
     use_tikz = False
 
-# Set some defaults.
-problem_type = None
-working_dir= None
-output_dir = None
-solutions_dir = None
-xscale = None
-plot_with_mpl = False # Whether we will try to plot solutions with matplotlib. If false, we use paraview.
-update_interval = 100 # Update interval for the diagram.
-resources_dir = os.path.dirname(os.path.realpath(sys.argv[0])) + os.path.sep + 'resources' + os.path.sep # The directory with the icons, etc. 
-
-# Get commandline args.
-def usage():
-    sys.exit("""Usage: %s -p <problem type> -o <defcon output directory> -i <update interval in ms> -x <x scale> <working directory>
-Required:
-      The working directory. This is the location where your problem script is. 
-Options:
-      -p: The name of the script you use to run defcon. If not provided, this defualts to the last folder in the working directory.
-          i.e, if the working directory is 'defcon/examples/elastica', we assume the name of the problem scipt is 'elastica'.
-      -o: The directory that defcon uses for its output. The defaults to the "output" subdir of the working dir.
-      -s: The directory to save solutions in. When you use paraview to visualise a solution, this is where it is saved. Defaults to the "solutions" subdir of the output dir.
-      -i: The update interval of the bifurcation diagram in milliseconds. Defaults to 100.
-      -x: The scale of the x-axis of the bifurcation diagram. This should be a valid matplotlib scale setting, eg 'log'.""" % sys.argv[0])
-
-try: myopts, args = getopt.getopt(sys.argv[1:-1],"p:o:i:s:x:")
-except Exception: usage()
-
-for o, a in myopts:
-    if   o == '-p': problem_type = a
-    elif o == '-o': output_dir = os.path.expanduser(a)
-    elif o == '-s': solutions_dir = os.path.expanduser(a)
-    elif o == '-i': update_interval = int(a)
-    elif o == '-x': xscale = a
-    else          : usage()
-
-# Get the working dir from the last command line argument.
-working_dir = os.path.realpath(os.path.expanduser(sys.argv[-1]))
-
-if working_dir is None:
-    usage()
-
-# If we didn't specify an output directory, default to the folder "output" in the working directory
-if output_dir is None: output_dir = "output"
-
-# If we didn't specify the name of the python file for the problem (eg, elastica), assume it's the same as the directory we're working in. 
-if problem_type is None: 
-    dirs = os.path.realpath(working_dir).split(os.path.sep)
-    if dirs[-1]: problem_type = dirs[-1] # no trailing slash
-    else: problem_type = dirs[-2] # trailing slash
-
-# If we didn't specify a directory for solutions we plot, store them in the "solutions" subdir of the output directory.
-if solutions_dir is None: solutions_dir = output_dir + os.path.sep + "solutions" + os.path.sep
-
-# Get the current directory. 
-current_dir = os.path.dirname(os.path.realpath(sys.argv[0]))
-
-# Put the working directory on our path.
-sys.path.insert(0, working_dir) 
-
-# Get the name and type of the problem we're dealing with, as well as everything else we're going to need for plotting solutions.
-problem_name = __import__(problem_type)
-globals().update(vars(problem_name))
-
-# Run through each class we've imported and figure out which one inherits from BifurcationProblem.
-classes = []
-for key in globals().keys():
-    if key is not 'BifurcationProblem': classes.append(key) # remove this to make sure we don't fetch the wrong class.
-for c in classes:
-    try:
-        globals()["bfprob"] = getattr(problem_name, c)
-        assert issubclass(bfprob, BifurcationProblem) and bfprob is not BifurcationProblem # check whether the class is a subclass of BifurcationProblem, which would mean it's the class we want. 
-        problem = bfprob() # initialise the class.
-        break
-    except Exception: pass
-
-os.chdir(working_dir)
-
-# Get the mesh.
-import backend
-mesh = problem.mesh(backend.comm_world)
-
-# If the mesh is 1D, we don't want to use paraview. 
-if backend.__name__ == "dolfin":
-    if mesh.geometry().dim() < 2: plot_with_mpl = True
-else:
-    if mesh.geometric_dimension() < 2: plot_with_mpl = True
-
-# Get the function space and set up the I/O module for fetching solutions. 
-V = problem.function_space(mesh)
-problem_parameters = problem.parameters()
-io = problem.io(prefix=working_dir + os.path.sep + "output")
-io.setup(problem_parameters, None, V)
-os.chdir(current_dir)
 
 #####################
 ### Utility Class ###
@@ -144,7 +45,9 @@ os.chdir(current_dir)
 class PlotConstructor():
     """ Class for handling everything to do with the bifuraction diagram plot. """
 
-    def __init__(self):
+    def __init__(self, working_dir, output_dir, xscale):
+        self.xscale = xscale
+
         self.points = [] # Keep track of the points we've found, so we can redraw everything if necessary. Also for annotation.
         self.pointers = [] # Pointers to each point on the plot, so we can remove them. 
 
@@ -157,6 +60,7 @@ class PlotConstructor():
         self.annotation_highlight = None # The point we've annotated. 
         self.annotated_point = None # The (params, branchid) of the annotated point
 
+        self.working_dir = working_dir
         self.path = working_dir + os.path.sep + output_dir + os.path.sep + "journal" + os.path.sep +"journal.txt" # Journal file.
 
         self.freeindex = None # The index of the free parameter.
@@ -182,7 +86,7 @@ class PlotConstructor():
     def setx(self, ax):
         """ Sets the xscale to the user defined variable. """
         try:
-            if xscale is not None: ax.set_xscale(xscale)
+            if self.xscale is not None: ax.set_xscale(self.xscale)
         except Exception:
             issuewarning("User-provided xscale variable is not a valid option for matplotlib.")
             pass
@@ -505,7 +409,7 @@ class PlotConstructor():
     def plot(self):
         """ Fetch a solution and plot it. If the solutions are 1D we use matplotlib, otherwise we use paraview. """
         if self.annotated_point is not None:
-            os.chdir(working_dir)
+            os.chdir(self.working_dir)
             # Get the solution from the IO module. 
             params, branchid = self.annotated_point
             y = io.fetch_solutions(params, [branchid])[0]
@@ -620,14 +524,112 @@ class PlotConstructor():
             ax.clear()
         else: issuewarning("matplotlib2tikz not installed. I can't save to tikz!")
 
-    
-#################
-### Main Loop ###
-#################
-qApp = QtGui.QApplication(sys.argv)
-pc = PlotConstructor()
-aw = ApplicationWindow(pc, update_interval, resources_dir, working_dir)
-aw.setWindowTitle("DEFCON")
-aw.setWindowIcon(QtGui.QIcon(resources_dir + 'defcon_icon.png'))
-aw.show()
-sys.exit(qApp.exec_())
+
+def main(args):
+    # Set some defaults.
+    problem_type = None
+    working_dir= None
+    output_dir = None
+    solutions_dir = None
+    xscale = None
+    plot_with_mpl = False # Whether we will try to plot solutions with matplotlib. If false, we use paraview.
+    update_interval = 100 # Update interval for the diagram.
+    resources_dir = os.path.abspath(os.path.join(inspect.getfile(inspect.currentframe()), "../resources")) # The directory with the icons, etc. 
+    resources_dir += os.path.sep # Assume trailing slash
+
+    # Get commandline args.
+    def usage():
+        sys.exit("""Usage: %s -p <problem type> -o <defcon output directory> -i <update interval in ms> -x <x scale> <working directory>
+    Required:
+          The working directory. This is the location where your problem script is. 
+    Options:
+          -p: The name of the script you use to run defcon. If not provided, this defualts to the last folder in the working directory.
+              i.e, if the working directory is 'defcon/examples/elastica', we assume the name of the problem scipt is 'elastica'.
+          -o: The directory that defcon uses for its output. The defaults to the "output" subdir of the working dir.
+          -s: The directory to save solutions in. When you use paraview to visualise a solution, this is where it is saved. Defaults to the "solutions" subdir of the output dir.
+          -i: The update interval of the bifurcation diagram in milliseconds. Defaults to 100.
+          -x: The scale of the x-axis of the bifurcation diagram. This should be a valid matplotlib scale setting, eg 'log'.""" % args[0])
+
+    try: myopts, vals = getopt.getopt(args[1:-1],"p:o:i:s:x:")
+    except Exception: usage()
+
+    for o, a in myopts:
+        if   o == '-p': problem_type = a
+        elif o == '-o': output_dir = os.path.expanduser(a)
+        elif o == '-s': solutions_dir = os.path.expanduser(a)
+        elif o == '-i': update_interval = int(a)
+        elif o == '-x': xscale = a
+        else          : usage()
+
+    # Get the working dir from the last command line argument.
+    working_dir = os.path.realpath(os.path.expanduser(args[-1]))
+
+    if working_dir is None:
+        usage()
+
+    # If we didn't specify an output directory, default to the folder "output" in the working directory
+    if output_dir is None: output_dir = "output"
+
+    # If we didn't specify the name of the python file for the problem (eg, elastica), assume it's the same as the directory we're working in. 
+    if problem_type is None: 
+        dirs = os.path.realpath(working_dir).split(os.path.sep)
+        if dirs[-1]: problem_type = dirs[-1] # no trailing slash
+        else: problem_type = dirs[-2] # trailing slash
+
+    # If we didn't specify a directory for solutions we plot, store them in the "solutions" subdir of the output directory.
+    if solutions_dir is None: solutions_dir = output_dir + os.path.sep + "solutions" + os.path.sep
+
+    # Get the current directory. 
+    current_dir = os.path.dirname(os.path.realpath(args[0]))
+
+    # Put the working directory on our path.
+    sys.path.insert(0, working_dir) 
+
+    # Get the name and type of the problem we're dealing with, as well as everything else we're going to need for plotting solutions.
+    problem_name = __import__(problem_type)
+    globals().update(vars(problem_name))
+
+    # Run through each class we've imported and figure out which one inherits from BifurcationProblem.
+    classes = []
+    for key in globals().keys():
+        if key is not 'BifurcationProblem': classes.append(key) # remove this to make sure we don't fetch the wrong class.
+    for c in classes:
+        try:
+            globals()["bfprob"] = getattr(problem_name, c)
+            assert issubclass(bfprob, BifurcationProblem) and bfprob is not BifurcationProblem # check whether the class is a subclass of BifurcationProblem, which would mean it's the class we want. 
+            problem = bfprob() # initialise the class.
+            break
+        except Exception: pass
+
+    os.chdir(working_dir)
+
+    # Get the mesh.
+    import defcon.backend as backend
+    mesh = problem.mesh(backend.comm_world)
+
+    # If the mesh is 1D, we don't want to use paraview. 
+    if backend.__name__ == "dolfin":
+        if mesh.geometry().dim() < 2: plot_with_mpl = True
+    else:
+        if mesh.geometric_dimension() < 2: plot_with_mpl = True
+
+    # Get the function space and set up the I/O module for fetching solutions. 
+    V = problem.function_space(mesh)
+    problem_parameters = problem.parameters()
+    io = problem.io(prefix=working_dir + os.path.sep + "output")
+    io.setup(problem_parameters, None, V)
+    os.chdir(current_dir)
+
+    # Main loop
+    qApp = QtGui.QApplication(args)
+    pc = PlotConstructor(working_dir, output_dir, xscale)
+    global aw  # FIXME: not good!
+    aw = ApplicationWindow(pc, update_interval, resources_dir, working_dir)
+    aw.setWindowTitle("DEFCON")
+    aw.setWindowIcon(QtGui.QIcon(resources_dir + 'defcon_icon.png'))
+    aw.show()
+    return(qApp.exec_())
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv))

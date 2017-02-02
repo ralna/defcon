@@ -50,4 +50,5 @@ setup(name="defcon",
       package_data={"defcon": ["Probe/*.h", "Probe/*.cpp", "gui/resources/*.png"]},
       data_files=[(os.path.join("share", "defcon", os.path.dirname(f)), [f])
                   for f in demofiles],
+      entry_points={'console_scripts': ['defcon = defcon.__main__:main']}
     )
