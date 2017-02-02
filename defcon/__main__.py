@@ -3,8 +3,6 @@ from __future__ import print_function
 import sys
 import getopt
 
-import defcon.gui
-
 
 def usage():
     print("""Usage: defcon <command> [options]
@@ -33,9 +31,12 @@ def main(args=None):
 
     # Check command
     if len(args) >= 1 and args[0] == "gui":
+        # NOTE: Don't import defcon.gui unless being here; it probably
+        #       has side effects
+        import defcon.gui
         return defcon.gui.main(['defcon-gui']+sys.argv[2:])
     else:
-        print("No command specified.")
+        print("No or uknown command specified.")
         usage()
         return 1
 
