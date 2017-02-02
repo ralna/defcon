@@ -19,7 +19,7 @@ class DefconWorker(DefconThread):
     def __init__(self, problem, **kwargs):
         DefconThread.__init__(self, problem, **kwargs)
 
-        # Record gc_frequency from kwargs
+        # Override parent's gc_frequency, None means auto determined later
         self.gc_frequency = kwargs.get("gc_frequency")
 
         # A map from the type of task we've received to the code that handles it.
@@ -34,6 +34,14 @@ class DefconWorker(DefconThread):
             PETSc.Log.begin()
         else:
             Event = DummyEvent
+
+    def determine_gc_frequency(self, function_space):
+        """Set garbage collection frequency according to the size of
+        the problem if not already set."""
+        if self.gc_frequency is None:
+            dofs_per_core = function_space_dimension(function_space) / self.teamcomm.size
+            if   dofs_per_core > 100000: self.gc_frequency = 1
+            elif dofs_per_core <  10000: self.gc_frequency = 100
 
     def collect(self):
         with Event("garbage"):
@@ -65,11 +73,7 @@ class DefconWorker(DefconThread):
         self.dm = create_dm(self.function_space, self.problem)
 
         # Configure garbage collection frequency:
-        if self.gc_frequency is None:
-            dofs_per_core = function_space_dimension(self.function_space) / self.teamcomm.size
-            if dofs_per_core > 100000:  self.gc_frequency = 1
-            elif dofs_per_core < 10000: self.gc_frequency = 100
-            else:                       self.gc_frequency = 10
+        self.determine_gc_frequency(self.function_space)
 
         self.state = backend.Function(self.function_space)
         self.trivial_solutions = None
