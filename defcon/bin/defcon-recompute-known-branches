@@ -1,3 +1,5 @@
+from __future__ import absolute_import
+
 # A script that regenerates the known_parameters map in case it is deleted/unavailable.
 # Use like
 # python regenerate_known_branches.py /path/to/my/problem.py /path/to/output/directory

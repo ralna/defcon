@@ -1,3 +1,5 @@
+from __future__ import absolute_import
+
 #!/usr/bin/env python
 
 # A script that merges two or more output directories (e.g. from

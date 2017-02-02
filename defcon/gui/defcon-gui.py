@@ -1,3 +1,5 @@
+from __future__ import absolute_import
+
 #!/usr/bin/env python
 
 # Urgh. We need this to ignore matplotlibs warnings.

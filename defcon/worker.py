@@ -1,15 +1,18 @@
-from newton import newton
-from tasks import QuitTask, ContinuationTask, DeflationTask, StabilityTask, Response
-from mg import create_dm
-from thread import DefconThread
-from operatordeflation import ShiftedDeflation
-from profiling import DummyEvent
-from compatibility import function_space_dimension
+from __future__ import absolute_import
 
-import backend
 from petsc4py import PETSc
 
 import traceback
+
+import defcon.backend as backend
+from defcon.newton import newton
+from defcon.tasks import QuitTask, ContinuationTask, DeflationTask, StabilityTask, Response
+from defcon.mg import create_dm
+from defcon.thread import DefconThread
+from defcon.operatordeflation import ShiftedDeflation
+from defcon.profiling import DummyEvent
+from defcon.compatibility import function_space_dimension
+
 
 class DefconWorker(DefconThread):
     """

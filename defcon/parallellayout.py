@@ -1,3 +1,5 @@
+from __future__ import absolute_import
+
 """
 Some utility functions that map teams to ranks and ranks to teams.
 
@@ -14,8 +16,10 @@ but this may not be optimal on your machine. If you want to implement a differen
 layout, just change these two functions.
 """
 
-import math
 from mpi4py import MPI
+
+import math
+
 
 def ranktoteamno(rank, teamsize):
     if rank == 0:

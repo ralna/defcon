@@ -1,5 +1,7 @@
-import backend
-from backend import Function, Vector, assemble, derivative, product
+from __future__ import absolute_import
+
+import defcon.backend as backend
+from defcon.backend import Function, Vector, assemble, derivative, product
 
 class DeflationOperator(object):
     """

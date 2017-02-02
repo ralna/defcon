@@ -12,7 +12,6 @@ def test_elastica():
     io = problem.io()
     io.setup(problem.parameters(), problem.functionals(), None)
 
-    import backend
     if backend.comm_world.rank == 0:
         final = (values[-1], 0.5)
         branches = io.known_branches(final)

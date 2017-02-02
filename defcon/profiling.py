@@ -1,3 +1,5 @@
+from __future__ import absolute_import
+
 # A dummy event for neutering profiling code
 class DummyEvent(object):
     def __init__(self, *args, **kwargs):

@@ -1,21 +1,22 @@
+from __future__ import absolute_import
 
+import defcon
+
+from mpi4py import MPI
+from petsc4py import PETSc
+from ufl.algorithms.map_integrands import map_integrands
+
+from math import copysign, sqrt
+from heapq import heappush, heappop
 import gc
 import json
 
-import defcon
-import thread
-import master
-import worker
-import newton
-import backend
+import defcon.backend as backend
+from defcon.master import DefconMaster
+from defcon.worker import DefconWorker
+from defcon.newton import newton
+from defcon.tasks import QuitTask, ArclengthTask, Response
 
-from   mpi4py   import MPI
-from   petsc4py import PETSc
-from   tasks import QuitTask, ArclengthTask, Response
-from   math import copysign, sqrt
-from   heapq import heappush, heappop
-
-from   ufl.algorithms.map_integrands import map_integrands
 
 class ArclengthContinuation(object):
     """
@@ -164,13 +165,13 @@ Launch with mpiexec: mpiexec -n <number of processes> python %s
         plt.xlabel(parameters[paramindex][2])
         plt.ylabel(functionals[funcindex][2])
 
-class ArclengthWorker(worker.DefconWorker):
+class ArclengthWorker(DefconWorker):
     """
     This class handles the actual execution of the tasks necessary
     to do arclength continuation.
     """
     def __init__(self, problem, **kwargs):
-        worker.DefconWorker.__init__(self, problem, **kwargs)
+        DefconWorker.__init__(self, problem, **kwargs)
 
         # A map from the type of task we've received to the code that handles it.
         self.callbacks = {ArclengthTask: self.arclength_task}
@@ -328,11 +329,11 @@ class ArclengthWorker(worker.DefconWorker):
             solverparams = self.problem.solver_parameters(current_params, task.__class__)
             solverparams["snes_linesearch_type"] = "basic"
             solverparams["snes_max_it"] = 1
-            (success, iters) = newton.newton(F, J, self.tangent, self.hbcs,
-                                    self.problem.nonlinear_problem,
-                                    self.problem.solver,
-                                    solverparams,
-                                    self.teamno)
+            (success, iters) = newton(F, J, self.tangent, self.hbcs,
+                                      self.problem.nonlinear_problem,
+                                      self.problem.solver,
+                                      solverparams,
+                                      self.teamno)
             if not success:
                 self.log("Warning: failed to compute tangent", warning=True)
                 break
@@ -355,11 +356,11 @@ class ArclengthWorker(worker.DefconWorker):
                     self.deflation.deflate([self.prevprev])
 
                 self.log("Computing arclength step")
-                (success, iters) = newton.newton(self.residual, self.jacobian, self.state, self.bcs,
-                                        self.problem.nonlinear_problem,
-                                        self.problem.solver,
-                                        self.problem.solver_parameters(current_params, task.__class__),
-                                        self.teamno, self.deflation)
+                (success, iters) = newton(self.residual, self.jacobian, self.state, self.bcs,
+                                          self.problem.nonlinear_problem,
+                                          self.problem.solver,
+                                          self.problem.solver_parameters(current_params, task.__class__),
+                                          self.teamno, self.deflation)
 
                 if success: # exit adaptive loop
                     break
@@ -416,13 +417,13 @@ class ArclengthWorker(worker.DefconWorker):
         else:
             raise NotImplementedError("Don't know how to do this in firedrake")
 
-class ArclengthMaster(master.DefconMaster):
+class ArclengthMaster(DefconMaster):
     """
     This class implements the core logic of running arclength continuation
     in parallel.
     """
     def __init__(self, *args, **kwargs):
-        master.DefconMaster.__init__(self, *args, **kwargs)
+        DefconMaster.__init__(self, *args, **kwargs)
 
         # Don't need DefconMaster's callbacks
         del self.callbacks

@@ -1,3 +1,5 @@
+from __future__ import absolute_import
+
 class Task(object):
     """
     A base class for Tasks.

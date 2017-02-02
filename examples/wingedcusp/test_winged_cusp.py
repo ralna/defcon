@@ -9,7 +9,6 @@ def test_winged_cusp():
     io = problem.io()
     io.setup(problem.parameters(), problem.functionals(), None)
 
-    import backend
     if backend.comm_world.rank == 0:
         assert len(io.known_branches((-2,))) == 1
         assert len(io.known_branches((+5,))) == 1

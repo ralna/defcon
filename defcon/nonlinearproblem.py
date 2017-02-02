@@ -1,7 +1,10 @@
-import backend
-if backend.__name__ == "dolfin":
+from __future__ import absolute_import
 
-    from backend import derivative
+import defcon.backend as backend
+
+if backend.__name__ == "dolfin":
+    from defcon.backend import derivative
+
     class GeneralProblem(object):
         def __init__(self, F, y, bcs, J=None, P=None, **kwargs):
             self.F = F

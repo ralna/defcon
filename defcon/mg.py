@@ -1,9 +1,12 @@
+from __future__ import absolute_import
+
 # Code to support geometric multigrid in defcon.
-import backend
 from petsc4py import PETSc
 
+import defcon.backend as backend
+
 if backend.__name__ == "dolfin":
-    from backend import as_backend_type, Function, MixedElement, VectorElement, FunctionSpace
+    from defcon.backend import as_backend_type, Function, MixedElement, VectorElement, FunctionSpace
 
 # Set up multigrid support
 def create_dm(V, problem=None):
@@ -131,7 +134,7 @@ def create_interpolation(dmc, dmf):
     return (pmat.mat(), None)
 
 if backend.__name__ == "dolfin":
-    from backend import compile_extension_module
+    from defcon.backend import compile_extension_module
     create_transfer_matrix_code = r'''
     #include <dolfin/geometry/BoundingBoxTree.h>
     #include <dolfin/fem/FiniteElement.h>

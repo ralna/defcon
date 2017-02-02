@@ -1,12 +1,15 @@
-import backend
-import ufl.algorithms
-from petsc4py import PETSc
+from __future__ import absolute_import
+
+import defcon.backend as backend
 
 if backend.__name__ == "dolfin":
-    from backend import as_backend_type, PETScVector, PETScMatrix, \
+    from petsc4py import PETSc
+    import ufl.algorithms
+    import numpy
+
+    from defcon.backend import as_backend_type, PETScVector, PETScMatrix, \
         MixedElement, VectorElement, Function, FunctionSpace, \
         SystemAssembler, Form
-    import numpy
 
     # dolfin lacks a high-level snes frontend like Firedrake,
     # so we're going to put one here and build up what we need

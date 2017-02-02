@@ -1,3 +1,5 @@
+from __future__ import absolute_import
+
 #!/usr/bin/env python
 
 # A script that computes the functionals of all solutions.

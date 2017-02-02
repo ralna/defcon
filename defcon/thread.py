@@ -1,5 +1,4 @@
-from iomodule import remap_c_streams
-from parallellayout import ranktoteamno
+from __future__ import absolute_import
 
 from mpi4py import MPI
 
@@ -8,6 +7,9 @@ import math
 import time
 import sys
 import os
+
+from defcon.iomodule import remap_c_streams
+from defcon.parallellayout import ranktoteamno
 
 
 class DefconThread(object):

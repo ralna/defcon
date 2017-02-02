@@ -1,18 +1,20 @@
-import backend
-from backend import HDF5File, Function
+from __future__ import absolute_import
+
+from defcon import iomodule
+import defcon.backend as backend
+from defcon.backend import HDF5File, Function
+
 import h5py # FIXME: remove dependency on h5py, eventually
+from numpy import array
 
 import cPickle as pickle
-import os, os.path
-import iomodule
+import os
 import glob
 import collections
 import sys
 import time
 import traceback
-
 from ast import literal_eval
-from numpy import array
 
 # If you're storing one branch per hdf5 file, the
 # hardest part is figuring out which parameters have which

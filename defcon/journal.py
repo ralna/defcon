@@ -1,7 +1,11 @@
+from __future__ import absolute_import
+
 import time
 import os
 from ast import literal_eval
-from tasks import ArclengthTask, StabilityTask, ContinuationTask, DeflationTask
+
+from defcon.tasks import ArclengthTask, StabilityTask, ContinuationTask, DeflationTask
+
 
 codes = {ArclengthTask: "a", StabilityTask: "s", ContinuationTask: "c", DeflationTask: "d"}
 def task_to_code(task):

@@ -1,3 +1,5 @@
+from __future__ import absolute_import
+
 def fetch_bifurcation_problem(path):
     import os
     import os.path
