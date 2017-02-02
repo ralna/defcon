@@ -42,6 +42,7 @@ class DefconWorker(DefconThread):
             dofs_per_core = function_space_dimension(function_space) / self.teamcomm.size
             if   dofs_per_core > 100000: self.gc_frequency = 1
             elif dofs_per_core <  10000: self.gc_frequency = 100
+            else:                        self.gc_frequency = 10
 
     def collect(self):
         with Event("garbage"):
