@@ -6,6 +6,8 @@ from graph import DefconGraph, ProfiledDefconGraph
 from mpi4py import MPI
 from numpy  import isinf
 
+import time
+
 class DefconMaster(DefconThread):
     """
     This class implements the core logic of running deflated continuation
@@ -17,6 +19,9 @@ class DefconMaster(DefconThread):
         # Master should always collect infrequently, it never allocates
         # anything large
         self.gc_frequency = 100
+
+        # Sleep time in seconds (negative is busy-waiting, None is adaptive)
+        self.sleep_time = kwargs.get("sleep_time", None)
 
         # Collect profiling statistics? This decides whether we instantiate
         # a DefconGraph or a ProfiledDefconGraph.
@@ -42,7 +47,25 @@ class DefconMaster(DefconThread):
             self.teamcomms[team].barrier()
 
     def fetch_response(self):
+        t = time.time()
+
+        # Assume last waiting took 20 milli-seconds for first time
+        if not hasattr(self, "_last_delay"):
+            self._last_delay = 0.02
+
+        # Sleep for given time or use adaptive value
+        sleep_time = self.sleep_time or min(0.05*self._last_delay, 1.0)
+        # Negative value means busy waiting
+        if sleep_time >= 0:
+            while not self.worldcomm.Iprobe(source=MPI.ANY_SOURCE, tag=self.responsetag):
+                time.sleep(sleep_time)
+
+        # Receive response (or busy-wait for it) and return it
         response = self.worldcomm.recv(source=MPI.ANY_SOURCE, tag=self.responsetag)
+
+        # Store waiting time for future
+        self._last_delay = time.time() - t
+
         return response
 
     def seed_initial_tasks(self, parameters, values, freeindex):

@@ -32,15 +32,17 @@ class DefconThread(object):
         # How many tasks to do before calling the garbage collector
         # Set to small (e.g. 1) if the problem size is very large
         # Set to large (e.g. 100) if the problem size is very small
-        self.collect_frequency = kwargs.get("gc_frequency", 10)
+        # Subclasses may override this value
+        self.gc_frequency = kwargs.get("gc_frequency", 10)
         self.collect_call = 0 # counter for the garbage collector
 
     def collect(self):
         """
         Garbage collection.
         """
+        assert isinstance(self.gc_frequency, int)
         self.collect_call += 1
-        if self.collect_call % self.collect_frequency == 0:
+        if self.collect_call % self.gc_frequency == 0:
             gc.collect()
 
     def configure_io(self, parameters):

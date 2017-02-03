@@ -37,6 +37,12 @@ class ArclengthContinuation(object):
             Activate debugging output.
           logfiles (:py:class:`bool`)
             Whether defcon should remap stdout/stderr to logfiles (useful for many processes).
+          sleep_time (:py:class:`double`)
+            How long in seconds master sleeps between repeated attempts when
+            probing workers for response. Negative value means busy waiting,
+            positive value saves up to one core of CPU time. Unspecified or
+            None results in adaptive value given as 5 percent of last response
+            time but at most 1.0 second.
           comm (MPI.Comm)
             The communicator that gathers all processes involved in this computation
         """
@@ -158,31 +164,13 @@ Launch with mpiexec: mpiexec -n <number of processes> python %s
         plt.xlabel(parameters[paramindex][2])
         plt.ylabel(functionals[funcindex][2])
 
-class ArclengthThread(thread.DefconThread):
-    """
-    The base class for ArclengthWorker/ArclengthMaster.
-    """
-    def __init__(self, problem, **kwargs):
-        self.problem = problem
-        self.functionals = problem.functionals()
-
-        self.deflation = kwargs.get("deflation", None)
-        self.teamsize  = kwargs.get("teamsize", 1)
-        self.verbose   = kwargs.get("verbose", True)
-        self.debug     = kwargs.get("debug", False)
-        self.logfiles  = kwargs.get("logfiles", False)
-        self.worldcomm = kwargs["comm"]
-
-        self.configure_comms()
-        self.configure_logs()
-
-class ArclengthWorker(worker.DefconWorker, ArclengthThread):
+class ArclengthWorker(worker.DefconWorker):
     """
     This class handles the actual execution of the tasks necessary
     to do arclength continuation.
     """
     def __init__(self, problem, **kwargs):
-        ArclengthThread.__init__(self, problem, **kwargs)
+        worker.DefconWorker.__init__(self, problem, **kwargs)
 
         # A map from the type of task we've received to the code that handles it.
         self.callbacks = {ArclengthTask: self.arclength_task}
@@ -191,8 +179,12 @@ class ArclengthWorker(worker.DefconWorker, ArclengthThread):
         problem = self.problem
 
         self.mesh = problem.mesh(PETSc.Comm(self.teamcomm))
+        # FIXME: Seems that the space is built and never used
         self.function_space = problem.function_space(self.mesh)
         self.R = backend.FunctionSpace(self.mesh, "R", 0)
+
+        # Configure garbage collection frequency:
+        self.determine_gc_frequency(self.function_space)
 
         mixed_element = backend.MixedElement([self.function_space.ufl_element(), self.R.ufl_element()])
         self.mixed_space = backend.FunctionSpace(self.mesh, mixed_element)
@@ -250,7 +242,7 @@ class ArclengthWorker(worker.DefconWorker, ArclengthThread):
 
         task = None
         while True:
-            gc.collect()
+            self.collect()
 
             if task is None:
                 task = self.fetch_task()
@@ -312,7 +304,7 @@ class ArclengthWorker(worker.DefconWorker, ArclengthThread):
 
         # And begin the main loop
         while bounds[0] <= param <= bounds[1]:
-            gc.collect()
+            self.collect()
 
             current_params = list(params)
             current_params[self.freeindex] = param
@@ -424,13 +416,16 @@ class ArclengthWorker(worker.DefconWorker, ArclengthThread):
         else:
             raise NotImplementedError("Don't know how to do this in firedrake")
 
-class ArclengthMaster(master.DefconMaster, ArclengthThread):
+class ArclengthMaster(master.DefconMaster):
     """
     This class implements the core logic of running arclength continuation
     in parallel.
     """
     def __init__(self, *args, **kwargs):
-        ArclengthThread.__init__(self, *args, **kwargs)
+        master.DefconMaster.__init__(self, *args, **kwargs)
+
+        # Don't need DefconMaster's callbacks
+        del self.callbacks
 
     def seed_initial_tasks(self, params, ds, sign, bounds, branchids):
         if branchids is None:
@@ -498,7 +493,7 @@ class ArclengthMaster(master.DefconMaster, ArclengthThread):
             # here. otherwise, we wait for responses and deal with consequences.
             if len(self.wait_tasks) > 0:
                 self.log("Cannot dispatch any tasks, waiting for response.")
-                gc.collect()
+                self.collect()
 
                 response = self.fetch_response()
                 self.handle_response(response)

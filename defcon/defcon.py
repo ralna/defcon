@@ -37,6 +37,12 @@ class DeflatedContinuation(object):
             How many solves should pass before we call the garbage collector.
             Set to a small value (e.g. 1) for very large problems, and a large value (e.g. 100)
             for very small problems. We try to do something sensible by default.
+          sleep_time (:py:class:`double`)
+            How long in seconds master sleeps between repeated attempts when
+            probing workers for response. Negative value means busy waiting,
+            positive value saves up to one core of CPU time. Unspecified or
+            None results in adaptive value given as 5 percent of last response
+            time but at most 1.0 second.
           profile (:py:class:`bool`)
             Whether profiling statistics should be collected.
           comm (MPI.Comm)
