@@ -525,7 +525,7 @@ class PlotConstructor():
         else: issuewarning("matplotlib2tikz not installed. I can't save to tikz!")
 
 
-def main(args):
+def main(argv):
     # Set some defaults.
     problem_type = None
     working_dir= None
@@ -539,18 +539,20 @@ def main(args):
 
     # Get commandline args.
     def usage():
-        sys.exit("""Usage: %s -p <problem type> -o <defcon output directory> -i <update interval in ms> -x <x scale> <working directory>
-    Required:
-          The working directory. This is the location where your problem script is. 
+        sys.exit("""Usage: %s -p <problem type> -o <defcon output directory> -i <update interval in ms> -x <x scale> [<working directory>]
+    Argumenst:
+          The working directory. This is the location where your defcon problem script is. If not given, current working dir is used.
     Options:
           -p: The name of the script you use to run defcon. If not provided, this defualts to the last folder in the working directory.
               i.e, if the working directory is 'defcon/examples/elastica', we assume the name of the problem scipt is 'elastica'.
           -o: The directory that defcon uses for its output. The defaults to the "output" subdir of the working dir.
           -s: The directory to save solutions in. When you use paraview to visualise a solution, this is where it is saved. Defaults to the "solutions" subdir of the output dir.
           -i: The update interval of the bifurcation diagram in milliseconds. Defaults to 100.
-          -x: The scale of the x-axis of the bifurcation diagram. This should be a valid matplotlib scale setting, eg 'log'.""" % args[0])
+          -x: The scale of the x-axis of the bifurcation diagram. This should be a valid matplotlib scale setting, eg 'log'.
+          -h: Display this message.
+          """ % argv[0])
 
-    try: myopts, vals = getopt.getopt(args[1:-1],"p:o:i:s:x:")
+    try: myopts, args = getopt.getopt(argv[1:],"p:o:i:s:x:h")
     except Exception: usage()
 
     for o, a in myopts:
@@ -559,7 +561,14 @@ def main(args):
         elif o == '-s': solutions_dir = os.path.expanduser(a)
         elif o == '-i': update_interval = int(a)
         elif o == '-x': xscale = a
+        elif o == '-h': usage()
         else          : usage()
+
+    if len(args) not in [0, 1]:
+        usage()
+
+    if len(args) == 0:
+        args.append(os.getcwd())
 
     # Get the working dir from the last command line argument.
     working_dir = os.path.realpath(os.path.expanduser(args[-1]))
@@ -586,10 +595,18 @@ def main(args):
     sys.path.insert(0, working_dir) 
 
     # Get the name and type of the problem we're dealing with, as well as everything else we're going to need for plotting solutions.
-    problem_name = __import__(problem_type)
+    try:
+        problem_name = __import__(problem_type)
+    except ImportError:
+        print "Did not succeed importing from %s/%s.py" \
+              % (working_dir, problem_type)
+        print "Maybe the wrong dir working dir or -p unspecified or incorrect"
+        print
+        usage()
     globals().update(vars(problem_name))
 
     # Run through each class we've imported and figure out which one inherits from BifurcationProblem.
+    problem = None
     classes = []
     for key in globals().keys():
         if key is not 'BifurcationProblem': classes.append(key) # remove this to make sure we don't fetch the wrong class.
@@ -600,6 +617,14 @@ def main(args):
             problem = bfprob() # initialise the class.
             break
         except Exception: pass
+
+    # Check we have the problem
+    if problem is None:
+        print "Did not succeed initializing BifurcationProblem from %s/%s.py" \
+              % (working_dir, problem_type)
+        print "Maybe the wrong dir working dir"
+        print
+        usage()
 
     os.chdir(working_dir)
 

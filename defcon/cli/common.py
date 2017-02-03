@@ -1,9 +1,10 @@
 from __future__ import absolute_import
 
+import os
+import imp
+
+
 def fetch_bifurcation_problem(path):
-    import os
-    import os.path
-    import imp
 
     cwd = os.getcwd()
 
@@ -25,6 +26,7 @@ def fetch_bifurcation_problem(path):
 
     prob = imp.load_source("prob", probpath)
 
+    # FIXME: Messig up with globals?! Not good for a module
     globals().update(vars(prob))
     # Run through each class we've imported and figure out which one inherits from BifurcationProblem.
     classes = [key for key in globals().keys()]
