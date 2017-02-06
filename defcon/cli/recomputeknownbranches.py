@@ -25,6 +25,9 @@ def main(args):
     outputdir = sys.argv[2]
 
     problem = fetch_bifurcation_problem(probpath)
+    if problem is None:
+        usage(args[0])
+
     io = problem.io(outputdir)
 
     if not isinstance(io, BranchIO):

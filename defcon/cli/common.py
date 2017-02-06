@@ -7,6 +7,13 @@ from defcon import BifurcationProblem
 
 
 def fetch_bifurcation_problem(path):
+    """Try to load BifurifurcationProblem class and return its
+    instance, either from given filename or directory, in which
+    case filename is inferred from last directory component.
+
+    When successful return BifurcationProblem isntance, otherwise
+    None.
+    """
     cwd = os.getcwd()
     probdir = os.path.dirname(path)
     if len(probdir) > 0:
@@ -23,10 +30,16 @@ def fetch_bifurcation_problem(path):
         lastname = path.split(os.path.sep)[-1]
         probpath = path + os.path.sep + lastname + ".py"
     else:
-        raise ValueError("Either specify the .py file or the directory containing it.")
+        print("Either specify the .py file or the directory containing it.")
+        return None
 
     # Import file
-    prob = imp.load_source("prob", probpath)
+    try:
+        prob = imp.load_source("prob", probpath)
+    except Exception:
+        print("Was not able to import '%s'" % probpath)
+        print("Please, provide correct problem path!")
+        return None
 
     # Run through each class we've imported and figure out which one inherits from BifurcationProblem
     for v in vars(prob).values():
@@ -50,6 +63,7 @@ def fetch_bifurcation_problem(path):
             pass
     else:
         # Not good, the loop finished without break
-        raise Exception("Failed to fetch bifurcation problem")
+        print("Failed to fetch bifurcation problem")
+        return None
 
     return problem

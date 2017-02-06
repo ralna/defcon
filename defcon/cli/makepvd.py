@@ -28,6 +28,8 @@ def main(args):
     if isinstance(values, float): values = (values,)
 
     problem = fetch_bifurcation_problem(probpath)
+    if problem is None:
+        usage(args[0])
 
     io = problem.io(outputdir)
 

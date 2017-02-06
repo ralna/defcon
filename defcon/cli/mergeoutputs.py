@@ -28,6 +28,8 @@ def main(args):
     outputdirs = args[2:]
 
     problem = fetch_bifurcation_problem(probpath)
+    if problem is None:
+        usage(args[0])
 
     mesh = problem.mesh(backend.comm_world)
     Z = problem.function_space(mesh)

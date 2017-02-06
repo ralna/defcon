@@ -24,6 +24,9 @@ def main(args):
     if outputdir.endswith("/"): outputdir = outputdir[:-1]
 
     problem = fetch_bifurcation_problem(probpath)
+    if problem is None:
+        usage(args[0])
+
     io = problem.io(outputdir)
 
     mesh = problem.mesh(backend.comm_world)

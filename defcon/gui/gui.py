@@ -12,6 +12,9 @@ matplotlib.use("Qt4Agg")
 # If necessary, make changes in qtwindows.py.
 from defcon.gui.qtwindows import *
 
+from defcon.cli.common import fetch_bifurcation_problem
+import defcon.backend as backend
+
 import sys, getopt, os, inspect
 import time as TimeModule
 
@@ -531,7 +534,7 @@ class PlotConstructor():
 
 def main(argv):
     # Set some defaults.
-    problem_type = None
+    problem_path = None
     working_dir= None
     output_dir = None
     solutions_dir = None
@@ -543,11 +546,11 @@ def main(argv):
 
     # Get commandline args.
     def usage():
-        sys.exit("""Usage: %s -p <problem type> -o <defcon output directory> -i <update interval in ms> -x <x scale> [<working directory>]
+        sys.exit("""Usage: %s -p <problem path> -o <defcon output directory> -i <update interval in ms> -x <x scale> [<working directory>]
     Argumenst:
           The working directory. This is the location where your defcon problem script is. If not given, current working dir is used.
     Options:
-          -p: The name of the script you use to run defcon. If not provided, this defualts to the last folder in the working directory.
+          -p: The name of the script you use to run defcon. If not provided, this defaults to the last component of the working directory.
               i.e, if the working directory is 'defcon/examples/elastica', we assume the name of the problem scipt is 'elastica'.
           -o: The directory that defcon uses for its output. The defaults to the "output" subdir of the working dir.
           -s: The directory to save solutions in. When you use paraview to visualise a solution, this is where it is saved. Defaults to the "solutions" subdir of the output dir.
@@ -560,7 +563,7 @@ def main(argv):
     except Exception: usage()
 
     for o, a in myopts:
-        if   o == '-p': problem_type = a
+        if   o == '-p': problem_path = a
         elif o == '-o': output_dir = os.path.expanduser(a)
         elif o == '-s': solutions_dir = os.path.expanduser(a)
         elif o == '-i': update_interval = int(a)
@@ -571,69 +574,38 @@ def main(argv):
     if len(args) not in [0, 1]:
         usage()
 
+    # Current dir is default working dir
     if len(args) == 0:
         args.append(os.getcwd())
 
     # Get the working dir from the last command line argument.
     working_dir = os.path.realpath(os.path.expanduser(args[-1]))
-
     if working_dir is None:
         usage()
 
     # If we didn't specify an output directory, default to the folder "output" in the working directory
-    if output_dir is None: output_dir = "output"
-
-    # If we didn't specify the name of the python file for the problem (eg, elastica), assume it's the same as the directory we're working in.
-    if problem_type is None:
-        dirs = os.path.realpath(working_dir).split(os.path.sep)
-        if dirs[-1]: problem_type = dirs[-1] # no trailing slash
-        else: problem_type = dirs[-2] # trailing slash
+    if output_dir is None:
+        output_dir = "output"
 
     # If we didn't specify a directory for solutions we plot, store them in the "solutions" subdir of the output directory.
-    if solutions_dir is None: solutions_dir = output_dir + os.path.sep + "solutions" + os.path.sep
+    if solutions_dir is None:
+        solutions_dir = output_dir + os.path.sep + "solutions" + os.path.sep
 
     # Get the current directory.
     current_dir = os.path.dirname(os.path.realpath(args[0]))
 
-    # Put the working directory on our path.
-    sys.path.insert(0, working_dir)
-
-    # Get the name and type of the problem we're dealing with, as well as everything else we're going to need for plotting solutions.
-    try:
-        problem_name = __import__(problem_type)
-    except ImportError:
-        print "Did not succeed importing from %s/%s.py" \
-              % (working_dir, problem_type)
-        print "Maybe the wrong dir working dir or -p unspecified or incorrect"
-        print
-        usage()
-    globals().update(vars(problem_name))
-
-    # Run through each class we've imported and figure out which one inherits from BifurcationProblem.
-    problem = None
-    classes = []
-    for key in globals().keys():
-        if key is not 'BifurcationProblem': classes.append(key) # remove this to make sure we don't fetch the wrong class.
-    for c in classes:
-        try:
-            globals()["bfprob"] = getattr(problem_name, c)
-            assert issubclass(bfprob, BifurcationProblem) and bfprob is not BifurcationProblem # check whether the class is a subclass of BifurcationProblem, which would mean it's the class we want.
-            problem = bfprob() # initialise the class.
-            break
-        except Exception: pass
-
-    # Check we have the problem
+    # Get the BifurcationProblem instance
+    if problem_path is None:
+        problem_path = working_dir
+    problem = fetch_bifurcation_problem(problem_path)
     if problem is None:
-        print "Did not succeed initializing BifurcationProblem from %s/%s.py" \
-              % (working_dir, problem_type)
-        print "Maybe the wrong dir working dir"
-        print
         usage()
 
+    # Put the working directory on our path and go there
+    sys.path.insert(0, working_dir)
     os.chdir(working_dir)
 
     # Get the mesh.
-    import defcon.backend as backend
     mesh = problem.mesh(backend.comm_world)
 
     # If the mesh is 1D, we don't want to use paraview.
