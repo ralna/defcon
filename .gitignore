@@ -1,0 +1,12 @@
+*.pyc
+
+*.pdf
+*.h5
+*.pck
+*.json
+journal.txt
+
+__pycache__
+.cache
+
+/defcon.egg-info/

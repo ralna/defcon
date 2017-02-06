@@ -6,7 +6,7 @@ import numpy
 
 reducedshell = __import__("reduced-shell")
 
-import backend
+import defcon.backend as backend
 problem = reducedshell.ReducedNaghdi()
 io = problem.io()
 

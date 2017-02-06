@@ -1,12 +1,15 @@
-from thread import DefconThread
-from tasks import QuitTask, ContinuationTask, DeflationTask, StabilityTask, Response
-from journal import FileJournal, task_to_code
-from graph import DefconGraph, ProfiledDefconGraph
+from __future__ import absolute_import
 
 from mpi4py import MPI
 from numpy  import isinf
 
 import time
+
+from defcon.thread import DefconThread
+from defcon.tasks import QuitTask, ContinuationTask, DeflationTask, StabilityTask, Response
+from defcon.journal import FileJournal, task_to_code
+from defcon.graph import DefconGraph, ProfiledDefconGraph
+
 
 class DefconMaster(DefconThread):
     """

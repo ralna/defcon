@@ -1,3 +1,5 @@
+from __future__ import absolute_import
+
 class Parameters(object):
     """
     Takes in the parameters and freeindex. Has a bunch of utility

@@ -45,23 +45,31 @@ experimental.
 ## Code Examples
 
 The easiest way to learn how to use it is to examine the examples
-in examples/. Start with examples/elastica, and compare to the Euler
+in `examples/`. Start with `examples/elastica`, and compare to the Euler
 elastica section of the paper cited above.
 
 ## Installation
 
-    export PYTHONPATH=/path/to/defcon:$PYTHONPATH
+    pip install .
 
-The contribution of a setup.py would be welcome.
+or
+
+    pip install --user -e .
+
+for *editable* installe into user directory (typically `~/.local`).
 
 ## Troubleshooting
 
-* Make sure all Expressions and CompiledSubDomains take in the mpi_comm argument (see e.g. examples/navier-stokes).
+* Make sure all `Expressions` and `CompiledSubDomains` take in the `mpi_comm` argument
+  (see e.g. `examples/navier-stokes`).
 
 ## Contributors
 
-P. E. Farrell <patrick.farrell@maths.ox.ac.uk>
-J. Pollard <j.pollard@protonmail.com>
+* P. E. Farrell <patrick.farrell@maths.ox.ac.uk>
+* J. Pollard <j.pollard@protonmail.com>
+* Robert C. Kirby <robert_kirby@baylor.edu>
+* Jan Blechta <blechta@karlin.mff.cuni.cz>
+* Matteo Croci <croci@maths.ox.ac.uk>
 
 ## License
 

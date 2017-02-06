@@ -1,11 +1,14 @@
-from parametertools import Parameters
-from thread import DefconThread
-from worker import DefconWorker
-from master import DefconMaster
+from __future__ import absolute_import
 
-from mpi4py   import MPI
+from mpi4py import MPI
 
 import sys
+
+from defcon.parametertools import Parameters
+from defcon.thread import DefconThread
+from defcon.worker import DefconWorker
+from defcon.master import DefconMaster
+
 
 class DeflatedContinuation(object):
     """

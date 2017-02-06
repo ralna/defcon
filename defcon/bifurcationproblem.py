@@ -1,8 +1,11 @@
+from __future__ import absolute_import
+
 # -*- coding: utf-8 -*-
-import backend
-import iomodule
-import branchio
-import nonlinearproblem, nonlinearsolver
+import defcon.backend as backend
+from defcon import iomodule
+from defcon import branchio
+from defcon import nonlinearproblem
+from defcon import nonlinearsolver
 
 class BifurcationProblem(object):
     """

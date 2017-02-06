@@ -1,3 +1,5 @@
+from __future__ import absolute_import
+
 """
 A module that implements the I/O backend for deflated continuation.
 
@@ -5,25 +7,25 @@ FIXME: I've tried to write this in a modular way so that it is possible to
 implement more efficient/scalable backends at a later time.
 """
 
-import backend
+import numpy as np
+from mpi4py import MPI
+from petsc4py import PETSc
+
 import json
 import tempfile
 import shutil
 import sys
-
-from backend import HDF5File, Function, File
-from parametertools import parameters_to_string
-
 import os
 import glob
 import time
-import numpy as np
 from ast import literal_eval
-from mpi4py import MPI
-from petsc4py import PETSc
-import shutil
 import atexit
 import collections
+
+from defcon.parametertools import parameters_to_string
+import defcon.backend as backend
+from defcon.backend import HDF5File, Function, File
+
 
 class IO(object):
     """

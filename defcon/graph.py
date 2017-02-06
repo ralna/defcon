@@ -1,7 +1,11 @@
-from tasks import ContinuationTask, DeflationTask, ArclengthTask, StabilityTask
-from heapq import heappush, heappop
+from __future__ import absolute_import
 
 from petsc4py import PETSc # for logging
+
+from heapq import heappush, heappop
+
+from defcon.tasks import ContinuationTask, DeflationTask, ArclengthTask, StabilityTask
+
 
 class DefconGraph(object):
     """

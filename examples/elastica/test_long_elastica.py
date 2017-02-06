@@ -3,7 +3,6 @@ from elastica import ElasticaProblem
 from math import pi
 import matplotlib.pyplot as plt
 import pytest
-import backend
 
 @pytest.mark.skipif(backend.comm_world.size < 5, reason="Needs to run on more cores")
 def test_elastica():

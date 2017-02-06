@@ -1,3 +1,5 @@
+from __future__ import absolute_import
+
 import matplotlib
 matplotlib.use("Qt4Agg")
 

@@ -15,6 +15,5 @@ def test_yamabe():
     io = problem.io()
     io.setup(problem.parameters(), problem.functionals(), None)
 
-    import backend
     if backend.comm_world.rank == 0:
         assert len(io.known_branches((8.0,))) == 7

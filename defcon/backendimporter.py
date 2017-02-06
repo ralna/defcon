@@ -1,5 +1,10 @@
+from __future__ import absolute_import
+
+import sys
+
 def import_backend():
-    import sys
+    """Import a backend module, tweak its parameters and
+    return it; currently either dolfin or firedrake."""
 
     use_dolfin = True
     use_firedrake = False
@@ -23,7 +28,6 @@ def import_backend():
         assert dolfin.has_petsc4py()
 
         dolfin.set_log_level(dolfin.ERROR)
-        sys.modules['backend'] = dolfin
 
         dolfin.parameters["form_compiler"]["representation"] = "uflacs"
         dolfin.parameters["form_compiler"]["optimize"]     = True
@@ -39,14 +43,22 @@ def import_backend():
         # which regularly breaks my deflation code. Disable it.
         dolfin.PETScOptions.set("snes_divergence_tolerance", -1)
 
+        return dolfin
+
     elif use_firedrake:
         # firedrake imported, no dolfin
         import firedrake
-        sys.modules['backend'] = firedrake
-        import backend
 
         firedrake.parameters["pyop2_options"]["lazy_evaluation"] = False
 
         from firedrake.petsc import PETSc
         opts = PETSc.Options()
         opts.setValue("snes_divergence_tolerance", -1)
+
+        return firedrake
+
+
+backend = import_backend()
+
+# Monkey-patch modules so that user can import from a backend
+sys.modules['defcon.backend'] = backend

@@ -1,5 +1,7 @@
+from __future__ import absolute_import
+
 from defcon.mg import create_transfer_matrix
-from backend import *
+from defcon.backend import *
 import pytest
 
 vec = lambda u: as_backend_type(u.vector()).vec()

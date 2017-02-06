@@ -1,3 +1,7 @@
+from __future__ import absolute_import
+
+__version__ = "2017.1.0.dev0"
+
 import mpi4py.rc
 mpi4py.rc.threaded = False
 from mpi4py import MPI
@@ -8,28 +12,25 @@ try:
 except ImportError:
     pass
 
-import backends
-backends.import_backend()
-import backend
+from numpy import arange, linspace
 
-from numpy                import arange, linspace
-from bifurcationproblem   import BifurcationProblem
-from defcon               import DeflatedContinuation
-from arclength            import ArclengthContinuation
-from iomodule             import IO, SolutionIO
+from defcon.backendimporter import backend
+from defcon.bifurcationproblem import BifurcationProblem
+from defcon.deflatedcontinuation import DeflatedContinuation
+from defcon.arclength import ArclengthContinuation
+from defcon.iomodule import IO, SolutionIO
+from defcon.tasks import DeflationTask, ContinuationTask, StabilityTask, ArclengthTask
+from defcon.operatordeflation import ShiftedDeflation
 
 # This might fail because h5py is missing.
 try:
-    from branchio         import BranchIO
+    from defconf.branchio import BranchIO
 except ImportError:
     pass
 
-from tasks                import DeflationTask, ContinuationTask, StabilityTask, ArclengthTask
-from operatordeflation    import ShiftedDeflation
-
 if backend.__name__ == "dolfin":
-    from nonlinearsolver import SNUFLSolver
-    from Probe import Probe # borrowed from Mikael Mortensen's excellent fenicstools
+    from defcon.nonlinearsolver import SNUFLSolver
+    from defcon.Probe import Probe # borrowed from Mikael Mortensen's excellent fenicstools
     backend.comm_world = backend.mpi_comm_world()
 
     def vec(x):
@@ -43,7 +44,7 @@ if backend.__name__ == "dolfin":
 elif backend.__name__ == "firedrake":
     backend.comm_world = MPI.COMM_WORLD
 
-from backend import HDF5File
+from defcon.backend import HDF5File
 
 # We have to disable the GC (this is a general thing with running DOLFIN in parallel).
 # By default, each Python process decides completely by itself whether to do a

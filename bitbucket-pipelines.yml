@@ -14,6 +14,6 @@ pipelines:
           - export FENICS_PYTHON_MINOR_VERSION=7
           - source /home/fenics/fenics.env.conf
           - cd $BITBUCKET_CLONE_DIR
-          - export PYTHONPATH=$PWD:$PYTHONPATH
+          - pip2 install --no-cache-dir .
           - mpiexec -n 2 python2 -m pytest -v .
 

@@ -1,3 +1,5 @@
+from __future__ import absolute_import
+
 from defcon.graph import DefconGraph
 from defcon.tasks import DeflationTask
 

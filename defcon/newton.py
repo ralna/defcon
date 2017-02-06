@@ -1,13 +1,18 @@
-import backend
+from __future__ import absolute_import
+
 from petsc4py import PETSc
-import sys
 from numpy import isnan
+
+import sys
+
+import defcon.backend as backend
+
 
 # Unfortunately DOLFIN and firedrake are completely different in how they
 # do the solve. So we have to branch based on backend here.
 
 if backend.__name__ == "dolfin":
-    from backend import PETScOptions, PETScVector
+    from defcon.backend import PETScOptions, PETScVector
 
     def getEdy(deflation, y, dy):
         dy_vec = PETScVector(dy)
@@ -18,7 +23,7 @@ if backend.__name__ == "dolfin":
         PETScOptions.set(prefix + "snes_monitor")
 
 elif backend.__name__ == "firedrake":
-    from backend import NonlinearVariationalSolver
+    from defcon.backend import NonlinearVariationalSolver
 
     def getEdy(deflation, y, dy):
         with deflation.derivative(y).dat.vec_ro as deriv:
@@ -26,7 +31,7 @@ elif backend.__name__ == "firedrake":
         return Edy
 
     def setSnesMonitor(prefix):
-        from backend.petsc import PETSc
+        from defcon.backend.petsc import PETSc
         opts = PETSc.Options()
         opts.setValue(prefix + "snes_monitor_cancel", "")
         opts.setValue(prefix + "snes_monitor", "")
@@ -35,7 +40,7 @@ else:
     raise ImportError("Unknown backend")
 
 if hasattr(backend, 'ConvergenceError'):
-    from backend import ConvergenceError
+    from defcon.backend import ConvergenceError
 else:
     class ConvergenceError(Exception):
         pass

@@ -9,6 +9,5 @@ def test_allen_cahn():
     io = problem.io()
     io.setup(problem.parameters(), problem.functionals(), None)
 
-    import backend
     if backend.comm_world.rank == 0:
         assert len(io.known_branches((6.0,))) == 2
