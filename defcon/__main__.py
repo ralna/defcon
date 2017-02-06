@@ -1,4 +1,4 @@
-from __future__ import print_function
+from __future__ import absolute_import, print_function
 
 import sys
 
@@ -22,40 +22,48 @@ Help:
 
 def main(args=None):
     """This is the commandline tools of the defcon package.
-    If you want to call this routine directly (e.g. for puspose of
-    testing use args: `(<command>, <arg1>, <arg2>, ...)`, e.g.::
+    If you want to call this routine directly (e.g. for purpose of
+    testing) use sys.argv-like args:
+    `(<script-name>, <command>, <arg1>, <arg2>, ...)`,
+    e.g.::
 
-        main(args=("merge-outputs", "/path/to/my/problem.py",
+        main(args=("defcon", "merge-outputs", "/path/to/my/problem.py",
                    "/path/to/output1", "/path/to/output2"))
+
+    First argument `<script-name>` is actually ignored.
     """
     if args is None:
-        args = sys.argv[1:]
+        args = sys.argv
 
-    # NOTE: We only import defcon.gui or defcon.cli if needed in the elif
-    #       branches below before exiting; the code probably has side effects
-
-    if len(args) == 0:
+    if len(args) <= 1:
         print("No command specified.")
         usage()
         return 1
-    elif args[0] == "gui":
+
+    # Extract command and strip script name from args
+    cmd = args[1]
+    args  = ["defcon "+args[1]] + args[2:]
+
+    # NOTE: We only import defcon.gui or defcon.cli if needed in the elif
+    #       branches below before exiting; the code probably has side effects
+    if cmd == "gui":
         import defcon.gui
-        return defcon.gui.main(['defcon gui']+sys.argv[2:])
-    elif args[0] == "make-pvd":
+        return defcon.gui.main(args)
+    elif cmd == "make-pvd":
         import defcon.cli.makepvd
-        return defcon.cli.makepvd.main(['defcon make-pvd']+sys.argv[2:])
-    elif args[0] == "merge-outputs":
+        return defcon.cli.makepvd.main(args)
+    elif cmd == "merge-outputs":
         import defcon.cli.mergeoutputs
-        return defcon.cli.mergeoutputs.main(['defcon merge-outputs']+sys.argv[2:])
-    elif args[0] == "recompute-functionals":
+        return defcon.cli.mergeoutputs.main(args)
+    elif cmd == "recompute-functionals":
         import defcon.cli.recomputefunctionals
-        return defcon.cli.recomputefunctionals.main(['defcon recompute-functionals']+sys.argv[2:])
-    elif args[0] == "recompute-known-branches":
+        return defcon.cli.recomputefunctionals.main(args)
+    elif cmd == "recompute-known-branches":
         import defcon.cli.recomputeknownbranches
-        return defcon.cli.recomputeknownbranches.main(['defcon recompute-known-branches']+sys.argv[2:])
-    elif args[0] == "recompute-stability":
+        return defcon.cli.recomputeknownbranches.main(args)
+    elif cmd == "recompute-stability":
         import defcon.cli.recomputestability
-        return defcon.cli.recomputestability.main(['defcon recompute-stability']+sys.argv[2:])
+        return defcon.cli.recomputestability.main(args)
     else:
         print("Uknown command specified.")
         usage()
