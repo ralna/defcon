@@ -29,10 +29,14 @@ Topic :: Scientific/Engineering :: Mathematics
 """
 classifiers = CLASSIFIERS.split('\n')[1:-1]
 
+# TODO: This is cumbersome and prone to omit something
 demofiles = glob.glob(os.path.join("examples", "*", "*.py"))
 demofiles += glob.glob(os.path.join("examples", "*", "*", "*.py"))
 demofiles += glob.glob(os.path.join("examples", "*", "*", "*.xml*"))
-demofiles += glob.glob(os.path.join("examples", "*", "*", "*.geo"))
+demofiles += glob.glob(os.path.join("examples", "*", "*", "*", "*.geo"))
+demofiles += glob.glob(os.path.join("examples", "*", "*", "*", "*.xml*"))
+
+# Don't bother user with test files
 [demofiles.remove(f) for f in demofiles if "test_" in f]
 
 setup(name="defcon",
