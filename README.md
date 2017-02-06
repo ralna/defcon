@@ -67,6 +67,9 @@ for *editable* installe into user directory (typically `~/.local`).
 
 * P. E. Farrell <patrick.farrell@maths.ox.ac.uk>
 * J. Pollard <j.pollard@protonmail.com>
+* Robert C. Kirby <robert_kirby@baylor.edu>
+* Jan Blechta <blechta@karlin.mff.cuni.cz>
+* Matteo Croci <croci@maths.ox.ac.uk>
 
 ## License
 
