@@ -3,7 +3,7 @@ from __future__ import absolute_import
 import sys
 
 def import_backend():
-    """Import a backend modulem, tweak its parameters and
+    """Import a backend module, tweak its parameters and
     return it; currently either dolfin or firedrake."""
 
     use_dolfin = True
