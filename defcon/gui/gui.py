@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 from __future__ import absolute_import
 
 # Urgh. We need this to ignore matplotlibs warnings.
@@ -48,8 +49,10 @@ except Exception:
 class PlotConstructor():
     """ Class for handling everything to do with the bifuraction diagram plot. """
 
-    def __init__(self, working_dir, output_dir, xscale):
+    def __init__(self, working_dir, output_dir, xscale, io, plot_with_mpl):
         self.xscale = xscale
+        self.io = io
+        self.plot_with_mpl = plot_with_mpl
 
         self.points = [] # Keep track of the points we've found, so we can redraw everything if necessary. Also for annotation.
         self.pointers = [] # Pointers to each point on the plot, so we can remove them.
@@ -391,7 +394,7 @@ class PlotConstructor():
 
             # Try to compute the stability
             try:
-                stab = io.fetch_stability(xs, [branchid])[0]
+                stab = self.io.fetch_stability(xs, [branchid])[0]
             except RuntimeError:
                 stab = None
 
@@ -419,9 +422,9 @@ class PlotConstructor():
             os.chdir(self.working_dir)
             # Get the solution from the IO module.
             params, branchid = self.annotated_point
-            y = io.fetch_solutions(params, [branchid])[0]
+            y = self.io.fetch_solutions(params, [branchid])[0]
 
-            if plot_with_mpl:
+            if self.plot_with_mpl:
                 try:
                     x = interpolate(Expression("x[0]", degree=1), V)
                     # FIXME: For functions f other than CG1, we might need to sort both arrays so that x is increasing. Check this out!
@@ -623,7 +626,7 @@ def main(argv):
 
     # Main loop
     qApp = QtGui.QApplication(args)
-    pc = PlotConstructor(working_dir, output_dir, xscale)
+    pc = PlotConstructor(working_dir, output_dir, xscale, io, plot_with_mpl)
     aw = ApplicationWindow(pc, update_interval, resources_dir, working_dir)
     pc.set_app_win(aw)
     aw.setWindowTitle("DEFCON")
