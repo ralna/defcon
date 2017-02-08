@@ -129,10 +129,10 @@ class CustomToolbar(NavigationToolbar2QT):
         length = inputter.length.text()
         fps = inputter.fps.text()
 
-        fname = QtGui.QFileDialog.getSaveFileName(self, "Choose a filename to save to", start, filters, selectedFilter)
-        if fname[0]:
+        fname, _ = QtGui.QFileDialog.getSaveFileName(self, "Choose a filename to save to", start, filters, selectedFilter)
+        if fname:
             try:
-                self.pc.save_movie(str(fname[0]), int(length), int(fps))
+                self.pc.save_movie(fname, int(length), int(fps))
             # Handle any exceptions by printing a dialogue box
             except Exception, e:
                 QtGui.QMessageBox.critical(self, "Error saving file", str(e), QtGui.QMessageBox.Ok, QtGui.QMessageBox.NoButton)
@@ -142,15 +142,12 @@ class CustomToolbar(NavigationToolbar2QT):
         start = self.working_dir + os.path.sep + "bfdiag.tex"
         filters = "Tikz Image (*.tex)"
         selectedFilter = filters
- 
-        fname = QtGui.QFileDialog.getSaveFileName(self, "Choose a filename to save to", start, filters, selectedFilter)
+        fname, _ = QtGui.QFileDialog.getSaveFileName(self, "Choose a filename to save to", start, filters, selectedFilter)
         if fname:
             try:
-                self.pc.save_tikz(str(fname))
+                self.pc.save_tikz(fname)
             except Exception, e:
                 QtGui.QMessageBox.critical(self, "Error saving file", str(e), QtGui.QMessageBox.Ok, QtGui.QMessageBox.NoButton)
-
-      
 
 
 ############################
