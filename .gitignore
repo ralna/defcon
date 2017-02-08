@@ -6,6 +6,9 @@
 *.json
 journal.txt
 
+*.pvd
+*.vtu
+
 __pycache__
 .cache
 

@@ -49,10 +49,12 @@ except Exception:
 class PlotConstructor():
     """ Class for handling everything to do with the bifuraction diagram plot. """
 
-    def __init__(self, working_dir, output_dir, xscale, io, plot_with_mpl):
+    def __init__(self, journal_path, solutions_dir, xscale, problem, io, plot_with_mpl, V):
         self.xscale = xscale
+        self.problem = problem
         self.io = io
         self.plot_with_mpl = plot_with_mpl
+        self.V = V
 
         self.points = [] # Keep track of the points we've found, so we can redraw everything if necessary. Also for annotation.
         self.pointers = [] # Pointers to each point on the plot, so we can remove them.
@@ -66,8 +68,8 @@ class PlotConstructor():
         self.annotation_highlight = None # The point we've annotated.
         self.annotated_point = None # The (params, branchid) of the annotated point
 
-        self.working_dir = working_dir
-        self.path = working_dir + os.path.sep + output_dir + os.path.sep + "journal" + os.path.sep +"journal.txt" # Journal file.
+        self.journal_path = journal_path
+        self.solutions_dir = solutions_dir
 
         self.freeindex = None # The index of the free parameter.
 
@@ -249,7 +251,7 @@ class PlotConstructor():
     def grab_data(self):
         """ Get data from the file. """
         # If the file doesn't exist, just pass.
-        try: pullData = open(self.path, 'r').read()
+        try: pullData = open(self.journal_path, 'r').read()
         except Exception: pullData = None
         return pullData
 
@@ -419,14 +421,13 @@ class PlotConstructor():
     def plot(self):
         """ Fetch a solution and plot it. If the solutions are 1D we use matplotlib, otherwise we use paraview. """
         if self.annotated_point is not None:
-            os.chdir(self.working_dir)
             # Get the solution from the IO module.
             params, branchid = self.annotated_point
             y = self.io.fetch_solutions(params, [branchid])[0]
 
             if self.plot_with_mpl:
                 try:
-                    x = interpolate(Expression("x[0]", degree=1), V)
+                    x = backend.interpolate(backend.Expression("x[0]", degree=1), self.V)
                     # FIXME: For functions f other than CG1, we might need to sort both arrays so that x is increasing. Check this out!
                     plt.plot(x.vector().array(), y.vector().array(), '-', linewidth=3, color='b')
                     plt.title("branch %s, params %s" % (branchid, params))
@@ -438,15 +439,16 @@ class PlotConstructor():
                     pass
             else:
                 # Make a directory to put solutions in, if it doesn't exist.
-                try: os.mkdir(solutions_dir)
+                try: os.mkdir(self.solutions_dir)
                 except OSError: pass
 
                 # Create the file to which we will write these solutions.
-                pvd_filename = solutions_dir + "SOLUTION$%s$branchid=%d.pvd" % (parameters_to_string(problem_parameters, params), branchid)
-                pvd = File(pvd_filename)
+                pvd_filename = os.path.join(self.solutions_dir, "SOLUTION$%s$branchid=%d.pvd" \
+                    % (parameters_to_string(self.io.parameters, params), branchid))
+                pvd = backend.File(pvd_filename)
 
                 # Write the solution.
-                problem.save_pvd(y, pvd)
+                self.problem.save_pvd(y, pvd)
 
                 # Finally, launch paraview with the newly created file.
                 # If this fails, issue a warning.
@@ -454,8 +456,6 @@ class PlotConstructor():
                 except Exception, e:
                     issuewarning("Oops, something went wrong with launching paraview. Are you sure you have it installed and on your PATH? The error was:")
                     print str(e)
-
-            os.chdir(current_dir)
 
     ## Functions for saving to disk ##
     def save_movie(self, filename, length, fps):
@@ -538,9 +538,9 @@ class PlotConstructor():
 def main(argv):
     # Set some defaults.
     problem_path = None
-    working_dir= None
-    output_dir = None
-    solutions_dir = None
+    output_dir = "output"
+    solutions_dir = "solutions"
+    problem_path = '.'
     xscale = None
     plot_with_mpl = False # Whether we will try to plot solutions with matplotlib. If false, we use paraview.
     update_interval = 100 # Update interval for the diagram.
@@ -550,7 +550,7 @@ def main(argv):
     # Get commandline args.
     def usage():
         sys.exit("""Usage: %s -p <problem path> -o <defcon output directory> -i <update interval in ms> -x <x scale> [<working directory>]
-    Argumenst:
+    Arguments:
           The working directory. This is the location where your defcon problem script is. If not given, current working dir is used.
     Options:
           -p: The name of the script you use to run defcon. If not provided, this defaults to the last component of the working directory.
@@ -566,7 +566,7 @@ def main(argv):
     except Exception: usage()
 
     for o, a in myopts:
-        if   o == '-p': problem_path = a
+        if   o == '-p': problem_path = os.path.expanduser(a)
         elif o == '-o': output_dir = os.path.expanduser(a)
         elif o == '-s': solutions_dir = os.path.expanduser(a)
         elif o == '-i': update_interval = int(a)
@@ -581,32 +581,32 @@ def main(argv):
     if len(args) == 0:
         args.append(os.getcwd())
 
-    # Get the working dir from the last command line argument.
+    # Get absolue path of the working dir from the last command line argument
     working_dir = os.path.realpath(os.path.expanduser(args[-1]))
-    if working_dir is None:
-        usage()
 
-    # If we didn't specify an output directory, default to the folder "output" in the working directory
-    if output_dir is None:
-        output_dir = "output"
+    # Get absolute paths from (evetually relative) paths
+    output_dir = os.path.join(working_dir, output_dir)
+    solutions_dir = os.path.join(output_dir, solutions_dir)
 
-    # If we didn't specify a directory for solutions we plot, store them in the "solutions" subdir of the output directory.
-    if solutions_dir is None:
-        solutions_dir = output_dir + os.path.sep + "solutions" + os.path.sep
+    # Get absolute path of journal file
+    journal_path = os.path.join(output_dir, "journal", "journal.txt")
 
-    # Get the current directory.
-    current_dir = os.path.dirname(os.path.realpath(args[0]))
+    # Get directory or file path to problem file
+    problem_path = os.path.join(working_dir, problem_path)
+
+    # Debugging paths
+    if False:
+        print(working_dir)
+        print(output_dir)
+        print(problem_path)
+        print(journal_path)
+        print(solutions_dir)
+        print(resources_dir)
 
     # Get the BifurcationProblem instance
-    if problem_path is None:
-        problem_path = working_dir
     problem = fetch_bifurcation_problem(problem_path)
     if problem is None:
         usage()
-
-    # Put the working directory on our path and go there
-    sys.path.insert(0, working_dir)
-    os.chdir(working_dir)
 
     # Get the mesh.
     mesh = problem.mesh(backend.comm_world)
@@ -620,13 +620,12 @@ def main(argv):
     # Get the function space and set up the I/O module for fetching solutions.
     V = problem.function_space(mesh)
     problem_parameters = problem.parameters()
-    io = problem.io(prefix=working_dir + os.path.sep + "output")
+    io = problem.io(prefix=output_dir)
     io.setup(problem_parameters, None, V)
-    os.chdir(current_dir)
 
     # Main loop
     qApp = QtGui.QApplication(args)
-    pc = PlotConstructor(working_dir, output_dir, xscale, io, plot_with_mpl)
+    pc = PlotConstructor(journal_path, solutions_dir, xscale, problem, io, plot_with_mpl, V)
     aw = ApplicationWindow(pc, update_interval, resources_dir, working_dir)
     pc.set_app_win(aw)
     aw.setWindowTitle("DEFCON")
