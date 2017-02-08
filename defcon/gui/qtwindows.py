@@ -130,10 +130,10 @@ class CustomToolbar(NavigationToolbar2QT):
         fps = inputter.fps.text()
 
         fname = QtGui.QFileDialog.getSaveFileName(self, "Choose a filename to save to", start, filters, selectedFilter)
-        if fname:
+        if fname[0]:
             try:
-                self.pc.save_movie(str(fname), int(length), int(fps))
-            # Handle any exceptions by printing a dialogue box. 
+                self.pc.save_movie(str(fname[0]), int(length), int(fps))
+            # Handle any exceptions by printing a dialogue box
             except Exception, e:
                 QtGui.QMessageBox.critical(self, "Error saving file", str(e), QtGui.QMessageBox.Ok, QtGui.QMessageBox.NoButton)
 
@@ -158,8 +158,7 @@ class CustomToolbar(NavigationToolbar2QT):
 ############################
 class MovieDialog(QtGui.QDialog):
     def __init__(self, parent=None):
-
-        QtGui.QWidget.__init__(self, parent)
+        super(MovieDialog, self).__init__(parent)
 
         # Layout
         mainLayout = QtGui.QVBoxLayout()
