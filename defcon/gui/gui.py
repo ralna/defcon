@@ -397,7 +397,7 @@ class PlotConstructor():
             # Try to compute the stability
             try:
                 stab = self.io.fetch_stability(xs, [branchid])[0]
-            except RuntimeError:
+            except (RuntimeError, KeyError):
                 stab = None
 
             if stab is not None:
