@@ -145,5 +145,5 @@ class StokesProblem(BifurcationProblem):
         pvd << u
 
 if __name__ == "__main__":
-    dc = DeflatedContinuation(problem=StokesProblem(), teamsize=2, verbose=True, clear_output=True)
+    dc = DeflatedContinuation(problem=StokesProblem(), teamsize=1, verbose=True, clear_output=True)
     dc.run(values={"f": [1.0]})
