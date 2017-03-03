@@ -100,16 +100,16 @@ Launch with mpiexec: mpiexec -n <number of processes> python %s
         problem_parameters = self.problem.parameters()
         assert len(problem_parameters) == len(values)
 
-        if freeparam is None:
-            assert len(values) == 1 or max([len(values[key]) for key in values]) == 1
-            freeparam = values.keys()[0]
-
         # Apply list to concretely instantiate the values
         for param in values:
             if isinstance(values[param], (float, int)):
                 values[param] = [values[param]]
             else:
                 values[param] = list(values[param])
+
+        if freeparam is None:
+            assert len(values) == 1 or max([len(values[key]) for key in values]) == 1
+            freeparam = values.keys()[0]
 
         parameters = Parameters(problem_parameters, values)
 
