@@ -21,8 +21,8 @@ def main(args):
     if len(args) != 3:
         usage(args[0] if len(args) > 0 else "defcon recompute-known-branches")
 
-    probpath = sys.argv[1]
-    outputdir = sys.argv[2]
+    probpath = args[1]
+    outputdir = args[2]
 
     problem = fetch_bifurcation_problem(probpath)
     if problem is None:
@@ -30,7 +30,7 @@ def main(args):
 
     io = problem.io(outputdir)
 
-    if not isinstance(io, BranchIO):
+    if not isinstance(io, defcon.branchio.BranchIO):
         print "Only relevant for BranchIO."
         return 1
 
