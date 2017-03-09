@@ -1,6 +1,7 @@
-from __future__ import absolute_import
-
 # -*- coding: utf-8 -*-
+from __future__ import absolute_import
+from __future__ import print_function
+
 import defcon.backend as backend
 from defcon import iomodule
 from defcon import branchio
@@ -420,4 +421,12 @@ class BifurcationProblem(object):
         task.taskid + 2, ...
         """
 
-        return []
+    def postprocess(self, solution, params, branchid):
+        """
+        This hook is experimental. Its interface might change.
+
+        When the 'Postprocess' button in the GUI is called, it
+        executes this code.
+        """
+
+        print("To customise postprocessing, override the BifurcationProblem.postprocess method.")

@@ -243,7 +243,7 @@ class ApplicationWindow(QtGui.QMainWindow):
         infoBox = QtGui.QVBoxLayout()
         infoBox.setContentsMargins(0, 10, 0, 10)
         rVBox.addLayout(infoBox)
-        plotBox = QtGui.QHBoxLayout()
+        plotBox = QtGui.QVBoxLayout()
         rVBox.addLayout(plotBox)
         plotBox.setAlignment(QtCore.Qt.AlignTop | QtCore.Qt.AlignCenter)
         self.teamBox = QtGui.QVBoxLayout()
@@ -304,11 +304,18 @@ class ApplicationWindow(QtGui.QMainWindow):
 
         # Plot Buttons
         self.buttonPlot = QtGui.QPushButton("Plot")
-        self.buttonPlot.clicked.connect(lambda:self.plot())
+        self.buttonPlot.clicked.connect(self.plot)
         self.buttonPlot.setEnabled(False)
         self.buttonPlot.setToolTip("Plot currently selected solution")
-        self.buttonPlot.setFixedWidth(80)
+        self.buttonPlot.setFixedWidth(120)
         plotBox.addWidget(self.buttonPlot)
+
+        self.buttonPostProcess = QtGui.QPushButton("Postprocess")
+        self.buttonPostProcess.clicked.connect(self.postprocess)
+        self.buttonPostProcess.setEnabled(False)
+        self.buttonPostProcess.setToolTip("Execute user-specified postprocessing")
+        self.buttonPostProcess.setFixedWidth(120)
+        plotBox.addWidget(self.buttonPostProcess)
 
         # Radio buttons
         label = QtGui.QLabel("Functionals:")
@@ -422,8 +429,10 @@ class ApplicationWindow(QtGui.QMainWindow):
         annotated = self.pc.annotate(event.xdata, event.ydata)
         if annotated:
             self.buttonPlot.setEnabled(True)
-        else:     
+            self.buttonPostProcess.setEnabled(True)
+        else:
             self.buttonPlot.setEnabled(False)
+            self.buttonPostProcess.setEnabled(False)
 
     def start(self):
         """ Set Time=0. """
@@ -454,6 +463,10 @@ class ApplicationWindow(QtGui.QMainWindow):
     def plot(self):
         """ Launch Matplotlib/Paraview to graph the selected solution. """
         self.pc.plot()
+
+    def postprocess(self):
+        """ Do whatever postprocessing the user asks. """
+        self.pc.postprocess()
 
     def set_elapsed_time(self, elapsed):
         """ Gets the amount of time that has elapsed since defcon started running. """

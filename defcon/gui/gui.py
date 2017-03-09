@@ -47,7 +47,7 @@ except Exception:
 ### Utility Class ###
 #####################
 class PlotConstructor():
-    """ Class for handling everything to do with the bifuraction diagram plot. """
+    """ Class for handling everything to do with the bifurcation diagram plot. """
 
     def __init__(self, journal_path, solutions_dir, xscale, problem, io, plot_with_mpl, V):
         self.xscale = xscale
@@ -417,6 +417,14 @@ class PlotConstructor():
         self.aw.set_output_box("")
         self.changed = True
         return False
+
+    def postprocess(self):
+        """ Fetch a solution and call the user-specified postprocessing routine. """
+        if self.annotated_point is not None:
+            (params, branchid) = self.annotated_point
+            y = self.io.fetch_solutions(params, [branchid])[0]
+
+            self.problem.postprocess(y, params, branchid)
 
     def plot(self):
         """ Fetch a solution and plot it. If the solutions are 1D we use matplotlib, otherwise we use paraview. """
