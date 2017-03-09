@@ -38,7 +38,10 @@ def fetch_bifurcation_problem(path):
         prob = imp.load_source("prob", probpath)
     except Exception:
         print("Was not able to import '%s'" % probpath)
-        print("Please, provide correct problem path!")
+        print("Please provide correct problem path!")
+        print("")
+        print("Backtrace follows:")
+        import traceback; traceback.print_exc()
         return None
 
     # Run through each class we've imported and figure out which one inherits from BifurcationProblem

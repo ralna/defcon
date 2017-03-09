@@ -424,7 +424,7 @@ class PlotConstructor():
             (params, branchid) = self.annotated_point
             y = self.io.fetch_solutions(params, [branchid])[0]
 
-            self.problem.postprocess(y, params, branchid)
+            self.problem.postprocess(y, params, branchid, self.aw)
 
     def plot(self):
         """ Fetch a solution and plot it. If the solutions are 1D we use matplotlib, otherwise we use paraview. """

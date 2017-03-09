@@ -421,12 +421,16 @@ class BifurcationProblem(object):
         task.taskid + 2, ...
         """
 
-    def postprocess(self, solution, params, branchid):
+        return []
+
+    def postprocess(self, solution, params, branchid, window):
         """
         This hook is experimental. Its interface might change.
 
         When the 'Postprocess' button in the GUI is called, it
         executes this code.
+
+        window is the QtGui.QMainWindow object representing the GUI.
         """
 
         print("To customise postprocessing, override the BifurcationProblem.postprocess method.")
