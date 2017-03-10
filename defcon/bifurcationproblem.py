@@ -434,3 +434,20 @@ class BifurcationProblem(object):
         """
 
         print("To customise postprocessing, override the BifurcationProblem.postprocess method.")
+
+    def continuation_filter(self, params, branchid, functionals, io):
+        """
+        In multiparameter continuation, we may not want to use all the branches
+        we found in run #1 (along an initial parameter) for run #2 (along a different
+        parameter).
+
+        In this case, override this method and return False if you *don't* want to
+        use a particular solution.
+
+        For efficiency, it would be better to only use the functionals already computed;
+        but if this isn't possible, you can use the io object to read the solution from
+        disk. This is a bad idea, though, as this only gets executed on the master
+        process (on one core).
+        """
+
+        return True

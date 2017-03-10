@@ -83,7 +83,9 @@ class DefconMaster(DefconThread):
             self.log("Using %d known solutions at %s" % (nguesses, initialparams,))
 
             for branch in knownbranches:
-                self.insert_continuation_task(initialparams, freeindex, branch, priority=float("-inf"))
+                functionals = self.io.fetch_functionals([initialparams], branch)[0]
+                if self.problem.continuation_filter(initialparams, branch, functionals, self.io):
+                    self.insert_continuation_task(initialparams, freeindex, branch, priority=float("-inf"))
         else:
             self.log("Using user-supplied initial guesses at %s" % (initialparams,))
             oldparams = None
