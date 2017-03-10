@@ -75,7 +75,7 @@ Then you can navigate to defcon demos and run them
     cd ~/local/share/defcon/examples/elastica/
     mpirun -n 2 python elastica.py
 
-# Defcon graphical user interface in Docker containers on Linux
+### Defcon graphical user interface in Docker containers on Linux
 
 To use defcon GUI, slightly more complicated procedure is needed. First one
 needs to allow a docker container to connect to host's X11 system
