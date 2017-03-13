@@ -85,6 +85,7 @@ class BranchIO(iomodule.SolutionIO):
         tmpname = self.temp_solution_filename(branchid)
 
         # I can't believe I have to do this to get filesystem synchronisation right.
+        # FIXME: Let's write here a reason why this is done...
         if self.pcomm.rank == 0:
             if os.path.exists(fname):
                 mode = "a"
@@ -95,14 +96,38 @@ class BranchIO(iomodule.SolutionIO):
         else:
             mode = self.mcomm.bcast(None)
 
-        with HDF5File(comm=self.pcomm, filename=tmpname, file_mode=mode) as f:
-            if self.pcomm.size > 1:
-                f.set_mpi_atomicity(True)
-            f.write(solution, key + "/solution")
+        # Try opening the file several times; may fail if accessed by other team
+        # or due to race conditions in flock/fcntl implementation
+        for i in xrange(1000):
+            try:
+                f = HDF5File(comm=self.pcomm, filename=tmpname, file_mode=mode)
+            except (RuntimeError, AssertionError):
+                if i % 10 == 0:
+                    self.log("Could not open %s mode %s; backtrace and exception follows"
+                             % (tmpname, mode), warning=True)
+                    traceback.print_stack()
+                    traceback.print_exc()
+                time.sleep(0.1)
+            else:
+                break
+        else:
+            self.log("Failed a great many times. Raising exception.", warning=True)
+            raise
 
-            attrs = f.attributes(key)
-            for (func, value) in zip(self.functionals, funcs):
-                attrs[func[1]] = value
+        # Enforce sequential consistency
+        # TODO: What is it useful for? Is it assumed that other team is trying to
+        #       read from the file at the same time? That's probably not possible!
+        if self.pcomm.size > 1:
+            f.set_mpi_atomicity(True)
+
+        # Write the solution and functionals
+        f.write(solution, key + "/solution")
+        attrs = f.attributes(key)
+        for (func, value) in zip(self.functionals, funcs):
+            attrs[func[1]] = value
+
+        # Close the file and wait until everybody is done
+        f.close()
         self.pcomm.Barrier()
 
         # Trick from Lawrence Mitchell: POSIX guarantees that mv is atomic
@@ -112,6 +137,8 @@ class BranchIO(iomodule.SolutionIO):
             # Belt-and-braces: sleep until the path exists
             while not os.path.exists(fname):
                 time.sleep(0.1)
+
+        # Wait for mv to finish before returning
         self.pcomm.Barrier()
 
         return
