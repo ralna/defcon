@@ -60,7 +60,7 @@ for *editable* installe into user directory (typically `~/.local`).
 
 ## Using in FEniCS Docker containers
 
-FEniCS Docker containers indtroduce a convenient way of distributing FEniCS on
+FEniCS Docker containers introduce a convenient way of distributing FEniCS on
 many platforms, see
 http://fenics-containers.readthedocs.io/en/latest/index.html.
 To use defcon in a FEniCS docker container, simply fire up a container with
@@ -75,7 +75,7 @@ Then you can navigate to defcon demos and run them
     cd ~/local/share/defcon/examples/elastica/
     mpirun -n 2 python elastica.py
 
-### Defcon graphical user interface in Docker containers on Linux
+## Defcon graphical user interface in Docker containers on Linux
 
 To use defcon GUI, slightly more complicated procedure is needed. First one
 needs to allow a docker container to connect to host's X11 system
@@ -87,7 +87,7 @@ needs to allow a docker container to connect to host's X11 system
 the container one needs to install PyQt4 or PySide. The most convenient is
 
     sudo apt update
-    sudo apt install python-pyside
+    sudo apt install python-qt4
 
 After installing h5py and defcon as described above, one can run the gui
 and start a defcon application by
@@ -99,6 +99,11 @@ and start a defcon application by
 Following fixup might be needed before starting defcon gui
 
     export QT_GRAPHICSSYSTEM=native
+
+Note that only aspects of FEniCS docker containers related directly to defcon
+were showed. To setup a practical workflow (allowing preservation of JIT cache,
+etc.), user is advised to go through FEniCS Docker manual, see
+http://fenics-containers.readthedocs.io/en/latest/index.html.
 
 ## Troubleshooting
 
