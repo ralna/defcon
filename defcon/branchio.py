@@ -84,8 +84,8 @@ class BranchIO(iomodule.SolutionIO):
         fname = self.solution_filename(branchid)
         tmpname = self.temp_solution_filename(branchid)
 
-        # I can't believe I have to do this to get filesystem synchronisation right.
-        # FIXME: Let's write here a reason why this is done...
+        # Move the file away for a file so that other teams are not able
+        # to read it while in undefined state
         if self.pcomm.rank == 0:
             if os.path.exists(fname):
                 mode = "a"
@@ -117,6 +117,8 @@ class BranchIO(iomodule.SolutionIO):
         # Enforce sequential consistency
         # TODO: What is it useful for? Is it assumed that other team is trying to
         #       read from the file at the same time? That's probably not possible!
+        #       HDF5 doc claims that high-level sequential consistency is possible
+        #       without costly MPI-consistency, just with barrier after close
         if self.pcomm.size > 1:
             f.set_mpi_atomicity(True)
 
@@ -130,11 +132,12 @@ class BranchIO(iomodule.SolutionIO):
         f.close()
         self.pcomm.Barrier()
 
-        # Trick from Lawrence Mitchell: POSIX guarantees that mv is atomic
+        # Move the file back for reading by others; this is atomic on POSIX
         if self.pcomm.rank == 0:
             os.rename(tmpname, fname)
 
             # Belt-and-braces: sleep until the path exists
+            # TODO: Do we need it?
             while not os.path.exists(fname):
                 time.sleep(0.1)
 
