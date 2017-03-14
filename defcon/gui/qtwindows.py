@@ -3,26 +3,45 @@ from __future__ import print_function
 
 import matplotlib
 
+# Argh. What a mess QT + Python is!
+# There are three different Python libraries. Let's
+# try them in sequence.
+qtmodules = ["PyQt4", "PyQT5", "PySide"]
+mplbackends = dict(PyQt4="Qt4Agg", PyQt5="Qt5Agg", PySide="Qt4Agg")
+
+for qtmodule in qtmodules:
+    try:
+        __import__(qtmodule)
+        matplotlib.use(mplbackends[qtmodule])
+        print("\nUsing QT module %s" % qtmodule)
+        break
+    except:
+        pass
+else:
+    raise ImportError("Could not find any of %s" % qtmodules)
+
 # QT compatibility for matplotlib.
 from matplotlib.backends import qt_compat
-use_pyside = qt_compat.QT_API == qt_compat.QT_API_PYSIDE
-if use_pyside:
+
+# Decide which version of QT to use. What a mess!
+if qt_compat.QT_API == qt_compat.QT_API_PYSIDE:
     from PySide import QtGui, QtCore
     from PySide import QtGui as QtGuiVersionWorkaround
     from matplotlib.backends.backend_qt4agg import FigureCanvasQTAgg as FigureCanvas
     from matplotlib.backends.backend_qt4agg import NavigationToolbar2QT
+elif qt_compat.QT_API in [qt_compat.QT_API_PYQT, qt_compat.QT_API_PYQTv2]:
+    from PyQt4 import QtGui, QtCore
+    from PyQt4 import QtGui as QtGuiVersionWorkaround
+    from matplotlib.backends.backend_qt4agg import FigureCanvasQTAgg as FigureCanvas
+    from matplotlib.backends.backend_qt4agg import NavigationToolbar2QT
+elif qt_compat.QT_API == qt_compat.QT_API_PYQT5:
+    from PyQt5 import QtCore
+    from PyQt5 import QtWidgets as QtGui # This could get really confusing for future development
+    from PyQt5 import QtGui as QtGuiVersionWorkaround
+    from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
+    from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT
 else:
-    try:
-        from PyQt4 import QtGui, QtCore
-        from PyQt4 import QtGui as QtGuiVersionWorkaround
-        from matplotlib.backends.backend_qt4agg import FigureCanvasQTAgg as FigureCanvas
-        from matplotlib.backends.backend_qt4agg import NavigationToolbar2QT
-    except ImportError:
-        from PyQt5 import QtCore
-        from PyQt5 import QtWidgets as QtGui # This could get really confusing for future development
-        from PyQt5 import QtGui as QtGuiVersionWorkaround
-        from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
-        from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT
+    raise ImportError("Unknown matplotlib QT API type: %s" % qt_compat.QT_API)
 
 # Styles for matplotlib.
 # See matpoltlib.styles.available for options.
