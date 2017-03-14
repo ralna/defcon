@@ -5,7 +5,7 @@ import matplotlib
 
 # Argh. What a mess QT + Python is!
 # There are three different Python libraries. Let's
-# try them in sequence.
+# try them in order of priority.
 qtmodules = ["PyQt4", "PyQT5", "PySide"]
 mplbackends = dict(PyQt4="Qt4Agg", PyQt5="Qt5Agg", PySide="Qt4Agg")
 
@@ -226,7 +226,7 @@ class MovieDialog(QtGui.QDialog):
         layout = QtGui.QHBoxLayout()
         button = QtGui.QPushButton("Enter")
         button.setFixedWidth(80)
-        self.connect(button, QtCore.SIGNAL("clicked()"), self.close)
+        button.clicked.connect(self.close)
         layout.addWidget(button)
 
         mainLayout.addLayout(layout)
