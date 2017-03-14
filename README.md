@@ -12,8 +12,11 @@ depends.
 The algorithm that defcon implements has two main advantages over the
 previous state of the art:
 
-* Defcon can compute disconnected bifurcation diagrams as well as connected ones.
-* Defcon scales to massive discretisations of PDEs if a scalable preconditioner is available.
+* Defcon can compute disconnected bifurcation diagrams as well as connected
+  ones.
+* The algorithm can scale to massive discretisations of PDEs if a scalable
+  preconditioner is available (although we have not pushed in this direction
+  this yet).
 
 For a full description of the algorithm, see
 
@@ -21,8 +24,9 @@ http://arxiv.org/abs/1603.00809
 
 ## Dependencies
 
-The easiest way to run defcon is inside the docker images supplied by the FEniCS project
-(http://fenicsproject.org/download); all dependencies are installed there.
+The easiest way to run defcon is inside the docker images supplied by the FEniCS
+project (http://fenicsproject.org/download); all dependencies are installed
+there. This is described in more detail below.
 
 If you're compiling things yourself, defcon depends on
 
@@ -39,14 +43,14 @@ Defcon recommends (and some of the examples depend on)
 
 ## Current status
 
-Defcon's serial capabilities are reasonably well tested. Its parallel features are
-experimental.
+Defcon's serial capabilities are reasonably well tested. Its parallel features
+are experimental.
 
 ## Code Examples
 
-The easiest way to learn how to use it is to examine the examples
-in `examples/`. Start with `examples/elastica`, and compare to the Euler
-elastica section of the paper cited above.
+The easiest way to learn how to use it is to examine the examples in
+`examples/`. Start with `examples/elastica`, and compare to the Euler elastica
+section of the manuscript cited above.
 
 ## Installation
 
@@ -62,10 +66,12 @@ for *editable* installe into user directory (typically `~/.local`).
 
 FEniCS Docker containers introduce a convenient way of distributing FEniCS on
 many platforms, see
-http://fenics-containers.readthedocs.io/en/latest/index.html.
+
+http://fenics-containers.readthedocs.io/en/latest/index.html .
+
 To use defcon in a FEniCS docker container, simply fire up a container with
-development version of FEniCS, e.g. using `fenicsproject run dev`, and in
-the container type
+development version of FEniCS, e.g. using `fenicsproject run dev`, and in the
+container type
 
     pip2 install --user h5py
     pip2 install --prefix=$FENICS_PREFIX https://bitbucket.org/pefarrell/defcon/get/master.tar.gz
@@ -77,8 +83,8 @@ Then you can navigate to defcon demos and run them
 
 ## Defcon graphical user interface in Docker containers on Linux
 
-To use defcon GUI, slightly more complicated procedure is needed. First one
-needs to allow a docker container to connect to host's X11 system
+To use the defcon GUI, a slightly more complicated procedure is needed. First
+one needs to allow a docker container to connect to host's X11 system
 
     xhost +
     docker run -ti -e DISPLAY=$DISPLAY -v /tmp/.X11-unix:/tmp/.X11-unix quay.io/fenicsproject/dev
@@ -87,28 +93,30 @@ needs to allow a docker container to connect to host's X11 system
 the container one needs to install PyQt4 or PySide. The most convenient is
 
     sudo apt update
-    sudo apt install python-qt4
+    sudo apt install -y python-qt4
 
-After installing h5py and defcon as described above, one can run the gui
-and start a defcon application by
+After installing h5py and defcon as described above, one can run the gui and
+start a defcon application by
 
     cd ~/local/share/defcon/examples/elastica/
     defcon gui &
     mpirun -n 2 python elastica.py
 
-Following fixup might be needed before starting defcon gui
+The following variable might be needed before starting defcon gui
 
     export QT_GRAPHICSSYSTEM=native
 
-Note that only aspects of FEniCS docker containers related directly to defcon
-were showed. To setup a practical workflow (allowing preservation of JIT cache,
+Note that only aspects of FEniCS docker containers directly related to defcon
+were shown. To setup a practical workflow (allowing preservation of JIT cache,
 etc.), user is advised to go through FEniCS Docker manual, see
-http://fenics-containers.readthedocs.io/en/latest/index.html.
+
+http://fenics-containers.readthedocs.io/en/latest/index.html .
 
 ## Troubleshooting
 
 * Make sure all `Expressions` and `CompiledSubDomains` take in the `mpi_comm` argument
-  (see e.g. `examples/navier-stokes`).
+  (see e.g. `examples/navier-stokes`). This is the most common cause of silent
+  deadlocks.
 
 ## Contributors
 
