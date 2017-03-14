@@ -70,6 +70,7 @@ for *editable* installe into user directory (typically `~/.local`).
 * Robert C. Kirby <robert_kirby@baylor.edu>
 * Jan Blechta <blechta@karlin.mff.cuni.cz>
 * Matteo Croci <croci@maths.ox.ac.uk>
+* Nate Sime <njcs4@cam.ac.uk>
 
 ## License
 
