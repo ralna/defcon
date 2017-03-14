@@ -1,13 +1,28 @@
 from __future__ import absolute_import
+from __future__ import print_function
 
 import matplotlib
-matplotlib.use("Qt4Agg")
 
 # QT compatibility for matplotlib.
 from matplotlib.backends import qt_compat
 use_pyside = qt_compat.QT_API == qt_compat.QT_API_PYSIDE
-if use_pyside: from PySide import QtGui, QtCore
-else: from PyQt4 import QtGui, QtCore
+if use_pyside:
+    from PySide import QtGui, QtCore
+    from PySide import QtGui as QtGuiVersionWorkaround
+    from matplotlib.backends.backend_qt4agg import FigureCanvasQTAgg as FigureCanvas
+    from matplotlib.backends.backend_qt4agg import NavigationToolbar2QT
+else:
+    try:
+        from PyQt4 import QtGui, QtCore
+        from PyQt4 import QtGui as QtGuiVersionWorkaround
+        from matplotlib.backends.backend_qt4agg import FigureCanvasQTAgg as FigureCanvas
+        from matplotlib.backends.backend_qt4agg import NavigationToolbar2QT
+    except ImportError:
+        from PyQt5 import QtCore
+        from PyQt5 import QtWidgets as QtGui # This could get really confusing for future development
+        from PyQt5 import QtGui as QtGuiVersionWorkaround
+        from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
+        from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT
 
 # Styles for matplotlib.
 # See matpoltlib.styles.available for options.
@@ -19,8 +34,6 @@ except AttributeError:
     pass
 
 # For plotting the bifurcation diagram.
-from matplotlib.backends.backend_qt4agg import FigureCanvasQTAgg as FigureCanvas
-from matplotlib.backends.backend_qt4agg import NavigationToolbar2QT
 from matplotlib.figure import Figure
 
 from datetime import timedelta
@@ -69,7 +82,7 @@ def teamtext(job, params, branchid):
 
 def issuewarning(text):
     """ Prints a red warning message to the console. """
-    print "\033[91m[Warning] %s\033[00m\n" % text
+    print("\033[91m[Warning] %s\033[00m\n"%text)
 
 ################################
 ### Custom matplotlib Figure ###
@@ -111,10 +124,10 @@ class CustomToolbar(NavigationToolbar2QT):
         self.working_dir = working_dir
 
         # Add new buttons for saving movies and saving to tikz. 
-        self.buttonSaveMovie = self.addAction(QtGui.QIcon(resources_dir + "save_movie.png"), "Save Movie", self.save_movie)
+        self.buttonSaveMovie = self.addAction(QtGuiVersionWorkaround.QIcon(resources_dir + "save_movie.png"), "Save Movie", self.save_movie)
         self.buttonSaveMovie.setToolTip("Save the figure as an animation")
 
-        self.buttonSaveTikz= self.addAction(QtGui.QIcon(resources_dir + "save_tikz.png"), "Save Tikz", self.save_tikz)
+        self.buttonSaveTikz= self.addAction(QtGuiVersionWorkaround.QIcon(resources_dir + "save_tikz.png"), "Save Tikz", self.save_tikz)
         self.buttonSaveTikz.setToolTip("Save the figure as tikz")
 
     def save_movie(self):
@@ -262,7 +275,7 @@ class ApplicationWindow(QtGui.QMainWindow):
 
         # Time navigation buttons
         self.buttonStart = QtGui.QPushButton()
-        self.buttonStart.setIcon(QtGui.QIcon(resources_dir+'start.png'))
+        self.buttonStart.setIcon(QtGuiVersionWorkaround.QIcon(resources_dir+'start.png'))
         self.buttonStart.setIconSize(QtCore.QSize(18,18))
         self.buttonStart.clicked.connect(lambda:self.start())
         self.buttonStart.setFixedWidth(30)
@@ -270,7 +283,7 @@ class ApplicationWindow(QtGui.QMainWindow):
         timeBox.addWidget(self.buttonStart)
 
         self.buttonBack = QtGui.QPushButton()
-        self.buttonBack.setIcon(QtGui.QIcon(resources_dir+'back.png'))
+        self.buttonBack.setIcon(QtGuiVersionWorkaround.QIcon(resources_dir+'back.png'))
         self.buttonBack.setIconSize(QtCore.QSize(18,18))
         self.buttonBack.clicked.connect(lambda:self.back())
         self.buttonBack.setFixedWidth(30)
@@ -280,14 +293,14 @@ class ApplicationWindow(QtGui.QMainWindow):
         self.jumpInput = QtGui.QLineEdit()
         self.jumpInput.setText(str(self.time))
         self.jumpInput.setFixedWidth(40)
-        self.inputValidator = QtGui.QIntValidator(self)
+        self.inputValidator = QtGuiVersionWorkaround.QIntValidator(self)
         self.inputValidator.setRange(0, self.maxtime)
         self.jumpInput.setValidator(self.inputValidator)
         self.jumpInput.returnPressed.connect(self.jump)
         timeBox.addWidget(self.jumpInput)
 
         self.buttonForward = QtGui.QPushButton()
-        self.buttonForward.setIcon(QtGui.QIcon(resources_dir+'forward.png'))
+        self.buttonForward.setIcon(QtGuiVersionWorkaround.QIcon(resources_dir+'forward.png'))
         self.buttonForward.setIconSize(QtCore.QSize(18,18))
         self.buttonForward.clicked.connect(lambda:self.forward())
         self.buttonForward.setToolTip("Forward")
@@ -295,7 +308,7 @@ class ApplicationWindow(QtGui.QMainWindow):
         timeBox.addWidget(self.buttonForward)
 
         self.buttonEnd = QtGui.QPushButton()
-        self.buttonEnd.setIcon(QtGui.QIcon(resources_dir+'end.png'))
+        self.buttonEnd.setIcon(QtGuiVersionWorkaround.QIcon(resources_dir+'end.png'))
         self.buttonEnd.setIconSize(QtCore.QSize(18,18))
         self.buttonEnd.clicked.connect(lambda:self.end())
         self.buttonEnd.setToolTip("End")
@@ -328,7 +341,7 @@ class ApplicationWindow(QtGui.QMainWindow):
         self.infobox.setFixedHeight(250)
         self.infobox.setFixedWidth(250)
         self.infobox.setAlignment(QtCore.Qt.AlignTop)
-        font = QtGui.QFont()
+        font = QtGuiVersionWorkaround.QFont()
         font.setPointSize(17)
         font.setBold(True)
         font.setWeight(75)
