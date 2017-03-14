@@ -6,7 +6,7 @@ import matplotlib
 # Argh. What a mess QT + Python is!
 # There are three different Python libraries. Let's
 # try them in order of priority.
-qtmodules = ["PyQt4", "PyQT5", "PySide"]
+qtmodules = ["PyQt4", "PyQt5", "PySide"]
 mplbackends = dict(PyQt4="Qt4Agg", PyQt5="Qt5Agg", PySide="Qt4Agg")
 
 for qtmodule in qtmodules:
