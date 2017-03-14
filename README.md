@@ -60,7 +60,7 @@ or
 
     pip install --user -e .
 
-for *editable* installe into user directory (typically `~/.local`).
+for *editable* installs into the user directory (typically `~/.local`).
 
 ## Using in FEniCS Docker containers
 
@@ -99,16 +99,13 @@ After installing h5py and defcon as described above, one can run the gui and
 start a defcon application by
 
     cd ~/local/share/defcon/examples/elastica/
+    export QT_GRAPHICSSYSTEM=native
     defcon gui &
     mpirun -n 2 python elastica.py
 
-The following variable might be needed before starting defcon gui
-
-    export QT_GRAPHICSSYSTEM=native
-
 Note that only aspects of FEniCS docker containers directly related to defcon
-were shown. To setup a practical workflow (allowing preservation of JIT cache,
-etc.), user is advised to go through FEniCS Docker manual, see
+have been shown. To setup a practical workflow (allowing preservation of JIT
+cache, etc.), we recommend the FEniCS Docker manual, see
 
 http://fenics-containers.readthedocs.io/en/latest/index.html .
 
