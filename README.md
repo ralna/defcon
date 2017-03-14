@@ -90,22 +90,23 @@ one needs to allow a docker container to connect to host's X11 system
     docker run -ti -e DISPLAY=$DISPLAY -v /tmp/.X11-unix:/tmp/.X11-unix quay.io/fenicsproject/dev
 
 (Don't forget to run `xhost -` when finished with the container.) Then in
-the container one needs to install PyQt4 or PySide. The most convenient is
+the container one needs to install one of PyQt5, PyQt4, or PySide.
+The most convenient is
 
     sudo apt update
-    sudo apt install -y python-qt4
+    sudo apt install -y python-pyqt5
 
 After installing h5py and defcon as described above, one can run the gui and
 start a defcon application by
 
     cd ~/local/share/defcon/examples/elastica/
-    export QT_GRAPHICSSYSTEM=native
+    export QT_GRAPHICSSYSTEM=native # may not be necessary on all systems
     defcon gui &
     mpirun -n 2 python elastica.py
 
 Note that only aspects of FEniCS docker containers directly related to defcon
 have been shown. To setup a practical workflow (allowing preservation of JIT
-cache, etc.), we recommend the FEniCS Docker manual, see
+cache, etc.), we recommend the FEniCS Docker manual, at
 
 http://fenics-containers.readthedocs.io/en/latest/index.html .
 
@@ -117,11 +118,12 @@ http://fenics-containers.readthedocs.io/en/latest/index.html .
 
 ## Contributors
 
-* P. E. Farrell <patrick.farrell@maths.ox.ac.uk>
-* J. Pollard <j.pollard@protonmail.com>
+* Patrick E. Farrell <patrick.farrell@maths.ox.ac.uk>
+* Joe Pollard <j.pollard@protonmail.com>
 * Robert C. Kirby <robert_kirby@baylor.edu>
 * Jan Blechta <blechta@karlin.mff.cuni.cz>
 * Matteo Croci <croci@maths.ox.ac.uk>
+* Nate J. C. Sime <njcs4@cam.ac.uk>
 
 ## License
 

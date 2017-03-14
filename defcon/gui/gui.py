@@ -1,12 +1,12 @@
 #!/usr/bin/env python
 from __future__ import absolute_import
+from __future__ import print_function
 
 # Urgh. We need this to ignore matplotlibs warnings.
 import warnings
 warnings.filterwarnings("ignore", module="matplotlib")
 
 import matplotlib
-matplotlib.use("Qt4Agg")
 
 # Get the window and figure code.
 # NOTE: The figure, colours and markers, and a couple of utility functions will be imported from here.
@@ -139,9 +139,8 @@ class PlotConstructor():
             except StopIteration: return
 
         # Let's output a log of how we're doing, so the user can see that something is in fact being done.
-        if i % 50 == 0: print "Completed %d/%d frames" % (i, self.frames)
+        if i % 50 == 0: print("Completed %d/%d frames" % (i, self.frames))
         return
-
 
     ## Controls for moving backwards and forwards in the diagram, or otherwise manipulating it. ##
     def pause(self):
@@ -443,7 +442,7 @@ class PlotConstructor():
                     plt.show(False) # False here means the window is non-blocking, so we may continue using the GUI while the plot shows.
                 except RuntimeError, e:
                     issuewarning("Error plotting expression. Are your solutions numbers rather than functions? If so, this is why I failed. The error was:")
-                    print str(e)
+                    print(str(e))
                     pass
             else:
                 # Make a directory to put solutions in, if it doesn't exist.
@@ -461,9 +460,9 @@ class PlotConstructor():
                 # Finally, launch paraview with the newly created file.
                 # If this fails, issue a warning.
                 try: Popen(["paraview", pvd_filename])
-                except Exception, e:
+                except Exception as e:
                     issuewarning("Oops, something went wrong with launching paraview. Are you sure you have it installed and on your PATH? The error was:")
-                    print str(e)
+                    print(str(e))
 
     ## Functions for saving to disk ##
     def save_movie(self, filename, length, fps):
@@ -502,16 +501,16 @@ class PlotConstructor():
         self.dots_per_frame = int(ceil(float(self.maxtime) / self.frames))
 
         # Create and save the animation.
-        print "Saving movie. This may take a while..."
+        print("Saving movie. This may take a while...")
         try:
             self.anim = animation.FuncAnimation(self.anim_fig, self.animate, frames=self.frames, interval=1)
             mywriter = animation.FFMpegWriter(fps=fps, bitrate=5000)
             self.anim.save(filename, fps=fps, dpi=200, bitrate=5000, writer=mywriter, extra_args=['-vcodec', 'libx264'])
-            print "Movie saved."
+            print("Movie saved.")
             return
         except Exception, e:
             issuewarning("Saving movie failed. Perhaps you don't have ffmpeg installed? Anyway, the error was:")
-            print str(e)
+            print(str(e))
             return
 
     def save_tikz(self, filename):
@@ -637,7 +636,7 @@ def main(argv):
     aw = ApplicationWindow(pc, update_interval, resources_dir, working_dir)
     pc.set_app_win(aw)
     aw.setWindowTitle("DEFCON")
-    aw.setWindowIcon(QtGui.QIcon(resources_dir + 'defcon_icon.png'))
+    aw.setWindowIcon(QtGuiVersionWorkaround.QIcon(resources_dir + 'defcon_icon.png'))
     aw.show()
     return(qApp.exec_())
 
