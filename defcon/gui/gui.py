@@ -380,22 +380,26 @@ class PlotConstructor():
                  annotes.append((self.distance(x/xlen, clickX/xlen, y/ylen, clickY/ylen), x, y, branchid, xs, teamno, cont, time)) # uses rescaled distance.
              time += 1
 
-        if annotes:
-            annotes.sort()
+        if len(annotes) > 0:
+            annotes.sort() # sorts by first element automatically
             distance, x, y, branchid, xs, teamno, cont, time = annotes[0]
-
             if self.annotated_point is not None:
                 self.unannotate()
 
             # Plot the annotation, and keep a handle on all the stuff we plot so we can use/remove it later.
             self.annotation_highlight = bfdiag.scatter([x], [y], s=[50], marker='o', color=HIGHLIGHT) # Note: change 's' to make the highlight blob bigger/smaller
-            self.annotated_point = (xs, branchid)
-            if cont: s = "continuation"
-            else: s = "deflation"
 
-            # Try to compute the stability
+            print("Normalised distances to click point: %s" % [annote[0]/annotes[0][0] for annote in annotes[:10]])
+            branchids = []
+            for annote in annotes:
+                if (annote[0]/annotes[0][0] < 1.05) and annote[1] == annotes[0][1]:
+                    branchids.append(annote[3])
+
+            self.annotated_point = (xs, branchids)
+
+            # Try to fetch the stability
             try:
-                stab = self.io.fetch_stability(xs, [branchid])[0]
+                stab = self.io.fetch_stability(xs, branchids)
             except (RuntimeError, KeyError):
                 stab = None
 
@@ -404,7 +408,7 @@ class PlotConstructor():
             else:
                 stabstr = ""
 
-            self.aw.set_output_box("Solution on branch: %d\nfound by team: %d\nvia: %s\n%s\nas event: #%d\n\nx = %s\ny = %s" % (branchid, teamno, s, stabstr, time, x, y))
+            self.aw.set_output_box("branches:  %s\n%s\nevent: #%d\n\nx = %s\ny = %s" % (branchids, stabstr, time, x, y))
             self.changed = True
         return self.changed
 
@@ -420,26 +424,28 @@ class PlotConstructor():
     def postprocess(self):
         """ Fetch a solution and call the user-specified postprocessing routine. """
         if self.annotated_point is not None:
-            (params, branchid) = self.annotated_point
-            y = self.io.fetch_solutions(params, [branchid])[0]
+            (params, branchids) = self.annotated_point
+            ys = self.io.fetch_solutions(params, branchids)
 
-            self.problem.postprocess(y, params, branchid, self.aw)
+            for (y, branchid) in zip(ys, branchids):
+                self.problem.postprocess(y, params, branchid, self.aw)
 
     def plot(self):
         """ Fetch a solution and plot it. If the solutions are 1D we use matplotlib, otherwise we use paraview. """
         if self.annotated_point is not None:
             # Get the solution from the IO module.
-            params, branchid = self.annotated_point
-            y = self.io.fetch_solutions(params, [branchid])[0]
+            (params, branchids) = self.annotated_point
+            ys = self.io.fetch_solutions(params, branchids)
 
             if self.plot_with_mpl:
                 try:
                     x = backend.interpolate(backend.Expression("x[0]", degree=1), self.V)
                     # FIXME: For functions f other than CG1, we might need to sort both arrays so that x is increasing. Check this out!
-                    plt.plot(x.vector().array(), y.vector().array(), '-', linewidth=3, color='b')
-                    plt.title("branch %s, params %s" % (branchid, params))
-                    plt.axhline(0, color='k') # Plot a black line through the origin
-                    plt.show(False) # False here means the window is non-blocking, so we may continue using the GUI while the plot shows.
+                    for (y, branchid) in zip(ys, branchids):
+                        plt.plot(x.vector().array(), y.vector().array(), '-', linewidth=3, color='b')
+                        plt.title("branch %s, params %s" % (branchid, params))
+                        plt.axhline(0, color='k') # Plot a black line through the origin
+                        plt.show(False) # False here means the window is non-blocking, so we may continue using the GUI while the plot shows.
                 except RuntimeError, e:
                     issuewarning("Error plotting expression. Are your solutions numbers rather than functions? If so, this is why I failed. The error was:")
                     print(str(e))
@@ -450,12 +456,14 @@ class PlotConstructor():
                 except OSError: pass
 
                 # Create the file to which we will write these solutions.
-                pvd_filename = os.path.join(self.solutions_dir, "SOLUTION$%s$branchid=%d.pvd" \
-                    % (parameters_to_string(self.io.parameters, params), branchid))
+                pvd_filename = os.path.join(self.solutions_dir, "SOLUTION$params=%s$branchids=%s.pvd" \
+                    % (parameters_to_string(self.io.parameters, params), str(branchids).replace(" ", "_")))
                 pvd = backend.File(pvd_filename)
 
                 # Write the solution.
-                self.problem.save_pvd(y, pvd)
+                for y in ys:
+                    y.rename("Solution", "Solution")
+                    self.problem.save_pvd(y, pvd)
 
                 # Finally, launch paraview with the newly created file.
                 # If this fails, issue a warning.
