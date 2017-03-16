@@ -1,6 +1,7 @@
 from __future__ import absolute_import
 
 from mpi4py import MPI
+import six
 
 import sys
 
@@ -143,19 +144,19 @@ Launch with mpiexec: mpiexec -n <number of processes> python %s
         assert funcindex is not None
 
         # And find the free variable index -- the one that doesn't show up in fixed.
-        freeindices = range(len(parameters))
+        freeindices = list(range(len(parameters)))
         for (i, param) in enumerate(parameters):
             if param[1] in fixed:
                 freeindices.remove(i)
         assert len(freeindices) == 1
         freeindex = freeindices[0]
 
-        for branchid in range(io.max_branch() + 1):
+        for branchid in six.moves.xrange(io.max_branch() + 1):
             xs = []
             ys = []
             params = io.known_parameters(fixed, branchid)
             funcs = io.fetch_functionals(params, branchid)
-            for i in xrange(0, len(params)):
+            for i in six.moves.xrange(0, len(params)):
                 param = params[i]
                 func = funcs[i]
                 xs.append(param[freeindex])

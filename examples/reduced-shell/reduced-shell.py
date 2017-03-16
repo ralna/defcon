@@ -142,7 +142,7 @@ class ReducedNaghdi(BifurcationProblem):
         F = pc.getFactorMatrix()
         (neg, zero, pos) = F.getInertia()
 
-        print "Inertia: (%s, %s, %s)" % (neg, zero, pos)
+        print("Inertia: (%s, %s, %s)" % (neg, zero, pos))
 
         expected_dim = 0
 

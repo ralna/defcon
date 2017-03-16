@@ -171,7 +171,7 @@ class CustomToolbar(NavigationToolbar2QT):
             try:
                 self.pc.save_movie(fname, int(length), int(fps))
             # Handle any exceptions by printing a dialogue box
-            except Exception, e:
+            except Exception as e:
                 QtGui.QMessageBox.critical(self, "Error saving file", str(e), QtGui.QMessageBox.Ok, QtGui.QMessageBox.NoButton)
 
     def save_tikz(self):
@@ -188,7 +188,7 @@ class CustomToolbar(NavigationToolbar2QT):
 
             try:
                 self.pc.save_tikz(fname)
-            except Exception, e:
+            except Exception as e:
                 QtGui.QMessageBox.critical(self, "Error saving file", str(e), QtGui.QMessageBox.Ok, QtGui.QMessageBox.NoButton)
 
 

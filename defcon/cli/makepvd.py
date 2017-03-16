@@ -1,4 +1,4 @@
-from __future__ import absolute_import
+from __future__ import absolute_import, print_function
 
 import sys
 import os
@@ -45,10 +45,10 @@ def main(args):
     filename = os.path.join(outputdir, "viz", "values-%s.pvd" % (args[3],))
     pvd = backend.File(filename)
     branches = io.known_branches(values)
-    print "Known branches at %s: %s" % (values, branches)
+    print("Known branches at %s: %s" % (values, branches))
     solutions = io.fetch_solutions(values, branches)
     for solution in solutions:
         solution.rename("Solution", "Solution")
         problem.save_pvd(solution, pvd)
 
-    print "Wrote to " + filename
+    print("Wrote to " + filename)

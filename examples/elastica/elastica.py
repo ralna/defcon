@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
+from __future__ import print_function
+
 import sys
-from   math import floor
+from math import floor
 
 from defcon import *
 from dolfin import *
@@ -107,7 +109,7 @@ class ElasticaProblem(BifurcationProblem):
         F = pc.getFactorMatrix()
         (neg, zero, pos) = F.getInertia()
 
-        print "Inertia: (-: %s, 0: %s, +: %s)" % (neg, zero, pos)
+        print("Inertia: (-: %s, 0: %s, +: %s)" % (neg, zero, pos))
 
         expected_dim = 0
 

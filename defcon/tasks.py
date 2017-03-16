@@ -1,10 +1,15 @@
 from __future__ import absolute_import
 
+import functools
+
+@functools.total_ordering
 class Task(object):
     """
     A base class for Tasks.
     """
-    pass
+    def __le__(self, other):
+        """Comparison operator needed in heapq"""
+        return id(self) < id(other)
 
 class QuitTask(Task):
     """

@@ -1,4 +1,4 @@
-from __future__ import absolute_import
+from __future__ import absolute_import, print_function
 
 """
 A module that implements the I/O backend for deflated continuation.
@@ -153,7 +153,7 @@ class SolutionIO(IO):
             os.rename(tmp.name, self.dir(params) + "solution-%d.h5" % branchid)
         assert os.path.exists(self.dir(params) + "solution-%d.h5" % branchid)
 
-        f = file(self.dir(params) + "functional-%d.txt" % branchid, "w")
+        f = open(self.dir(params) + "functional-%d.txt" % branchid, "w")
         s = parameters_to_string(self.functionals, funcs).replace('@', '\n') + '\n'
         f.write(s)
 
@@ -170,10 +170,10 @@ class SolutionIO(IO):
                         f.flush()
                     break
                 except Exception:
-                    print "Loading file %s failed. Sleeping for a second and trying again." % filename
+                    print("Loading file %s failed. Sleeping for a second and trying again." % filename)
                     failcount += 1
                     if failcount == 10:
-                        print "Tried 10 times to load file %s. Raising exception." % filename
+                        print("Tried 10 times to load file %s. Raising exception." % filename)
                         raise
                     time.sleep(1)
 
@@ -183,7 +183,7 @@ class SolutionIO(IO):
     def fetch_functionals(self, params, branchid):
         funcs = []
         for param in params:
-            f = file(self.dir(param) + "functional-%d.txt" % branchid, "r")
+            f = open(self.dir(param) + "functional-%d.txt" % branchid, "r")
             func = []
             for line in f:
                 func.append(float(line.split('=')[-1]))
@@ -247,7 +247,7 @@ class SolutionIO(IO):
                 except OSError:
                     pass
                 if size > 0: break
-                #print "Waiting for %s to have nonzero size" % (self.dir(params) + "solution-%d.xml.gz" % branchid)
+                #print("Waiting for %s to have nonzero size" % (self.dir(params) + "solution-%d.xml.gz" % branchid))
                 time.sleep(0.1)
 
         # Trick from Lawrence Mitchell: POSIX guarantees that mv is atomic
@@ -279,7 +279,7 @@ class SolutionIO(IO):
     def fetch_stability(self, params, branchids):
         stables = []
         for branchid in branchids:
-            f = file(self.dir(params) + "stability-%d.txt" % branchid, "r")
+            f = open(self.dir(params) + "stability-%d.txt" % branchid, "r")
             stable = literal_eval(f.read())
             stables.append(stable)
         return stables
