@@ -106,7 +106,7 @@ def test_vector_p1_3d():
     diff.assign(Vuc - uf)
     assert diff.vector().norm("l2") < 1.0e-12
 
-@pytest.mark.skip # This segfaults
+@pytest.mark.skipif(True, reason="This segfaults")
 def test_taylor_hood_cube():
     meshc = UnitCubeMesh(2, 2, 2)
     meshf = UnitCubeMesh(3, 4, 5)
