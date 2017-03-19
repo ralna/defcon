@@ -22,7 +22,7 @@ test:
         '
 
   post:
-    -mkdir -p $CIRCLE_TEST_REPORTS/junit
-    -cp report.xml $CIRCLE_TEST_REPORTS/junit
-    -cp report.xml $CIRCLE_ARTIFACTS
-    -find -name "*.pdf" -exec cp --parents {} $CIRCLE_ARTIFACTS \;
+    - mkdir -p $CIRCLE_TEST_REPORTS/junit
+    - cp report.xml $CIRCLE_TEST_REPORTS/junit
+    - cp report.xml $CIRCLE_ARTIFACTS
+    - find -name "*.pdf" -exec cp --parents {} $CIRCLE_ARTIFACTS \;
