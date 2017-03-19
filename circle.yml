@@ -13,11 +13,11 @@ test:
         -v $(pwd):/home/fenics/defcon
         -w /home/fenics/defcon
         -v $CIRCLE_TEST_REPORTS:/tmp/circle
-        quay.io/fenicsproject/dev
+        quay.io/fenicsproject/dev:py3
         '
-        pip2 install --user h5py
+        pip3 install --user h5py
 
-        pip2 install --user .
+        pip3 install --user .
 
-        mpirun -n 2 python2 -m pytest -vxl --junitxml /tmp/circle/junit/report.xml
+        mpirun -n 2 python3 -m pytest -vxl --junitxml /tmp/circle/junit/report.xml
         '
