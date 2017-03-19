@@ -2,6 +2,10 @@ machine:
   services:
     - docker
 
+dependencies:
+  override:
+    - true
+
 test:
   override:
     - >
@@ -11,9 +15,6 @@ test:
         quay.io/fenicsproject/dev
         '
         pip2 install --user h5py
-
         pip2 install --user .
-
-        mpirun -n 2 python2 -m pytest -svl
-            --junitmlx $CIRCLE_TEST_REPORTS/junit/report.xml
+        mpirun -n 2 python2 -m pytest -svl --junitxml $CIRCLE_TEST_REPORTS/junit/report.xml
         '
