@@ -23,6 +23,5 @@ test:
 
   post:
     - mkdir -p $CIRCLE_TEST_REPORTS/junit
-    - cp report.xml $CIRCLE_TEST_REPORTS/junit
-    - cp report.xml $CIRCLE_ARTIFACTS
+    - mv report.xml $CIRCLE_TEST_REPORTS/junit
     - find -name "*.pdf" -exec cp --parents {} $CIRCLE_ARTIFACTS \;
