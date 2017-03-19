@@ -1,0 +1,19 @@
+machine:
+  services:
+    - docker
+
+test:
+  override:
+    - >
+        docker run
+        -v $(pwd):/home/fenics/defcon
+        -w /home/fenics/defcon
+        quay.io/fenicsproject/dev
+        '
+        pip2 install --user h5py
+
+        pip2 install --user .
+
+        mpirun -n 2 python2 -m pytest -svl
+            --junitmlx $CIRCLE_TEST_REPORTS/junit/report.xml
+        '
