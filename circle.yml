@@ -12,9 +12,11 @@ test:
         docker run
         -v $(pwd):/home/fenics/defcon
         -w /home/fenics/defcon
-        quay.io/fenicsproject/dev
+        quay.io/fenicsproject/dev:py3
         '
         pip2 install --user h5py
+
         pip2 install --user .
+
         mpirun -n 2 python2 -m pytest -svl --junitxml $CIRCLE_TEST_REPORTS/junit/report.xml
         '
