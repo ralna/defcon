@@ -110,7 +110,7 @@ Launch with mpiexec: mpiexec -n <number of processes> python %s
 
         if freeparam is None:
             assert len(values) == 1 or max([len(values[key]) for key in values]) == 1
-            freeparam = values.keys()[0]
+            freeparam = sorted(values.keys())[0]
 
         parameters = Parameters(problem_parameters, values)
 

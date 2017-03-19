@@ -5,6 +5,7 @@ import defcon
 from mpi4py import MPI
 from petsc4py import PETSc
 from ufl.algorithms.map_integrands import map_integrands
+import six
 
 from math import copysign, sqrt
 from heapq import heappush, heappop
@@ -468,7 +469,7 @@ class ArclengthMaster(DefconMaster):
         self.configure_io(dummy)
 
         # List of idle teams
-        self.idle_teams = range(self.nteams)
+        self.idle_teams = list(six.moves.xrange(self.nteams))
 
         # Task id counter
         self.taskid_counter = 0
