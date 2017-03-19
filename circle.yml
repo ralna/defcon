@@ -12,7 +12,7 @@ test:
         docker run
         -v $(pwd):/home/fenics/defcon
         -w /home/fenics/defcon
-        quay.io/fenicsproject/dev:py3
+        quay.io/fenicsproject/dev
         '
         pip2 install --user h5py
 
