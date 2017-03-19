@@ -1,4 +1,4 @@
-from __future__ import absolute_import, print_function
+from __future__ import absolute_import, print_function, division
 
 from petsc4py import PETSc
 
@@ -42,7 +42,7 @@ class DefconWorker(DefconThread):
         """Set garbage collection frequency according to the size of
         the problem if not already set."""
         if self.gc_frequency is None:
-            dofs_per_core = function_space_dimension(function_space) / self.teamcomm.size
+            dofs_per_core = function_space_dimension(function_space) // self.teamcomm.size
             if   dofs_per_core > 100000: self.gc_frequency = 1
             elif dofs_per_core <  10000: self.gc_frequency = 100
             else:                        self.gc_frequency = 10
