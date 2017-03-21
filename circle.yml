@@ -1,27 +1,48 @@
-machine:
-  services:
-    - docker
+version: 2
+jobs:
+  build:
+    docker:
+      - image: quay.io/fenicsproject/dev:py3
+        user: fenics
+        environment:
+          LD_LIBRARY_PATH: /home/fenics/local/lib
+          CMAKE_PREFIX_PATH: /home/fenics/local
+    working_directory: /home/fenics/defcon
+    steps:
+      - checkout
 
-dependencies:
-  override:
-    - /bin/true
+      - run:
+          name: Environment and FEniCS version info
+          command: |
+            echo $USER $HOME $PWD $PATH $LD_LIBRARY_PATH $CMAKE_PREFIX_PATH
+            python3 -c'import ffc; print(ffc.git_commit_hash(), ffc.ufc_signature())'
+            python3 -c'import dolfin; print(dolfin.git_commit_hash())'
 
-test:
-  override:
-    - >
-        docker run
-        -v $(pwd):/home/fenics/defcon
-        -w /home/fenics/defcon
-        quay.io/fenicsproject/dev:py3
-        '
-        pip3 install --user h5py
+      - run:
+          name: Install defcon
+          command: |
+            pip3 install -v --user h5py
+            pip3 install -v --user .
 
-        pip3 install --user .
+      - run:
+          name: Import defcon first time (JIT)
+          command: python3 -c"import defcon"
 
-        mpirun -n 2 python3 -m pytest -vxl --junitxml report.xml
-        '
+      - run:
+          name: Run tests
+          command: >
+            mpirun -n 2 bash -c '
+            python3 -m pytest -vxl
+            --junitxml /tmp/circle/unit-mpi-${OMPI_COMM_WORLD_RANK:-$PMI_RANK}.xml
+            '
 
-  post:
-    - mkdir -p $CIRCLE_TEST_REPORTS/junit
-    - mv report.xml $CIRCLE_TEST_REPORTS/junit
-    - find -name "*.pdf" -exec cp --parents {} $CIRCLE_ARTIFACTS \;
+      - run:
+          name: Copy artifacts
+          command: find -name "*.pdf" -exec cp --parents {} /tmp/circle \;
+
+      - store_artifacts:
+          path: /tmp/circle
+          destination: build
+
+      - store_test_results:
+          path: /tmp/circle
