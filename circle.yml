@@ -30,15 +30,16 @@ jobs:
 
       - run:
           name: Run tests
-          command: >
+          command: |
+            set +e
+            mkdir -p /tmp/circle
             mpirun -n 2 bash -c '
-            python3 -m pytest -vxl
-            --junitxml /tmp/circle/unit-mpi-${OMPI_COMM_WORLD_RANK:-$PMI_RANK}.xml
+              python3 -m pytest -vxl \
+              --junitxml /tmp/circle/report-${OMPI_COMM_WORLD_RANK:-$PMI_RANK}.xml
             '
-
-      - run:
-          name: Copy artifacts
-          command: find -name "*.pdf" -exec cp --parents {} /tmp/circle \;
+            rc=$?
+            find -name "*.pdf" -exec cp --parents {} /tmp/circle \;
+            exit $rc
 
       - store_artifacts:
           path: /tmp/circle
