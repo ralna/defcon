@@ -1,4 +1,4 @@
-from __future__ import absolute_import
+from __future__ import absolute_import, print_function
 
 import sys
 import os
@@ -74,4 +74,4 @@ def main(args):
             # Save stability
             io.save_stability(d["stable"], d.get("eigenvalues", []), d.get("eigenfunctions", []), floats, branchid)
 
-            print "Solution %s: stability: %s" % (solution, d["stable"])
+            print("Solution %s: stability: %s" % (solution, d["stable"]))

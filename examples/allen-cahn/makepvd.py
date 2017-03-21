@@ -21,4 +21,4 @@ for soln in sorted(glob.glob(dir + "/*xml.gz")):
     y = Function(V, soln, name="Solution")
     pvd << y
 
-print "Created ", (dir + "/solutions.pvd")
+print("Created ", (dir + "/solutions.pvd"))

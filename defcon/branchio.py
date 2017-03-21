@@ -6,8 +6,9 @@ from defcon.backend import HDF5File, Function
 
 import h5py # FIXME: remove dependency on h5py, eventually
 from numpy import array
+import six
+from six.moves import cPickle as pickle
 
-import cPickle as pickle
 import os
 import glob
 import collections
@@ -31,13 +32,13 @@ class ParameterMap(object):
     def __init__(self, directory):
         self.path = os.path.join(directory, "parameter_map.pck")
         try:
-            f = open(self.path, "r")
+            f = open(self.path, "rb")
             self.dict = pickle.load(f)
         except:
             self.dict = collections.defaultdict(list)
 
     def write(self):
-        with open(self.path, "w") as f:
+        with open(self.path, "wb") as f:
             pickle.dump(self.dict, f)
 
     def __getitem__(self, key):
@@ -98,7 +99,7 @@ class BranchIO(iomodule.SolutionIO):
 
         # Try opening the file several times; may fail if accessed by other team
         # or due to race conditions in flock/fcntl implementation
-        for i in xrange(1000):
+        for i in six.moves.xrange(1000):
             try:
                 f = HDF5File(comm=self.pcomm, filename=tmpname, file_mode=mode)
             except (RuntimeError, AssertionError):
@@ -212,7 +213,7 @@ class BranchIO(iomodule.SolutionIO):
                 params = keytoparams(key)
                 add = True
 
-                for i in range(n):
+                for i in six.moves.xrange(n):
                     if params[fixedindices[i]] != fixedvalues[i]:
                         add = False
                         break
@@ -226,11 +227,21 @@ class BranchIO(iomodule.SolutionIO):
         maxbranch = max(int(filename.split('-')[-1][:-3]) for filename in filenames)
         return maxbranch
 
-    def pickle(self, obj):
-        return pickle.dumps(obj, protocol=0)
-
-    def unpickle(self, s):
-        return pickle.loads(s)
+    if six.PY2:
+        def pickle(self, obj):
+            return pickle.dumps(obj, protocol=0)
+        def unpickle(self, s):
+            return pickle.loads(s)
+    else:
+        # NOTE: We convert here bytes to string because HDFAttributes.set()
+        #       does not like bytes
+        # FIXME: Still not sure whether unpickle(pickle) == I is guaranteed
+        def pickle(self, obj):
+            bytez = pickle.dumps(obj, protocol=0)
+            return bytez.decode()
+        def unpickle(self, s):
+            bytez = s.encode()
+            return pickle.loads(bytez)
 
     def save_stability(self, stable, eigenvalues, eigenfunctions, params, branchid):
         assert len(eigenvalues) == len(eigenfunctions)

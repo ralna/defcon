@@ -1,4 +1,4 @@
-from __future__ import absolute_import
+from __future__ import absolute_import, print_function
 
 import sys
 import glob
@@ -80,8 +80,8 @@ def main(args):
                     if abs(d) < 1.0e-10:
                         skip = True
                         break
-                if skip: 
-                    print "Skipping ", solution
+                if skip:
+                    print("Skipping ", solution)
                     continue
 
                 # OK, it's a new solution. Let's solve the equations (just in case)
@@ -90,7 +90,7 @@ def main(args):
                 solverclass  = problem.solver
                 success = defcon.newton.newton(F, z, bcs, problemclass, solverclass, 0)
                 if not success:
-                    print "Failed to converge from ", solution
+                    print("Failed to converge from ", solution)
                     continue
 
                 # Add it to known solutions
@@ -108,4 +108,4 @@ def main(args):
                 io.save_solution(z, funcs, [float(x) for x in params], solutionid)
                 solutionid += 1
 
-                print "Saved ", solution
+                print("Saved ", solution)

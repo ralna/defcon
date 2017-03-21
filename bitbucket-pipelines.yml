@@ -16,4 +16,3 @@ pipelines:
           - cd $BITBUCKET_CLONE_DIR
           - pip2 install --no-cache-dir .
           - mpiexec -n 2 python2 -m pytest -x -v .
-

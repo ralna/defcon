@@ -1,4 +1,4 @@
-from __future__ import absolute_import
+from __future__ import absolute_import, print_function, division
 
 from petsc4py import PETSc
 
@@ -42,7 +42,7 @@ class DefconWorker(DefconThread):
         """Set garbage collection frequency according to the size of
         the problem if not already set."""
         if self.gc_frequency is None:
-            dofs_per_core = function_space_dimension(function_space) / self.teamcomm.size
+            dofs_per_core = function_space_dimension(function_space) // self.teamcomm.size
             if   dofs_per_core > 100000: self.gc_frequency = 1
             elif dofs_per_core <  10000: self.gc_frequency = 100
             else:                        self.gc_frequency = 10
@@ -431,13 +431,13 @@ class DefconWorker(DefconThread):
         if not self.profile:
             return
 
-        print "-" * 80
-        print "| Profiling statistics collected by team %3d" % self.teamno + " "*35 + "|"
-        print "-" * 80
+        print("-" * 80)
+        print("| Profiling statistics collected by team %3d" % self.teamno + " "*35 + "|")
+        print("-" * 80)
 
-        print " " + "*"*21
-        print " * Global statistics *"
-        print " " + "*"*21
+        print(" " + "*"*21)
+        print(" * Global statistics *")
+        print(" " + "*"*21)
 
         total_time = Event("run").getPerfInfo()['time']
         init_time  = Event("initialisation").getPerfInfo()['time']
@@ -453,24 +453,24 @@ class DefconWorker(DefconThread):
         defl_cnt   = Event("deflation task").getPerfInfo()['count']
         cont_cnt   = Event("continuation task").getPerfInfo()['count']
         stab_cnt   = Event("stability task").getPerfInfo()['count']
-        print "     total time:            %12.4f s" % total_time
-        print "     initialisation:        %12.4f s (%05.2f%%)" % (init_time,  100*init_time/total_time)
-        print "     garbage collection:    %12.4f s (%05.2f%%)" % (gc_time,    100*gc_time/total_time)
-        print "     fetching tasks:        %12.4f s (%05.2f%%)" % (fetch_time, 100*fetch_time/total_time)
-        print "     receiving responses:   %12.4f s (%05.2f%%)" % (recv_time, 100*recv_time/total_time)
-        print "     sending responses:     %12.4f s (%05.2f%%)" % (send_time, 100*send_time/total_time)
-        print "     loading solutions:     %12.4f s (%05.2f%%)" % (load_time, 100*load_time/total_time)
-        print "     computing functionals: %12.4f s (%05.2f%%)" % (func_time, 100*func_time/total_time)
-        print "     deflation    [%04d]:   %12.4f s (%05.2f%%)" % (defl_cnt, defl_time, 100*defl_time/total_time)
-        print "     continuation [%04d]:   %12.4f s (%05.2f%%)" % (cont_cnt, cont_time, 100*cont_time/total_time)
-        print "     stability    [%04d]:   %12.4f s (%05.2f%%)" % (stab_cnt, stab_time, 100*stab_time/total_time)
+        print("     total time:            %12.4f s" % total_time)
+        print("     initialisation:        %12.4f s (%05.2f%%)" % (init_time,  100*init_time/total_time))
+        print("     garbage collection:    %12.4f s (%05.2f%%)" % (gc_time,    100*gc_time/total_time))
+        print("     fetching tasks:        %12.4f s (%05.2f%%)" % (fetch_time, 100*fetch_time/total_time))
+        print("     receiving responses:   %12.4f s (%05.2f%%)" % (recv_time, 100*recv_time/total_time))
+        print("     sending responses:     %12.4f s (%05.2f%%)" % (send_time, 100*send_time/total_time))
+        print("     loading solutions:     %12.4f s (%05.2f%%)" % (load_time, 100*load_time/total_time))
+        print("     computing functionals: %12.4f s (%05.2f%%)" % (func_time, 100*func_time/total_time))
+        print("     deflation    [%04d]:   %12.4f s (%05.2f%%)" % (defl_cnt, defl_time, 100*defl_time/total_time))
+        print("     continuation [%04d]:   %12.4f s (%05.2f%%)" % (cont_cnt, cont_time, 100*cont_time/total_time))
+        print("     stability    [%04d]:   %12.4f s (%05.2f%%)" % (stab_cnt, stab_time, 100*stab_time/total_time))
 
         if defl_time > 0:
-            print
+            print()
 
-            print " " + "*"*23
-            print " * Deflation breakdown *"
-            print " " + "*"*23
+            print(" " + "*"*23)
+            print(" * Deflation breakdown *")
+            print(" " + "*"*23)
 
             load_time  = Event("deflation: loading").getPerfInfo()['time']
             bc_time    = Event("deflation: boundary conditions").getPerfInfo()['time']
@@ -479,22 +479,22 @@ class DefconWorker(DefconThread):
             send_time  = Event("deflation: sending").getPerfInfo()['time']
             func_time  = Event("deflation: functionals").getPerfInfo()['time']
             save_time  = Event("deflation: saving").getPerfInfo()['time']
-            print "     total time:            %12.4f s" % defl_time
-            print "     time per execution:    %12.4f s" % (defl_time/defl_cnt)
-            print "     loading solutions:     %12.4f s (%05.2f%%)" % (load_time, 100*load_time/defl_time)
-            print "     constructing BCs:      %12.4f s (%05.2f%%)" % (bc_time, 100*bc_time/defl_time)
-            print "     solve:                 %12.4f s (%05.2f%%)" % (solve_time, 100*solve_time/defl_time)
-            print "     receiving responses:   %12.4f s (%05.2f%%)" % (recv_time, 100*recv_time/defl_time)
-            print "     sending responses:     %12.4f s (%05.2f%%)" % (send_time, 100*send_time/defl_time)
-            print "     computing functionals: %12.4f s (%05.2f%%)" % (func_time, 100*func_time/defl_time)
-            print "     saving to disk:        %12.4f s (%05.2f%%)" % (save_time, 100*save_time/defl_time)
+            print("     total time:            %12.4f s" % defl_time)
+            print("     time per execution:    %12.4f s" % (defl_time/defl_cnt))
+            print("     loading solutions:     %12.4f s (%05.2f%%)" % (load_time, 100*load_time/defl_time))
+            print("     constructing BCs:      %12.4f s (%05.2f%%)" % (bc_time, 100*bc_time/defl_time))
+            print("     solve:                 %12.4f s (%05.2f%%)" % (solve_time, 100*solve_time/defl_time))
+            print("     receiving responses:   %12.4f s (%05.2f%%)" % (recv_time, 100*recv_time/defl_time))
+            print("     sending responses:     %12.4f s (%05.2f%%)" % (send_time, 100*send_time/defl_time))
+            print("     computing functionals: %12.4f s (%05.2f%%)" % (func_time, 100*func_time/defl_time))
+            print("     saving to disk:        %12.4f s (%05.2f%%)" % (save_time, 100*save_time/defl_time))
 
         if cont_time > 0:
-            print
+            print()
 
-            print " " + "*"*26
-            print " * Continuation breakdown *"
-            print " " + "*"*26
+            print(" " + "*"*26)
+            print(" * Continuation breakdown *")
+            print(" " + "*"*26)
 
             load_time  = Event("continuation: loading").getPerfInfo()['time']
             bc_time    = Event("continuation: boundary conditions").getPerfInfo()['time']
@@ -503,34 +503,34 @@ class DefconWorker(DefconThread):
             send_time  = Event("continuation: sending").getPerfInfo()['time']
             func_time  = Event("continuation: functionals").getPerfInfo()['time']
             save_time  = Event("continuation: saving").getPerfInfo()['time']
-            print "     total time:            %12.4f s" % cont_time
-            print "     time per execution:    %12.4f s" % (cont_time/cont_cnt)
-            print "     loading solutions:     %12.4f s (%05.2f%%)" % (load_time, 100*load_time/cont_time)
-            print "     constructing BCs:      %12.4f s (%05.2f%%)" % (bc_time, 100*bc_time/cont_time)
-            print "     solve:                 %12.4f s (%05.2f%%)" % (solve_time, 100*solve_time/cont_time)
-            print "     receiving responses:   %12.4f s (%05.2f%%)" % (recv_time, 100*recv_time/cont_time)
-            print "     sending responses:     %12.4f s (%05.2f%%)" % (send_time, 100*send_time/cont_time)
-            print "     computing functionals: %12.4f s (%05.2f%%)" % (func_time, 100*func_time/cont_time)
-            print "     saving to disk:        %12.4f s (%05.2f%%)" % (save_time, 100*save_time/cont_time)
+            print("     total time:            %12.4f s" % cont_time)
+            print("     time per execution:    %12.4f s" % (cont_time/cont_cnt))
+            print("     loading solutions:     %12.4f s (%05.2f%%)" % (load_time, 100*load_time/cont_time))
+            print("     constructing BCs:      %12.4f s (%05.2f%%)" % (bc_time, 100*bc_time/cont_time))
+            print("     solve:                 %12.4f s (%05.2f%%)" % (solve_time, 100*solve_time/cont_time))
+            print("     receiving responses:   %12.4f s (%05.2f%%)" % (recv_time, 100*recv_time/cont_time))
+            print("     sending responses:     %12.4f s (%05.2f%%)" % (send_time, 100*send_time/cont_time))
+            print("     computing functionals: %12.4f s (%05.2f%%)" % (func_time, 100*func_time/cont_time))
+            print("     saving to disk:        %12.4f s (%05.2f%%)" % (save_time, 100*save_time/cont_time))
 
         if stab_time > 0:
-            print
+            print()
 
-            print " " + "*"*23
-            print " * Stability breakdown *"
-            print " " + "*"*23
+            print(" " + "*"*23)
+            print(" * Stability breakdown *")
+            print(" " + "*"*23)
 
             load_time  = Event("stability: loading").getPerfInfo()['time']
             solve_time = Event("stability: solve").getPerfInfo()['time']
             recv_time  = Event("stability: receiving").getPerfInfo()['time']
             send_time  = Event("stability: sending").getPerfInfo()['time']
             save_time  = Event("stability: saving").getPerfInfo()['time']
-            print "     total time:            %12.4f s" % stab_time
-            print "     time per execution:    %12.4f s" % (stab_time/stab_cnt)
-            print "     loading solutions:     %12.4f s (%05.2f%%)" % (load_time, 100*load_time/stab_time)
-            print "     solve:                 %12.4f s (%05.2f%%)" % (solve_time, 100*solve_time/stab_time)
-            print "     receiving responses:   %12.4f s (%05.2f%%)" % (recv_time, 100*recv_time/stab_time)
-            print "     sending responses:     %12.4f s (%05.2f%%)" % (send_time, 100*send_time/stab_time)
-            print "     saving to disk:        %12.4f s (%05.2f%%)" % (save_time, 100*save_time/stab_time)
+            print("     total time:            %12.4f s" % stab_time)
+            print("     time per execution:    %12.4f s" % (stab_time/stab_cnt))
+            print("     loading solutions:     %12.4f s (%05.2f%%)" % (load_time, 100*load_time/stab_time))
+            print("     solve:                 %12.4f s (%05.2f%%)" % (solve_time, 100*solve_time/stab_time))
+            print("     receiving responses:   %12.4f s (%05.2f%%)" % (recv_time, 100*recv_time/stab_time))
+            print("     sending responses:     %12.4f s (%05.2f%%)" % (send_time, 100*send_time/stab_time))
+            print("     saving to disk:        %12.4f s (%05.2f%%)" % (save_time, 100*save_time/stab_time))
 
-        print
+        print()

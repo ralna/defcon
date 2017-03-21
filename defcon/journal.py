@@ -66,23 +66,23 @@ class FileJournal(Journal):
         except OSError:
             pass
 
-        with file(self.directory + os.path.sep + "journal.txt", 'w') as f:
+        with open(self.directory + os.path.sep + "journal.txt", 'w') as f:
             f.write("%s;%s;%s;%s;%s;%s;%s;%s;%s\n" % (self.freeindex, xlabel, ylabels, unicodeylabels, nteams, minparam, maxparam, others, time.time()))
 
     def entry(self, teamid, oldparams, branchid, newparams, functionals, continuation):
         """ Tell the journal about a new point we've discovered. """
-        with file(self.directory + os.path.sep + "journal.txt", 'a') as f:
+        with open(self.directory + os.path.sep + "journal.txt", 'a') as f:
             f.write("%s;%s;%s;%s;%s;%s \n" % (teamid, oldparams, branchid, newparams, functionals, continuation))
 
     def sweep(self, params):
         """ Tell the journal about an update to the sweepline. """
         self.sweep_params = params
-        with file(self.directory + os.path.sep + "journal.txt", 'a') as f:
+        with open(self.directory + os.path.sep + "journal.txt", 'a') as f:
             f.write("$%.20f\n" % params)
 
     def team_job(self, team, task, params=None, branch=None):
         """ Tell the journal about what this team is doing. """
-        with file(self.directory + os.path.sep + "journal.txt", 'a') as f:
+        with open(self.directory + os.path.sep + "journal.txt", 'a') as f:
             f.write("~%s;%s;%s;%s;%s\n" % (team, task, params, branch, time.time()))
 
     def exists(self):

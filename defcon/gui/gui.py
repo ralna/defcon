@@ -446,7 +446,7 @@ class PlotConstructor():
                         plt.title("branch %s, params %s" % (branchid, params))
                         plt.axhline(0, color='k') # Plot a black line through the origin
                         plt.show(False) # False here means the window is non-blocking, so we may continue using the GUI while the plot shows.
-                except RuntimeError, e:
+                except RuntimeError as e:
                     issuewarning("Error plotting expression. Are your solutions numbers rather than functions? If so, this is why I failed. The error was:")
                     print(str(e))
                     pass
@@ -516,7 +516,7 @@ class PlotConstructor():
             self.anim.save(filename, fps=fps, dpi=200, bitrate=5000, writer=mywriter, extra_args=['-vcodec', 'libx264'])
             print("Movie saved.")
             return
-        except Exception, e:
+        except Exception as e:
             issuewarning("Saving movie failed. Perhaps you don't have ffmpeg installed? Anyway, the error was:")
             print(str(e))
             return

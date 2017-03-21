@@ -23,7 +23,7 @@ class Parameters(object):
             const.assign(val)
 
     def floats(self, freeindex=None, value=None):
-        out = map(float, self.constants)
+        out = list(map(float, self.constants))
         if value is not None and freeindex is not None:
             out[freeindex] = value
         return tuple(out)
