@@ -400,7 +400,7 @@ class PlotConstructor():
             # Try to fetch the stability
             try:
                 stab = self.io.fetch_stability(xs, branchids)
-            except (RuntimeError, KeyError):
+            except (RuntimeError, KeyError, IOError):
                 stab = None
 
             if stab is not None:

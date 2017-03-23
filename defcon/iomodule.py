@@ -150,7 +150,7 @@ class SolutionIO(IO):
         with HDF5File(comm=self.function_space.mesh().mpi_comm(), filename=tmpname, file_mode='w') as f:
             f.write(solution, "/solution")
         if self.pcomm.rank == 0:
-            os.rename(tmp.name, self.dir(params) + "solution-%d.h5" % branchid)
+            os.rename(tmpname, self.dir(params) + "solution-%d.h5" % branchid)
         assert os.path.exists(self.dir(params) + "solution-%d.h5" % branchid)
 
         f = file(self.dir(params) + "functional-%d.txt" % branchid, "w")
