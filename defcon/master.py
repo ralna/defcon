@@ -1,7 +1,8 @@
-from __future__ import absolute_import
+from __future__ import absolute_import, print_function
 
 from mpi4py import MPI
 from numpy  import isinf
+import six
 
 import time
 
@@ -121,7 +122,7 @@ class DefconMaster(DefconThread):
         self.configure_io(parameters)
 
         # List of idle teams
-        self.idle_teams = range(self.nteams)
+        self.idle_teams = list(six.moves.xrange(self.nteams))
 
         # Task id counter
         self.taskid_counter = 0
@@ -217,15 +218,15 @@ class DefconMaster(DefconThread):
             self.report_statistics()
 
     def report_statistics(self):
-        print "-" * 80
-        print "| Deflation statistics" + " "*57 + "|"
-        print "-" * 80
-        print
-        print "    total number of successful deflations: %d" % self.total_deflation_successes
+        print("-" * 80)
+        print("| Deflation statistics" + " "*57 + "|")
+        print("-" * 80)
+        print()
+        print("    total number of successful deflations: %d" % self.total_deflation_successes)
         if self.total_deflation_successes > 0:
             avg = float(self.total_deflation_iterations) / self.total_deflation_successes
-            print "    maximum number of iterations required: %d" % self.max_deflation
-            print "    average number of iterations required: %.2f" % avg
+            print("    maximum number of iterations required: %d" % self.max_deflation)
+            print("    average number of iterations required: %.2f" % avg)
 
     def handle_response(self, response):
         (task, team) = self.graph.finish(response.taskid)

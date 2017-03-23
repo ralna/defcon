@@ -1,6 +1,8 @@
 from defcon import *
 from dolfin import *
 
+from defcon.mg import get_deep_submat
+
 from petsc4py import PETSc
 
 class StokesProblem(BifurcationProblem):
@@ -83,7 +85,7 @@ class StokesProblem(BifurcationProblem):
             form = -inner(p, q)*dx
             M = PETScMatrix(self.comm)
             assemble(form, tensor=M)
-            mass = M.mat().getSubMatrix(ises[1], ises[1]) # fetch submatrix
+            mass = get_deep_submat(M.mat(), ises[1], ises[1]) # fetch submatrix
 
             ksp_mass = PETSc.KSP().create(comm=self.comm)
             ksp_mass.setDM(dms[1])

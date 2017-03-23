@@ -1,4 +1,4 @@
-from __future__ import absolute_import
+from __future__ import absolute_import, print_function, division
 
 from mpi4py import MPI
 
@@ -67,7 +67,7 @@ class DefconThread(object):
 
         # Assert even divisibility of team sizes
         assert (self.worldcomm.size-1) % self.teamsize == 0
-        self.nteams = (self.worldcomm.size-1) / self.teamsize
+        self.nteams = (self.worldcomm.size-1) // self.teamsize
 
         # Create local communicator for the team I will join
         self.teamno = ranktoteamno(self.rank, self.teamsize)
@@ -129,7 +129,7 @@ class DefconThread(object):
 
         timestamp = "[%s] " % time.strftime("%H:%M:%S")
 
-        print fmt % (timestamp + header + msg)
+        print(fmt % (timestamp + header + msg))
         sys.stdout.flush()
 
 

@@ -1,4 +1,4 @@
-from __future__ import absolute_import
+from __future__ import absolute_import, print_function
 
 import sys
 
@@ -56,5 +56,5 @@ def main(args):
                 funcs.append(j)
 
             # Save to disk again
-            print "Saving values: %s, branchid: %d" % (values, branchid)
+            print("Saving values: %s, branchid: %d" % (values, branchid))
             io.save_solution(solution, funcs, values, branchid)

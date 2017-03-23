@@ -1,4 +1,4 @@
-from __future__ import absolute_import
+from __future__ import absolute_import, print_function
 
 import sys
 import os
@@ -31,7 +31,7 @@ def main(args):
     io = problem.io(outputdir)
 
     if not isinstance(io, defcon.branchio.BranchIO):
-        print "Only relevant for BranchIO."
+        print("Only relevant for BranchIO.")
         return 1
 
     mesh = problem.mesh(backend.comm_world)

@@ -1,0 +1,49 @@
+version: 2
+jobs:
+  build:
+    docker:
+      - image: quay.io/fenicsproject/dev:py3
+        user: fenics
+        environment:
+          LD_LIBRARY_PATH: /home/fenics/local/lib
+          CMAKE_PREFIX_PATH: /home/fenics/local
+    working_directory: /home/fenics/defcon
+    steps:
+      - checkout
+
+      - run:
+          name: Environment and FEniCS version info
+          command: |
+            echo $USER $HOME $PWD $PATH $LD_LIBRARY_PATH $CMAKE_PREFIX_PATH
+            python3 -c'import ffc; print(ffc.git_commit_hash(), ffc.ufc_signature())'
+            python3 -c'import dolfin; print(dolfin.git_commit_hash())'
+
+      - run:
+          name: Install defcon
+          command: |
+            pip3 install -v --user h5py
+            pip3 install -v --user .
+
+      - run:
+          name: Import defcon first time (JIT)
+          command: python3 -c"import defcon"
+
+      - run:
+          name: Run tests
+          command: |
+            set +e
+            mkdir -p /tmp/circle
+            mpirun -n 2 bash -c '
+              python3 -m pytest -vxl \
+              --junitxml /tmp/circle/report-${OMPI_COMM_WORLD_RANK:-$PMI_RANK}.xml
+            '
+            rc=$?
+            find -name "*.pdf" -exec cp --parents {} /tmp/circle \;
+            exit $rc
+
+      - store_artifacts:
+          path: /tmp/circle
+          destination: build
+
+      - store_test_results:
+          path: /tmp/circle

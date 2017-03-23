@@ -1,6 +1,7 @@
-from __future__ import absolute_import
+from __future__ import absolute_import, print_function
 
 from petsc4py import PETSc # for logging
+import six
 
 from heapq import heappush, heappop
 
@@ -106,10 +107,10 @@ class DefconGraph(object):
         waiting_values = [wtask[0].oldparams for wtask in self.wait_tasks.values() if isinstance(wtask[0], DeflationTask)]
         newtask_values = [ntask[1].oldparams for ntask in self.new_tasks if isinstance(ntask[1], DeflationTask)]
         deferred_values = [dtask[1].oldparams for dtask in self.deferred_tasks if isinstance(dtask[1], DeflationTask)]
-        all_values = filter(lambda x: x is not None, waiting_values + newtask_values + deferred_values)
+        all_values = list(six.moves.filter(lambda x: x is not None, waiting_values + newtask_values + deferred_values))
 
         if len(all_values) > 0:
-            minparams = minvals(all_values, key = lambda x: x[freeindex])
+            minparams = minvals(all_values, key=lambda x: x[freeindex])
         else:
             minparams = None
 
@@ -155,9 +156,9 @@ class ProfiledDefconGraph(DefconGraph):
         return (task, team)
 
     def report_profile(self):
-        print "-" * 80
-        print "| Profiling statistics collected by master" + " "*37 + "|"
-        print "-" * 80
+        print("-" * 80)
+        print("| Profiling statistics collected by master" + " "*37 + "|")
+        print("-" * 80)
         for team in range(self.nteams):
             ev = PETSc.Log.Event("%5d: idle" % team)
             ev.end()
@@ -165,13 +166,13 @@ class ProfiledDefconGraph(DefconGraph):
         ev = PETSc.Log.Event("graph time")
         ev.end()
         total_time = ev.getPerfInfo()['time']
-        print "Total time: ", total_time
-        print
+        print("Total time: ", total_time)
+        print()
 
         for team in range(self.nteams):
-            print " " + "*"*12
-            print " * Team %3d *" % team
-            print " " + "*"*12
+            print(" " + "*"*12)
+            print(" * Team %3d *" % team)
+            print(" " + "*"*12)
 
             idle_time = PETSc.Log.Event("%5d: idle" % team).getPerfInfo()['time']
             cont_time = PETSc.Log.Event("%5d: continuation" % team).getPerfInfo()['time']
@@ -179,11 +180,11 @@ class ProfiledDefconGraph(DefconGraph):
             stab_time = PETSc.Log.Event("%5d: stability" % team).getPerfInfo()['time']
             arcl_time = PETSc.Log.Event("%5d: arclength" % team).getPerfInfo()['time']
 
-            print "     idle:         %12.4f s (%05.2f%%)" % (idle_time, 100*idle_time/total_time)
-            print "     continuation: %12.4f s (%05.2f%%)" % (cont_time, 100*cont_time/total_time)
-            print "     deflation:    %12.4f s (%05.2f%%)" % (defl_time, 100*defl_time/total_time)
-            print "     stability:    %12.4f s (%05.2f%%)" % (stab_time, 100*stab_time/total_time)
-            print "     arclength:    %12.4f s (%05.2f%%)" % (arcl_time, 100*arcl_time/total_time)
+            print("     idle:         %12.4f s (%05.2f%%)" % (idle_time, 100*idle_time/total_time))
+            print("     continuation: %12.4f s (%05.2f%%)" % (cont_time, 100*cont_time/total_time))
+            print("     deflation:    %12.4f s (%05.2f%%)" % (defl_time, 100*defl_time/total_time))
+            print("     stability:    %12.4f s (%05.2f%%)" % (stab_time, 100*stab_time/total_time))
+            print("     arclength:    %12.4f s (%05.2f%%)" % (arcl_time, 100*arcl_time/total_time))
 
-            print
+            print()
 
