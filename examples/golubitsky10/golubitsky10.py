@@ -22,7 +22,7 @@ class GolubitskyProblem(BifurcationProblem):
     def residual(self, x, params, v):
         lmbda = params[0]
 
-        (alpha, beta, gamma) = (Constant(5.0), Constant(0.5), Constant(-5))
+        (alpha, beta, gamma) = (Constant(5.0), Constant(-2.0), Constant(-5))
 
         F = (
               x**4*v*dx
