@@ -22,7 +22,7 @@ class WingedCuspProblem(BifurcationProblem):
     def residual(self, x, params, v):
         lmbda = params[0]
 
-        (alpha, beta, gamma) = (Constant(-0.01), Constant(0), Constant(-1))
+        (alpha, beta, gamma) = (Constant(0.1), Constant(0), Constant(-1))
 
         F = (
               x**4*v*dx
