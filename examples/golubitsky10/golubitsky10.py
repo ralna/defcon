@@ -22,7 +22,7 @@ class GolubitskyProblem(BifurcationProblem):
     def residual(self, x, params, v):
         lmbda = params[0]
 
-        (alpha, beta, gamma) = (Constant(5.0), Constant(-2.0), Constant(-5))
+        (alpha, beta, gamma) = (Constant(5.0), Constant(0.5), Constant(-5))
 
         F = (
               x**4*v*dx
@@ -60,7 +60,7 @@ class GolubitskyProblem(BifurcationProblem):
 
     def solver_parameters(self, params, klass):
         args = {
-               "snes_max_it": 20,
+               "snes_max_it": 10,
                "snes_atol": 1.0e-9,
                "snes_rtol": 0.0,
                "snes_monitor": None,
@@ -70,5 +70,5 @@ class GolubitskyProblem(BifurcationProblem):
         return args
 
 if __name__ == "__main__":
-    dc = DeflatedContinuation(problem=GolubitskyProblem(), teamsize=1, verbose=True, clear_output=True)
+    dc = DeflatedContinuation(problem=GolubitskyProblem(), teamsize=1, verbose=True, clear_output=True, logfiles=True)
     dc.run(values={"lambda": linspace(-10, 10, 501)})
