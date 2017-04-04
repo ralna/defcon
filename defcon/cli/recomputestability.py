@@ -5,7 +5,9 @@ import os
 import glob
 import gc
 
-from defcon import backend
+from petsc4py import PETSc
+
+from defcon import backend, StabilityTask
 from defcon.cli.common import fetch_bifurcation_problem
 import defcon.parametertools
 
@@ -41,37 +43,31 @@ def main(args):
     z = backend.Function(Z)
 
     io.setup(params, functionals, Z)
-    params = consts
 
-    # First get the directories to loop over
-    dirnames = [x.replace(outputdir + "/", "") for x in glob.glob(outputdir + "/*=*")]
+    opts = PETSc.Options()
 
-    for dirname in dirnames:
-        # Load the appropriate parameter values
-        defcon.parametertools.parametersfromstring(params, dirname)
-        floats = map(float, params)
+    for branchid in xrange(io.max_branch()):
+        params = io.known_parameters(fixed={}, branchid=branchid)
+        for param in params:
+            consts = map(backend.Constant, param)
+            floats = map(float, param)
 
-        solutionid = 0
-        knownroots = []
+            solver_parameters = problem.solver_parameters(floats, StabilityTask)
+            if "snes_linesearch_type" not in solver_parameters:
+                opts["snes_linesearch_type"] = "basic"
+            if "snes_divergence_tolerance" not in solver_parameters:
+                opts["snes_divergence_tolerance"] = -1.0
+            if "snes_stol" not in solver_parameters:
+                opts["snes_stol"] = 0.0
 
-        solutions = glob.glob(outputdir + "/" + dirname + "/*h5")
-        for solution in solutions:
-            gc.collect()
+            opts["pc_mg_galerkin"] = None
+            opts["pc_asm_dm_subdomains"] = None
 
-            # Compute branchid
-            filename = os.path.basename(solution)
-            filename = filename.replace("solution-", "")
-            filename = filename.replace(".h5", "")
-            branchid = int(filename)
+            # set the petsc options from the solver_parameters
+            for k in solver_parameters:
+                opts[k] = solver_parameters[k]
 
-            # Load from disk
-            with backend.HDF5File(backend.comm_world, solution, "r") as h5:
-                h5.read(z, "/solution")
-
-            # Compute stability
-            d = problem.compute_stability(consts, branchid, z)
-
-            # Save stability
+            solution = io.fetch_solutions(floats, [branchid])[0]
+            d = problem.compute_stability(consts, branchid, solution)
             io.save_stability(d["stable"], d.get("eigenvalues", []), d.get("eigenfunctions", []), floats, branchid)
-
-            print("Solution %s: stability: %s" % (solution, d["stable"]))
+            print("parameters/branchid %s/%s: stability: %s" % (floats, branchid, d["stable"]))
