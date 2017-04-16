@@ -74,11 +74,11 @@ development version of FEniCS, e.g. using `fenicsproject run dev`, and in the
 container type
 
     pip2 install --user h5py
-    pip2 install --prefix=$FENICS_PREFIX https://bitbucket.org/pefarrell/defcon/get/master.tar.gz
+    pip2 install --user https://bitbucket.org/pefarrell/defcon/get/master.tar.gz
 
 Then you can navigate to defcon demos and run them
 
-    cd ~/local/share/defcon/examples/elastica/
+    cd /home/fenics/.local/share/defcon/examples/elastica
     mpirun -n 2 python elastica.py
 
 ## Defcon graphical user interface in Docker containers on Linux
