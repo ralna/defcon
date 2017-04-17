@@ -61,10 +61,14 @@ def create_fs_dm(V, problem=None):
     # if we have a mixed function space, then we need to tell PETSc
     # how to divvy up the different parts of the function space.
     # This is not needed for non-mixed elements.
-    ufl_el = V.ufl_element()
-    if isinstance(ufl_el, (MixedElement, VectorElement)):
-        dm.setCreateSubDM(create_subdm)
-        dm.setCreateFieldDecomposition(create_field_decomp)
+    try:
+        ufl_el = V.ufl_element()
+        if isinstance(ufl_el, (MixedElement, VectorElement)):
+            dm.setCreateSubDM(create_subdm)
+            dm.setCreateFieldDecomposition(create_field_decomp)
+    except AttributeError:
+        # version of petsc4py is too old
+        pass
 
     return dm
 
