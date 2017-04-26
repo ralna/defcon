@@ -45,6 +45,16 @@ else:
     class ConvergenceError(Exception):
         pass
 
+def compute_tau(deflation, state, update_p):
+    if deflation is not None:
+        Edy = getEdy(deflation, state, update_p)
+
+        minv = 1.0 / deflation.evaluate(state)
+        tau = (1 + minv*Edy/(1 - minv*Edy))
+        return tau
+    else:
+        return 1
+
 class DeflatedKSP(object):
     def __init__(self, deflation, y, ksp):
         self.deflation = deflation
@@ -56,12 +66,8 @@ class DeflatedKSP(object):
         self.ksp.solve(b, dy_pet)
         deflation = self.deflation
 
-        if deflation is not None:
-            Edy = getEdy(deflation, self.y, dy_pet)
-
-            minv = 1.0 / deflation.evaluate(self.y)
-            tau = (1 + minv*Edy/(1 - minv*Edy))
-            dy_pet.scale(tau)
+        tau = compute_tau(deflation, self.y, dy_pet)
+        dy_pet.scale(tau)
 
         ksp.setConvergedReason(self.ksp.getConvergedReason())
 
