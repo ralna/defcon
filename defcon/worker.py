@@ -299,6 +299,45 @@ class DefconWorker(DefconThread):
                              self.problem.solver_parameters(task.newparams, task.__class__),
                              self.teamno, self.deflation, self.dm)
 
+        if not success:
+            functionals = None
+            self.state_id = (None, None)
+
+            # Try halving the step and solving for the intermediate stage.
+            if hasattr(task, 'source_branchid'):
+                self.load_solution(task.oldparams, task.source_branchid, task.newparams)
+            else:
+                self.load_solution(task.oldparams, task.branchid, task.newparams)
+
+            # average parameters and try again
+            avg = [0.5*(x + y) for (x, y) in zip(task.oldparams, task.newparams)]
+            self.log("Attempting average of parameters: %s" % (avg,))
+            self.load_parameters(avg)
+            self.deflation.deflate(other_solutions + self.trivial_solutions)
+            (success_, iters) = newton(self.residual, self.jacobian, self.state, bcs,
+                             self.problem.nonlinear_problem,
+                             self.problem.solver,
+                             self.problem.solver_parameters(avg, task.__class__),
+                             self.teamno, self.deflation, self.dm)
+
+            if not success_:
+                self.log("Averaging failed.")
+                success = False
+            else:
+                self.log("Averaging half-succeeded; using as initial guess for desired step")
+                self.load_parameters(task.newparams)
+                self.deflation.deflate(other_solutions + self.trivial_solutions)
+                (success, iters) = newton(self.residual, self.jacobian, self.state, bcs,
+                                 self.problem.nonlinear_problem,
+                                 self.problem.solver,
+                                 self.problem.solver_parameters(task.newparams, task.__class__),
+                                 self.teamno, self.deflation, self.dm)
+                if success:
+                    self.log("Averaging succeeded!")
+                else:
+                    self.log("Averaging half-failed.")
+
+
         if success:
             self.state_id = (task.newparams, task.branchid)
 
@@ -309,7 +348,6 @@ class DefconWorker(DefconThread):
 
             with Event("continuation: saving"):
                 self.io.save_solution(self.state, functionals, task.newparams, task.branchid)
-
         else:
             functionals = None
             self.state_id = (None, None)
