@@ -345,12 +345,19 @@ class ApplicationWindow(QtGui.QMainWindow):
         timeBox.addWidget(self.buttonEnd)
 
         # Plot Buttons
-        self.buttonPlot = QtGui.QPushButton("Plot")
+        self.buttonPlot = QtGui.QPushButton("Plot selection")
         self.buttonPlot.clicked.connect(self.plot)
         self.buttonPlot.setEnabled(False)
-        self.buttonPlot.setToolTip("Plot currently selected solution")
+        self.buttonPlot.setToolTip("Plot currently selected solutions")
         self.buttonPlot.setFixedWidth(120)
         plotBox.addWidget(self.buttonPlot)
+
+        self.buttonPlotBranch = QtGui.QPushButton("Plot branch")
+        self.buttonPlotBranch.clicked.connect(self.plotbranch)
+        self.buttonPlotBranch.setEnabled(False)
+        self.buttonPlotBranch.setToolTip("Plot selected branch")
+        self.buttonPlotBranch.setFixedWidth(120)
+        plotBox.addWidget(self.buttonPlotBranch)
 
         self.buttonPostProcess = QtGui.QPushButton("Postprocess")
         self.buttonPostProcess.clicked.connect(self.postprocess)
@@ -472,9 +479,11 @@ class ApplicationWindow(QtGui.QMainWindow):
         annotated = self.pc.annotate(event.xdata, event.ydata)
         if annotated:
             self.buttonPlot.setEnabled(True)
+            self.buttonPlotBranch.setEnabled(True)
             self.buttonPostProcess.setEnabled(True)
         else:
             self.buttonPlot.setEnabled(False)
+            self.buttonPlotBranch.setEnabled(False)
             self.buttonPostProcess.setEnabled(False)
 
     def start(self):
@@ -506,6 +515,10 @@ class ApplicationWindow(QtGui.QMainWindow):
     def plot(self):
         """ Launch Matplotlib/Paraview to graph the selected solution. """
         self.pc.plot()
+
+    def plotbranch(self):
+        """ Launch Matplotlib/Paraview to graph the selected branch. """
+        self.pc.plotbranch()
 
     def postprocess(self):
         """ Do whatever postprocessing the user asks. """

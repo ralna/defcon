@@ -280,6 +280,7 @@ class PlotConstructor():
                     self.running = True
 
                     freeindex, self.parameter_name, functional_names, unicode_functional_names, nteams, minparam, maxparam, othervalues, timestamp = dataList[0].split(';')
+                    self.othervalues = literal_eval(othervalues)
                     self.start_time = float(timestamp)
                     self.minparam = float(minparam)
                     self.maxparam = float(maxparam)
@@ -433,6 +434,46 @@ class PlotConstructor():
 
             for (y, branchid) in zip(ys, branchids):
                 self.problem.postprocess(y, params, branchid, self.aw)
+
+    def plotbranch(self):
+        """ Fetch all solutions associated with selected branchid. """
+
+        if self.annotated_point is None:
+            return
+
+        (params, branchids) = self.annotated_point
+        branchid = branchids[0]
+
+        # Construct the dictionary of fixed parameters
+        freeindex = self.freeindex
+        others    = self.othervalues
+
+        fixed = {}
+        i = 0
+        for (index, param) in enumerate(self.io.parameters):
+            if index != freeindex:
+                fixed[param[1]] = others[i]
+                i += 1
+
+        # Fetch parameters for which this branch is known
+        params = self.io.known_parameters(fixed, branchid)
+
+        # Create the file to which we will write these solutions.
+        pvd_filename = os.path.join(self.solutions_dir, "branchid=%s.pvd" % branchid)
+        pvd = backend.File(pvd_filename)
+
+        print("Rendering branchid %s to PVD ..." % branchid)
+        for param in params:
+            print("  Saving solution at parameters %s" % (param,))
+            y = self.io.fetch_solutions(param, [branchid])[0]
+            self.problem.save_pvd(y, pvd)
+
+        # Finally, launch paraview with the newly created file.
+        # If this fails, issue a warning.
+        try: Popen(["paraview", pvd_filename])
+        except Exception as e:
+            issuewarning("Oops, something went wrong with launching paraview. Are you sure you have it installed and on your PATH? The error was:")
+            print(str(e))
 
     def plot(self):
         """ Fetch a solution and plot it. If the solutions are 1D we use matplotlib, otherwise we use paraview. """

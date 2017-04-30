@@ -220,7 +220,7 @@ class BranchIO(iomodule.SolutionIO):
                 if add:
                     out.append(params)
 
-        return out
+        return sorted(out)
 
     def max_branch(self):
         filenames = glob.glob(os.path.join(self.directory, 'solution*.h5'))
