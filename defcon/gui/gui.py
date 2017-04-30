@@ -6,6 +6,10 @@ from __future__ import print_function
 import warnings
 warnings.filterwarnings("ignore", module="matplotlib")
 
+from matplotlib import rc
+rc('font', **{'family': 'serif', 'serif': ['Computer Modern']})
+rc('text', usetex=True)
+
 import matplotlib
 
 # Get the window and figure code.
