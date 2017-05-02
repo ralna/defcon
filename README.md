@@ -41,10 +41,23 @@ Defcon recommends (and some of the examples depend on)
 * mshr (https://bitbucket.org/fenics-project/mshr)
 * slepc4py (https://bitbucket.org/slepc/slepc4py)
 
-## Current status
+Defcon adopts same versioning scheme as the FEniCS project. Development of
+defcon closely follows FEniCS and some features require also a recent version of
+PETSc. Released versions of defcon are compatible with a matching version of
+FEniCS (since version 2017.1.0).
+
+## Current status and automated testing
 
 Defcon's serial capabilities are reasonably well tested. Its parallel features
 are experimental.
+
+Defcon is being automatically tested against a development version of FEniCS
+docker images using Bitbucket Pipelines (with Python 2) and CircleCI (with
+Python 3). This ensures that defcon should always run with a recent FEniCS
+development version.
+
+[![Pipelines Py2](https://bitbucket-badges.useast.atlassian.io/badge/fenics-project/dolfin.svg)](https://bitbucket.org/fenics-project/dolfin/addon/pipelines/home)
+[![Circle Py3](https://circleci.com/bb/pefarrell/defcon.svg?style=svg)](https://circleci.com/bb/pefarrell/defcon)
 
 ## Code Examples
 
