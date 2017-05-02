@@ -42,9 +42,9 @@ Defcon recommends (and some of the examples depend on)
 * slepc4py (https://bitbucket.org/slepc/slepc4py)
 
 Defcon adopts same versioning scheme as the FEniCS project. Development of
-defcon closely follows FEniCS and some features require also recent PETSc.
-Release versions of defcon are compatible with a matching version of FEniCS
-(since version 2017.1.0).
+defcon closely follows FEniCS and some features require also a recent version of
+PETSc. Released versions of defcon are compatible with a matching version of
+FEniCS (since version 2017.1.0).
 
 ## Current status and automated testing
 
