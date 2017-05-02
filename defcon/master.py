@@ -540,6 +540,22 @@ class DefconMaster(DefconThread):
             self.log("Waiting on response for %s" % conttask)
             self.journal.team_job(team, task_to_code(conttask))
 
+        # If the worker has instructed us to insert a continuation task
+        # going backwards, then do it. This arises if the worker thinks
+        # the solutions have changed too much -- we may have inadvertently
+        # jumped from one (mathematical) branch to another.
+
+        if response.data["go_backwards"]:
+            backtask = ContinuationTask(taskid=self.taskid_counter,
+                                        oldparams=task.newparams,
+                                        freeindex=task.freeindex,
+                                        branchid=task.branchid,
+                                        newparams=task.oldparams,
+                                        direction=-1*task.direction)
+            self.taskid_counter += 1
+            backpriority = self.signs[task.freeindex]*backtask.newparams[task.freeindex]
+            self.graph.push(backtask, backpriority)
+
         # Now let's ask the user if they want to do anything special,
         # e.g. insert new tasks going in another direction.
         userin = ContinuationTask(taskid=self.taskid_counter,

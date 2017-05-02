@@ -49,6 +49,12 @@ class ContinuationTask(Task):
         if ensure_branches is None: ensure_branches = set()
         self.ensure_branches = ensure_branches
 
+        # We keep track of the distance between the initial guess (previous
+        # solution) and next solution. If this is much larger than "normal",
+        # then we may have jumped branch, and we want to instruct the master
+        # process to insert a continuation task going backwards.
+        self.prevsqdist  = None
+
     def ensure(self, branches):
         self.ensure_branches.update(branches)
 
