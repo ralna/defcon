@@ -546,12 +546,15 @@ class DefconMaster(DefconThread):
         # jumped from one (mathematical) branch to another.
 
         if response.data["go_backwards"]:
+            back_branchid = self.branchid_counter
+            self.branchid_counter += 1
             backtask = ContinuationTask(taskid=self.taskid_counter,
                                         oldparams=task.newparams,
                                         freeindex=task.freeindex,
-                                        branchid=task.branchid,
+                                        branchid=back_branchid,
                                         newparams=task.oldparams,
                                         direction=-1*task.direction)
+            backtask.source_branchid = task.branchid
             self.taskid_counter += 1
             backpriority = self.signs[task.freeindex]*backtask.newparams[task.freeindex]
             self.graph.push(backtask, backpriority)
@@ -689,7 +692,8 @@ class DefconMaster(DefconThread):
             if self.continue_backwards:
                 newparams = self.parameters.previous(oldparams, freeindex)
                 back_branchid = self.branchid_counter
-                self.branchid_counter += 1
+                self.branchid_counter += 2 # +2 instead of +2 to maintain sign convention
+                                           # that even is advancing in parameter, odd is going backwards
 
                 if newparams is not None:
                     task = ContinuationTask(taskid=self.taskid_counter,

@@ -351,8 +351,10 @@ class DefconWorker(DefconThread):
             # Compute the distance between the initial guess (previous solution) and
             # new solution. If it's suspiciously high, instruct the master process
             # to send a continuation backwards: we may have inadvertently jumped branch
-            sqdist = self.problem.squared_norm(self.state, ig, task.newparams)
+            sqdist = backend.assemble(self.problem.squared_norm(self.state, ig, task.newparams))
             if task.prevsqdist is not None and sqdist > 5*task.prevsqdist:
+                self.log("Size of previous update: %s" % task.prevsqdist)
+                self.log("Size of current  update: %s" % sqdist)
                 self.log("Size of update suspiciously large. Inserting continuation task backwards.")
                 go_backwards = True
         else:
