@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 from __future__ import absolute_import, print_function
 
 import sys
@@ -65,7 +66,7 @@ def main(args=None):
         import defcon.cli.recomputestability
         return defcon.cli.recomputestability.main(args)
     else:
-        print("Uknown command specified.")
+        print("Unknown command specified.")
         usage()
         return 1
 
