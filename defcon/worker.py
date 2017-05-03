@@ -355,7 +355,7 @@ class DefconWorker(DefconThread):
             if task.prevsqdist is not None and sqdist > 5*task.prevsqdist:
                 self.log("Size of previous update: %s" % task.prevsqdist)
                 self.log("Size of current  update: %s" % sqdist)
-                self.log("Size of update suspiciously large. Inserting continuation task backwards.")
+                self.log("Size of update on branchid=%d suspiciously large. Inserting continuation task backwards." % task.branchid)
                 go_backwards = True
         else:
             functionals = None
