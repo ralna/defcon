@@ -559,6 +559,18 @@ class DefconMaster(DefconThread):
             backpriority = self.signs[task.freeindex]*backtask.newparams[task.freeindex]
             self.graph.push(backtask, backpriority)
 
+            if self.compute_stability:
+                backstabtask = StabilityTask(taskid=self.taskid_counter,
+                                         oldparams=task.oldparams,
+                                         freeindex=task.freeindex,
+                                         branchid=back_branchid,
+                                         direction=-1*task.direction,
+                                         hint=None)
+                backstabpriority = self.signs[task.freeindex]*backstabtask.oldparams[task.freeindex]
+                self.graph.push(backstabtask, backstabpriority)
+                self.taskid_counter += 1
+
+
         # Now let's ask the user if they want to do anything special,
         # e.g. insert new tasks going in another direction.
         userin = ContinuationTask(taskid=self.taskid_counter,
