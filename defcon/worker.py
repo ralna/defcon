@@ -289,6 +289,8 @@ class DefconWorker(DefconThread):
         with Event("continuation: boundary conditions"):
             bcs = self.problem.boundary_conditions(self.function_space, task.newparams)
 
+        ig = self.state.copy(deepcopy=True)
+
         # Try to solve it
         with Event("continuation: solve"):
             self.log("Deflating other branches %s" % task.ensure_branches)
@@ -303,11 +305,7 @@ class DefconWorker(DefconThread):
             functionals = None
             self.state_id = (None, None)
 
-            # Try halving the step and solving for the intermediate stage.
-            if hasattr(task, 'source_branchid'):
-                self.load_solution(task.oldparams, task.source_branchid, task.newparams)
-            else:
-                self.load_solution(task.oldparams, task.branchid, task.newparams)
+            self.state.assign(ig)
 
             # average parameters and try again
             avg = [0.5*(x + y) for (x, y) in zip(task.oldparams, task.newparams)]
@@ -338,6 +336,7 @@ class DefconWorker(DefconThread):
                     self.log("Averaging half-failed.")
 
 
+        go_backwards = False
         if success:
             self.state_id = (task.newparams, task.branchid)
 
@@ -348,11 +347,21 @@ class DefconWorker(DefconThread):
 
             with Event("continuation: saving"):
                 self.io.save_solution(self.state, functionals, task.newparams, task.branchid)
+
+            # Compute the distance between the initial guess (previous solution) and
+            # new solution. If it's suspiciously high, instruct the master process
+            # to send a continuation backwards: we may have inadvertently jumped branch
+            sqdist = backend.assemble(self.problem.squared_norm(self.state, ig, task.newparams))
+            if task.prevsqdist is not None and sqdist > 5*task.prevsqdist:
+                self.log("Size of previous update: %s" % task.prevsqdist)
+                self.log("Size of current  update: %s" % sqdist)
+                self.log("Size of update on branchid=%d suspiciously large. Inserting continuation task backwards." % task.branchid)
+                go_backwards = True
         else:
             functionals = None
             self.state_id = (None, None)
 
-        response = Response(task.taskid, success=success, data={"functionals": functionals})
+        response = Response(task.taskid, success=success, data={"functionals": functionals, "go_backwards": go_backwards})
         with Event("continuation: sending"):
             self.send_response(response)
 
@@ -382,6 +391,7 @@ class DefconWorker(DefconThread):
                                     newparams=newparams,
                                     direction=task.direction)
             task.ensure(response.data["ensure_branches"])
+            task.prevsqdist = sqdist
 
             contev.end()
             return task

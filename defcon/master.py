@@ -540,6 +540,37 @@ class DefconMaster(DefconThread):
             self.log("Waiting on response for %s" % conttask)
             self.journal.team_job(team, task_to_code(conttask))
 
+        # If the worker has instructed us to insert a continuation task
+        # going backwards, then do it. This arises if the worker thinks
+        # the solutions have changed too much -- we may have inadvertently
+        # jumped from one (mathematical) branch to another.
+
+        if response.data["go_backwards"]:
+            back_branchid = self.branchid_counter
+            self.branchid_counter += 1
+            backtask = ContinuationTask(taskid=self.taskid_counter,
+                                        oldparams=task.newparams,
+                                        freeindex=task.freeindex,
+                                        branchid=back_branchid,
+                                        newparams=task.oldparams,
+                                        direction=-1*task.direction)
+            backtask.source_branchid = task.branchid
+            self.taskid_counter += 1
+            backpriority = self.signs[task.freeindex]*backtask.newparams[task.freeindex]
+            self.graph.push(backtask, backpriority)
+
+            if self.compute_stability:
+                backstabtask = StabilityTask(taskid=self.taskid_counter,
+                                         oldparams=task.oldparams,
+                                         freeindex=task.freeindex,
+                                         branchid=back_branchid,
+                                         direction=-1*task.direction,
+                                         hint=None)
+                backstabpriority = self.signs[task.freeindex]*backstabtask.oldparams[task.freeindex]
+                self.graph.push(backstabtask, backstabpriority)
+                self.taskid_counter += 1
+
+
         # Now let's ask the user if they want to do anything special,
         # e.g. insert new tasks going in another direction.
         userin = ContinuationTask(taskid=self.taskid_counter,
@@ -673,7 +704,8 @@ class DefconMaster(DefconThread):
             if self.continue_backwards:
                 newparams = self.parameters.previous(oldparams, freeindex)
                 back_branchid = self.branchid_counter
-                self.branchid_counter += 1
+                self.branchid_counter += 2 # +2 instead of +2 to maintain sign convention
+                                           # that even is advancing in parameter, odd is going backwards
 
                 if newparams is not None:
                     task = ContinuationTask(taskid=self.taskid_counter,

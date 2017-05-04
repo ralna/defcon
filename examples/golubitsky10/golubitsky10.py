@@ -51,16 +51,13 @@ class GolubitskyProblem(BifurcationProblem):
 
     def number_solutions(self, params):
         lmbda = params[0]
+        if lmbda < -1.3: return 2
+        if lmbda > +0.7: return 2
         return 4
-
-        if 0.3 < lmbda < 4:
-            return 3
-        else:
-            return 1
 
     def solver_parameters(self, params, klass):
         args = {
-               "snes_max_it": 10,
+               "snes_max_it": 50,
                "snes_atol": 1.0e-9,
                "snes_rtol": 0.0,
                "snes_monitor": None,
@@ -71,4 +68,4 @@ class GolubitskyProblem(BifurcationProblem):
 
 if __name__ == "__main__":
     dc = DeflatedContinuation(problem=GolubitskyProblem(), teamsize=1, verbose=True, clear_output=True, logfiles=True)
-    dc.run(values={"lambda": linspace(-10, 10, 501)})
+    dc.run(values={"lambda": linspace(-10, 10, 2001)})
