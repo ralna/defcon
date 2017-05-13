@@ -37,9 +37,11 @@ If you're compiling things yourself, defcon depends on
 Defcon recommends (and some of the examples depend on)
 
 * h5py, compiled against parallel HDF5 (http://www.h5py.org/)
-* matplotlib (http://matplotlib.org)
+* matplotlib (http://matplotlib.org, for rendering bifurcation diagrams)
 * mshr (https://bitbucket.org/fenics-project/mshr)
-* slepc4py (https://bitbucket.org/slepc/slepc4py)
+* slepc4py (https://bitbucket.org/slepc/slepc4py, for computing stabilities)
+* PyQT4/PyQT5 (https://riverbankcomputing.com/software/pyqt/intro, for the GUI)
+* latex (https://www.tug.org/texlive/, for rendering TeX strings in the GUI)
 
 Defcon adopts same versioning scheme as the FEniCS project. Development of
 defcon closely follows FEniCS and some features require also a recent version of
@@ -94,16 +96,41 @@ Then you can navigate to defcon demos and run them
     cd /home/fenics/.local/share/defcon/examples/elastica
     mpirun -n 2 python elastica.py
 
-## Defcon graphical user interface in Docker containers on Linux
+## Running the GUI in docker
 
-To use the defcon GUI, a slightly more complicated procedure is needed. First
-one needs to allow a docker container to connect to host's X11 system
+To use the defcon GUI, a slightly more complicated procedure is needed.
+
+### Connecting X11 applications on Linux
+One needs to allow a docker container to connect to host's X11 system:
 
     xhost +
     docker run -ti -e DISPLAY=$DISPLAY -v /tmp/.X11-unix:/tmp/.X11-unix quay.io/fenicsproject/dev
 
-(Don't forget to run `xhost -` when finished with the container.) Then in
-the container one needs to install one of PyQt5, PyQt4, or PySide.
+or another docker image in place of quay.io/fenicsproject/dev.
+Don't forget to run `xhost -` when finished with the container.
+
+### Running the GUI in docker on OSX
+If running on OSX, you need to have the appropriate XQuartz program running, and to
+convince it to talk to the GUI in docker. To do so, perform the following steps:
+
+* Run XQuartz
+* Go to Preferences > 'Security' tab; turn on 'Allow connection from network clients'
+* Restart XQuartz
+* Get your local machine's IP:
+
+        ip=$(ifconfig en0 | grep inet | awk '$1=="inet" {print $2}') && echo "My IP is: $ip"
+
+* Allow the local machine to talk to XQuartz and run the docker container:
+
+        xhost + ${ip}
+        docker run -ti -e DISPLAY=${ip}:0 -v /tmp/.X11-unix:/tmp/.X11-unix quay.io/fenicsproject/dev /bin/bash
+
+  or another docker image in place of quay.io/fenicsproject/dev.
+
+Don't forget to run `xhost -` when finished with the container.
+
+### Running the GUI in the FEniCS-supplied images
+In the container one needs to install one of PyQt5, PyQt4, or PySide.
 The most convenient is
 
     sudo apt update
