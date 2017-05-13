@@ -359,6 +359,13 @@ class ApplicationWindow(QtGui.QMainWindow):
         self.buttonPlotBranch.setFixedWidth(120)
         plotBox.addWidget(self.buttonPlotBranch)
 
+        self.buttonPlotParameter = QtGui.QPushButton("Plot parameter")
+        self.buttonPlotParameter.clicked.connect(self.plotparameter)
+        self.buttonPlotParameter.setEnabled(False)
+        self.buttonPlotParameter.setToolTip("Plot all solutions for selected parameter")
+        self.buttonPlotParameter.setFixedWidth(120)
+        plotBox.addWidget(self.buttonPlotParameter)
+
         self.buttonPostProcess = QtGui.QPushButton("Postprocess")
         self.buttonPostProcess.clicked.connect(self.postprocess)
         self.buttonPostProcess.setEnabled(False)
@@ -480,10 +487,12 @@ class ApplicationWindow(QtGui.QMainWindow):
         if annotated:
             self.buttonPlot.setEnabled(True)
             self.buttonPlotBranch.setEnabled(True)
+            self.buttonPlotParameter.setEnabled(True)
             self.buttonPostProcess.setEnabled(True)
         else:
             self.buttonPlot.setEnabled(False)
             self.buttonPlotBranch.setEnabled(False)
+            self.buttonPlotParameter.setEnabled(False)
             self.buttonPostProcess.setEnabled(False)
 
     def start(self):
@@ -519,6 +528,10 @@ class ApplicationWindow(QtGui.QMainWindow):
     def plotbranch(self):
         """ Launch Matplotlib/Paraview to graph the selected branch. """
         self.pc.plotbranch()
+
+    def plotparameter(self):
+        """ Launch Matplotlib/Paraview to graph all branches for the selected parameter. """
+        self.pc.plotparameter()
 
     def postprocess(self):
         """ Do whatever postprocessing the user asks. """

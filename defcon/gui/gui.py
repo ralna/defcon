@@ -475,6 +475,33 @@ class PlotConstructor():
             issuewarning("Oops, something went wrong with launching paraview. Are you sure you have it installed and on your PATH? The error was:")
             print(str(e))
 
+    def plotparameter(self):
+        """ Fetch all solutions associated with selected parameter. """
+
+        if self.annotated_point is None:
+            return
+
+        (params, _) = self.annotated_point
+
+        known_branches = self.io.known_branches(params)
+
+        # Create the file to which we will write these solutions.
+        pvd_filename = os.path.join(self.solutions_dir, "parameters=%s.pvd" % (params,))
+        pvd = backend.File(pvd_filename)
+
+        print("Rendering parameters %s to PVD ..." % (params,))
+        for branchid in known_branches:
+            print("  Saving solution for branchid %s" % branchid)
+            y = self.io.fetch_solutions(params, [branchid])[0]
+            self.problem.save_pvd(y, pvd)
+
+        # Finally, launch paraview with the newly created file.
+        # If this fails, issue a warning.
+        try: Popen(["paraview", pvd_filename])
+        except Exception as e:
+            issuewarning("Oops, something went wrong with launching paraview. Are you sure you have it installed and on your PATH? The error was:")
+            print(str(e))
+
     def plot(self):
         """ Fetch a solution and plot it. If the solutions are 1D we use matplotlib, otherwise we use paraview. """
         if self.annotated_point is not None:
