@@ -298,6 +298,7 @@ class BifurcationProblem(object):
 
         pvd << y
         """
+        y.rename("Solution", "Solution")
         pvd << y
 
     def nonlinear_problem(self, F, J, y, bcs):
