@@ -11,6 +11,7 @@ from dolfin import *
 from numpy import zeros, array, squeeze, reshape 
 import os, inspect
 from mpi4py.MPI import COMM_WORLD as comm
+import glob
 
 # Compile Probe C++ code
 def strip_essential_code(filenames):
@@ -24,8 +25,13 @@ dolfin_folder = os.path.abspath(os.path.join(inspect.getfile(inspect.currentfram
 sources = ["Probe.cpp", "Probes.cpp", "StatisticsProbe.cpp", "StatisticsProbes.cpp"]
 headers = map(lambda x: os.path.join(dolfin_folder, x), ['Probe.h', 'Probes.h', 'StatisticsProbe.h', 'StatisticsProbes.h'])
 code = strip_essential_code(headers)
+
+include_dirs = include_dirs=[".", os.path.abspath(dolfin_folder)] + glob.glob("/usr/lib/petscdir/*/*/include")
+if 'PETSC_DIR' in os.environ and 'PETSC_ARCH' in os.environ:
+    include_dirs += [os.path.abspath(os.path.join(os.environ['PETSC_DIR'], os.environ['PETSC_ARCH'], "include"))]
+
 compiled_module = compile_extension_module(code=code, source_directory=os.path.abspath(dolfin_folder),
-                                           sources=sources, include_dirs=[".", os.path.abspath(dolfin_folder)])
+                                           sources=sources, include_dirs=include_dirs)
 
 # Give the compiled classes some additional pythonic functionality
 class Probe(compiled_module.Probe):
