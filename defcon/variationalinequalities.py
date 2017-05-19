@@ -72,12 +72,15 @@ class VIBifurcationProblem(object):
     def functionals(self):
         orig = self.problem.functionals()
         out  = []
-        for (func, name, latex) in orig:
+
+        def makefunc(func):
             def newfunc(z, params):
                 u = z.split()[0]
                 return func(u, params)
+            return newfunc
 
-            out.append((newfunc, name, latex))
+        for (func, name, latex) in orig:
+            out.append((makefunc(func), name, latex))
 
         return out
 
