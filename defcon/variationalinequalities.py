@@ -1,5 +1,6 @@
 from defcon.bifurcationproblem import BifurcationProblem
 from defcon.newton import compute_tau
+from defcon.backendimporter import get_deep_submat
 from backend import *
 from petsc4py import PETSc
 from numpy import where, array, int32
@@ -160,10 +161,10 @@ class VIBifurcationProblem(object):
                 u.restoreSubVector(ub_active_is, u_ub_active)
 
                 # Solve the PDE where the constraints are inactive.
-                M = J.createSubMatrix(is_state, is_state)
-                M_inact = M.createSubMatrix(inactive_is, inactive_is)
-                M_lb    = M.createSubMatrix(inactive_is, lb_active_is)
-                M_ub    = M.createSubMatrix(inactive_is, ub_active_is)
+                M = get_deep_submat(J, is_state, is_state)
+                M_inact = get_deep_submat(M, inactive_is, inactive_is)
+                M_lb    = get_deep_submat(M, inactive_is, lb_active_is)
+                M_ub    = get_deep_submat(M, inactive_is, ub_active_is)
 
                 F_u     = F.getSubVector(is_state)
                 F_inact = F_u.getSubVector(inactive_is)
@@ -216,7 +217,7 @@ class VIBifurcationProblem(object):
                 # dmu_lb should be whatever it needs to be so that
                 # the Newton equation is satisfied where the lower bound
                 # is active.
-                M_lb = M.createSubMatrix(lb_active_is, None)
+                M_lb = get_deep_submat(M, lb_active_is, None)
                 F_lb = F_u.getSubVector(lb_active_is)
 
                 M_lb.mult(du, dmu_lb_active)   # dmu_lb = J.du
@@ -240,7 +241,7 @@ class VIBifurcationProblem(object):
                 # dmu_ub should be whatever it needs to be so that
                 # the Newton equation is satisfied where the upper bound
                 # is active.
-                M_ub = M.createSubMatrix(ub_active_is, None)
+                M_ub = get_deep_submat(M, ub_active_is, None)
                 F_ub = F_u.getSubVector(ub_active_is)
 
                 M_ub.mult(du, dmu_ub_active)   # dmu_ub = J.du
