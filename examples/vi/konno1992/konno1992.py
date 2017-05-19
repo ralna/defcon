@@ -48,7 +48,7 @@ class KonnoProblem(ComplementarityProblem):
         return 1
 
     def initial_guess(self, V, params, n):
-        c = -2
+        c = 2
         init = Constant(as_vector([c]*N))
         return interpolate(init, V)
 
@@ -65,7 +65,7 @@ class KonnoProblem(ComplementarityProblem):
                "snes_monitor": None,
                "snes_linesearch_damping": 1.0,
                "snes_linesearch_maxstep": 1.0,
-               "snes_linesearch_type": "basic",
+               "snes_linesearch_type": "l2",
                "ksp_type": "preonly",
                "pc_type": "svd",
                }
