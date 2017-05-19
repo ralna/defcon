@@ -15,20 +15,23 @@ pages={233--234},
 }
 """
 
+from __future__ import print_function
+
 from dolfin import *
 from defcon import *
 
 N = 4
 def F(z, params):
+    q = params[0]
     x1 = z[0]
     x2 = z[1]
     y1 = z[2]
     y2 = z[3]
 
-    F1 = 30*y1 + 20*y2 - 1
-    F2 = 10*y1 + 25*y2 - 1
-    F3 = 30*x1 + 20*x2 - 1
-    F4 = 10*x1 + 25*x2 - 1
+    F1 = q*30*y1 + q*20*y2 - 1
+    F2 = q*10*y1 + q*25*y2 - 1
+    F3 = q*30*x1 + q*20*x2 - 1
+    F4 = q*10*x1 + q*25*x2 - 1
     F = [F1, F2, F3, F4]
 
     return F
@@ -45,7 +48,10 @@ class AggarwalProblem(ComplementarityProblem):
         return interpolate(Constant([0, 0, 0.1, 0]), V)
 
     def number_solutions(self, params):
-        return 3
+        if params[0] == 0.0: return 1
+        if params[0] == 1.0: return 3
+        else: return 3
+        #else: return float("inf")
 
     def solver_parameters(self, params, klass):
         args = {
@@ -57,7 +63,7 @@ class AggarwalProblem(ComplementarityProblem):
                "snes_monitor": None,
                "snes_linesearch_damping": 1.0,
                "snes_linesearch_maxstep": 1.0,
-               "snes_linesearch_type": "l2",
+               "snes_linesearch_type": "basic",
                "ksp_type": "preonly",
                "pc_type": "svd",
                }
@@ -66,4 +72,12 @@ class AggarwalProblem(ComplementarityProblem):
 if __name__ == "__main__":
     problem = AggarwalProblem(F, N)
     dc = DeflatedContinuation(problem, teamsize=1, clear_output=True)
-    dc.run(values={"lambda": 0})
+    dc.run(values={"lambda": linspace(0, 1, 101)[1:]})
+
+    if backend.comm_world.rank == 0:
+        print()
+        params = (1,)
+        branches = dc.thread.io.known_branches(params)
+        for branch in branches:
+            functionals = dc.thread.io.fetch_functionals([params], branch)[0]
+            print("Solution: %s" % functionals)
