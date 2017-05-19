@@ -1,13 +1,18 @@
 """
-Nonconvex quadratic programming example with unusual central path.
+Linear multiplicative programming problem.
 
 Drawn from
 
-N. I. M. Gould
-"The state-of-the-art in numerical methods for quadratic programming"
-19th Biennial Conference on Numerical Analysis, Dundee, Scotland.
-
-ftp://ftp.numerical.rl.ac.uk/pub/talks/nimg.dundee.28VI01.ps.gz
+@article{konno1992,
+year={1992},
+journal={Mathematical Programming},
+volume={56},
+number={1--3},
+doi={10.1007/BF01580893},
+title={Linear multiplicative programming},
+author={Konno, H. and Kuno, T.},
+pages={51--64},
+}
 """
 
 from dolfin import *
