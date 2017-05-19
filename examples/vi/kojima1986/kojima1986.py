@@ -41,8 +41,7 @@ class KojimaProblem(ComplementarityProblem):
         return 1
 
     def initial_guess(self, V, params, n):
-        return interpolate(Constant((2, 2, 2, 2)), V)
-        return Function(V)
+        return interpolate(Constant((0.1, 0.1, 0.1, 0.1)), V)
 
     def number_solutions(self, params):
         return 2
@@ -57,7 +56,7 @@ class KojimaProblem(ComplementarityProblem):
                "snes_monitor": None,
                "snes_linesearch_damping": 1.0,
                "snes_linesearch_maxstep": 1.0,
-               "snes_linesearch_type": "l2",
+               "snes_linesearch_type": "basic",
                "ksp_type": "preonly",
                "pc_type": "svd",
                }
