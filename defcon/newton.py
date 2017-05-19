@@ -81,6 +81,7 @@ def newton(F, J, y, bcs, problemclass, solverclass, solver_params,
            teamno, deflation=None, dm=None, prefix=""):
     comm = y.function_space().mesh().mpi_comm()
     problem = problemclass(F, J, y, bcs)
+    problem.deflation = deflation
 
     solver = solverclass(problem, solver_params, prefix=prefix, dm=dm)
     snes = solver.snes
