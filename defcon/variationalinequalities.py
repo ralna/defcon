@@ -403,7 +403,11 @@ class ComplementarityProblem(BifurcationProblem):
             def func(z, params):
                 return z.vector().array()[i]
             return (func, "z[%d]" % i, r"z_{%d}" % i)
-        return [fetch_component(i) for i in range(self.N)]
+
+        def l2norm(z, params):
+            return z.vector().norm("l2")
+
+        return [fetch_component(i) for i in range(self.N)] + [(l2norm, "l2norm", r"$\|z\|$")]
 
     def squared_norm(self, a, b, params):
         return inner(a - b, a - b)*dx

@@ -20,6 +20,8 @@ from __future__ import print_function
 from dolfin import *
 from defcon import *
 
+from matplotlib import pyplot as plt
+
 N = 4
 def F(z, params):
     q = params[0]
@@ -49,9 +51,7 @@ class AggarwalProblem(ComplementarityProblem):
 
     def number_solutions(self, params):
         if params[0] == 0.0: return 1
-        if params[0] == 1.0: return 3
         else: return 3
-        #else: return float("inf")
 
     def solver_parameters(self, params, klass):
         args = {
@@ -73,6 +73,10 @@ if __name__ == "__main__":
     problem = AggarwalProblem(F, N)
     dc = DeflatedContinuation(problem, teamsize=1, clear_output=True)
     dc.run(values={"lambda": linspace(0, 1, 101)[1:]})
+
+    dc.bifurcation_diagram("l2norm")
+    plt.title(r"The Aggarwal bimatrix game")
+    plt.savefig("bifurcation.pdf")
 
     if backend.comm_world.rank == 0:
         print()

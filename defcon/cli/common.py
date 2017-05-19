@@ -4,6 +4,7 @@ import os
 import imp
 
 from defcon import BifurcationProblem
+from defcon import VIBifurcationProblem, ComplementarityProblem
 
 
 def fetch_bifurcation_problem(path):
@@ -50,6 +51,7 @@ def fetch_bifurcation_problem(path):
             # Check if we have what we want
             assert issubclass(v, BifurcationProblem)
             assert v is not BifurcationProblem
+            assert v is not ComplementarityProblem
             print("Found BifurcationProblem subclass: %s" % v)
 
             # Now try to initialize it with no arguments
