@@ -76,7 +76,7 @@ class VIBifurcationProblem(object):
 
         def makefunc(func):
             def newfunc(z, params):
-                u = z.split()[0]
+                u = z.split(deepcopy=True)[0]
                 return func(u, params)
             return newfunc
 
