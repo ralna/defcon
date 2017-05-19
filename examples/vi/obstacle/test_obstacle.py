@@ -10,9 +10,10 @@ def test_obstacle():
     io = viproblem.io()
     io.setup(viproblem.parameters(), viproblem.functionals(), None)
 
+    params = (-10.0,)
+
     if backend.comm_world.rank == 0:
-        params = (-10.0,)
         assert len(io.known_branches(params)) == 1
 
-        functionals = io.fetch_functionals([params], 0)[0]
-        assert 0.65 < functionals[0] < 0.66
+    functionals = io.fetch_functionals([params], 0)[0]
+    assert 0.65 < functionals[0] < 0.66

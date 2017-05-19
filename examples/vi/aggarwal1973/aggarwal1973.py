@@ -47,7 +47,7 @@ class AggarwalProblem(ComplementarityProblem):
         return 1
 
     def initial_guess(self, V, params, n):
-        return interpolate(Constant([0, 0, 0.1, 0]), V)
+        return interpolate(Constant([0, 0, 0.0, 0]), V)
 
     def number_solutions(self, params):
         if params[0] == 0.0: return 1
@@ -72,7 +72,9 @@ class AggarwalProblem(ComplementarityProblem):
 if __name__ == "__main__":
     problem = AggarwalProblem(F, N)
     dc = DeflatedContinuation(problem, teamsize=1, clear_output=True)
-    dc.run(values={"lambda": linspace(0, 1, 101)[1:]})
+    start = 0.001
+    lambdas = [start] + list(linspace(start, 1, 51)[1:])
+    dc.run(values={"lambda": lambdas})
 
     dc.bifurcation_diagram("l2norm")
     plt.title(r"The Aggarwal bimatrix game")

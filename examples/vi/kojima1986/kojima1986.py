@@ -41,7 +41,8 @@ class KojimaProblem(ComplementarityProblem):
         return 1
 
     def initial_guess(self, V, params, n):
-        return interpolate(Constant((0.1, 0.1, 0.1, 0.1)), V)
+        c = 0.7
+        return interpolate(Constant((c, c, c, c)), V)
 
     def number_solutions(self, params):
         return 2
