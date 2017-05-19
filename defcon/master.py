@@ -10,7 +10,7 @@ from defcon.thread import DefconThread
 from defcon.tasks import QuitTask, ContinuationTask, DeflationTask, StabilityTask, Response
 from defcon.journal import FileJournal, task_to_code
 from defcon.graph import DefconGraph, ProfiledDefconGraph
-
+from defcon.variationalinequalities import VIBifurcationProblem
 
 class DefconMaster(DefconThread):
     """
@@ -173,7 +173,8 @@ class DefconMaster(DefconThread):
         self.total_deflation_successes  = 0
 
         # Initialise Journal
-        self.journal = FileJournal(self.io.directory, self.parameters.parameters, self.functionals, freeindex, self.signs[freeindex])
+        is_vi = isinstance(self.problem, VIBifurcationProblem)
+        self.journal = FileJournal(self.io.directory, self.parameters.parameters, self.functionals, freeindex, self.signs[freeindex], is_vi)
         self.journal.setup(self.nteams, min(self.parameters.values[freeparam]), max(self.parameters.values[freeparam]))
         self.journal.sweep(self.parameters.values[freeparam][0])
 

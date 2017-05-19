@@ -41,28 +41,29 @@ class VIBifurcationProblem(object):
 
     def function_space(self, mesh):
         D = self.problem.function_space(mesh)
-        ub = vec(interpolate(self.ub, D))
-        lb = vec(interpolate(self.lb, D))
-        zero = vec(Function(D))
-
-        key = mesh.num_cells()
-        self.function_spaces[key] = D
-        self.lbs[key] = lb
-        self.ubs[key] = ub
-        self.zeros[key] = zero
-
         De = D.ufl_element()
         Ze = MixedElement([De, De, De]) # PDE solution, multiplier for lower bound, multiplier for upper bound
         Z  = FunctionSpace(mesh, Ze)
 
-        comm = mesh.mpi_comm()
-        is_state = PETSc.IS().createGeneral(Z.sub(0).dofmap().dofs(), comm=comm)
-        is_lb = PETSc.IS().createGeneral(Z.sub(1).dofmap().dofs(), comm=comm)
-        is_ub = PETSc.IS().createGeneral(Z.sub(2).dofmap().dofs(), comm=comm)
+        if self.lb is not None and self.ub is not None: # the GUI doesn't know the bounds
+            ub = vec(interpolate(self.ub, D))
+            lb = vec(interpolate(self.lb, D))
+            zero = vec(Function(D))
 
-        self.is_state[key] = is_state
-        self.is_lb[key] = is_lb
-        self.is_ub[key] = is_ub
+            key = mesh.num_cells()
+            self.function_spaces[key] = D
+            self.lbs[key] = lb
+            self.ubs[key] = ub
+            self.zeros[key] = zero
+
+            comm = mesh.mpi_comm()
+            is_state = PETSc.IS().createGeneral(Z.sub(0).dofmap().dofs(), comm=comm)
+            is_lb = PETSc.IS().createGeneral(Z.sub(1).dofmap().dofs(), comm=comm)
+            is_ub = PETSc.IS().createGeneral(Z.sub(2).dofmap().dofs(), comm=comm)
+
+            self.is_state[key] = is_state
+            self.is_lb[key] = is_lb
+            self.is_ub[key] = is_ub
 
         return Z
 

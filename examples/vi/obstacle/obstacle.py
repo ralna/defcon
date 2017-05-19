@@ -28,7 +28,6 @@ class ObstacleProblem(BifurcationProblem):
 
     def function_space(self, mesh):
         V = FunctionSpace(mesh, "CG", 1)
-        print("V.dim(): %d" % V.dim())
         return V
 
     def parameters(self):
@@ -77,12 +76,6 @@ class ObstacleProblem(BifurcationProblem):
                "pc_type": "lu",
                "pc_factor_mat_solver_package": "mumps",
                }
-
-    def save_pvd(self, z, pvd):
-        print("wtf")
-        z.rename("Solution", "Solution")
-        print("z.function_space().dim(): %d" % z.function_space().dim())
-        pvd << z
 
 if __name__ == "__main__":
     eqproblem = ObstacleProblem()

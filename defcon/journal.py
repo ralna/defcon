@@ -39,13 +39,14 @@ class FileJournal(Journal):
     Class that implements journalling using a single file, where the first line tells us some one-off
     details about a problem, and the subsequent lines each contain one piece of information.
     """
-    def __init__(self, directory, parameters, functionals, freeindex, sign):
+    def __init__(self, directory, parameters, functionals, freeindex, sign, is_vi):
         self.directory = directory + os.path.sep + "journal"
         self.parameters = parameters
         self.functionals = functionals
         self.freeindex = freeindex
         self.sign = sign
         self.sweep_params = None
+        self.is_vi = is_vi
 
     def setup(self, nteams, minparam, maxparam):
         """ Create the journal file and write the initial line of information. """
@@ -67,7 +68,7 @@ class FileJournal(Journal):
             pass
 
         with open(self.directory + os.path.sep + "journal.txt", 'w') as f:
-            f.write("%s;%s;%s;%s;%s;%s;%s;%s;%s\n" % (self.freeindex, xlabel, ylabels, unicodeylabels, nteams, minparam, maxparam, others, time.time()))
+            f.write("%s;%s;%s;%s;%s;%s;%s;%s;%s;%s\n" % (self.freeindex, xlabel, ylabels, unicodeylabels, nteams, minparam, maxparam, others, time.time(), self.is_vi))
 
     def entry(self, teamid, oldparams, branchid, newparams, functionals, continuation):
         """ Tell the journal about a new point we've discovered. """

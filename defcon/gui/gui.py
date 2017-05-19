@@ -19,6 +19,7 @@ from defcon.gui.qtwindows import *
 
 from defcon.cli.common import fetch_bifurcation_problem
 import defcon.backend as backend
+from defcon.variationalinequalities import VIBifurcationProblem
 
 import sys, getopt, os, inspect
 import time as TimeModule
@@ -53,12 +54,12 @@ except Exception:
 class PlotConstructor():
     """ Class for handling everything to do with the bifurcation diagram plot. """
 
-    def __init__(self, journal_path, solutions_dir, xscale, problem, io, plot_with_mpl, V):
+    def __init__(self, journal_path, solutions_dir, xscale, problem, io, plot_with_mpl, mesh):
         self.xscale = xscale
         self.problem = problem
         self.io = io
         self.plot_with_mpl = plot_with_mpl
-        self.V = V
+        self.mesh = mesh
 
         self.points = [] # Keep track of the points we've found, so we can redraw everything if necessary. Also for annotation.
         self.pointers = [] # Pointers to each point on the plot, so we can remove them.
@@ -279,11 +280,19 @@ class PlotConstructor():
                 if self.freeindex is None:
                     self.running = True
 
-                    freeindex, self.parameter_name, functional_names, unicode_functional_names, nteams, minparam, maxparam, othervalues, timestamp = dataList[0].split(';')
+                    freeindex, self.parameter_name, functional_names, unicode_functional_names, nteams, minparam, maxparam, othervalues, timestamp, is_vi = dataList[0].split(';')
                     self.othervalues = literal_eval(othervalues)
                     self.start_time = float(timestamp)
                     self.minparam = float(minparam)
                     self.maxparam = float(maxparam)
+                    self.is_vi = literal_eval(is_vi)
+
+                    if self.is_vi:
+                        self.problem = VIBifurcationProblem(self.problem, None, None)
+
+                    # Now that we know we're dealing with a VI or not, initialise I/O
+                    self.V = self.problem.function_space(self.mesh)
+                    self.io.setup(self.problem.parameters(), None, self.V)
 
                     # Set up info about what the teams are doing.
                     self.nteams = int(nteams)
@@ -705,14 +714,11 @@ def main(argv):
         if mesh.geometric_dimension() < 2: plot_with_mpl = True
 
     # Get the function space and set up the I/O module for fetching solutions.
-    V = problem.function_space(mesh)
-    problem_parameters = problem.parameters()
     io = problem.io(prefix=output_dir)
-    io.setup(problem_parameters, None, V)
 
     # Main loop
     qApp = QtGui.QApplication(args)
-    pc = PlotConstructor(journal_path, solutions_dir, xscale, problem, io, plot_with_mpl, V)
+    pc = PlotConstructor(journal_path, solutions_dir, xscale, problem, io, plot_with_mpl, mesh)
     aw = ApplicationWindow(pc, update_interval, resources_dir, working_dir)
     pc.set_app_win(aw)
     aw.setWindowTitle("DEFCON")
