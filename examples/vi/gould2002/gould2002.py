@@ -33,7 +33,7 @@ class GouldProblem(ComplementarityProblem):
         return 1
 
     def initial_guess(self, V, params, n):
-        return Function(V)
+        return interpolate(Constant((0.2, 0.2, 0, 0)), V)
 
     def number_solutions(self, params):
         return 3
@@ -48,7 +48,7 @@ class GouldProblem(ComplementarityProblem):
                "snes_monitor": None,
                "snes_linesearch_damping": 1.0,
                "snes_linesearch_maxstep": 1.0,
-               "snes_linesearch_type": "l2",
+               "snes_linesearch_type": "basic",
                "ksp_type": "preonly",
                "pc_type": "svd",
                "mat_mumps_icntl_24": 1,
