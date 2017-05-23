@@ -3,7 +3,7 @@ from __future__ import absolute_import
 from defcon.bifurcationproblem import BifurcationProblem
 from defcon.newton import compute_tau
 from defcon.backendimporter import get_deep_submat
-import defcon.backend as backend
+from defcon.backend import *
 from petsc4py import PETSc
 from numpy import where, array, int32
 
