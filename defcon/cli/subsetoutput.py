@@ -6,6 +6,7 @@ from ast import literal_eval
 
 from defcon import backend
 from defcon.cli.common import fetch_bifurcation_problem
+from defcon.cli.recomputeknownbranches import main as recompute_known_branches
 
 
 def usage(executable):
@@ -61,4 +62,7 @@ def main(args):
 
         if stability is not None:
             newio.save_stability(stability, [], [], values, branch)
+
+    newargs = [args[0], args[1], args[4]]
+    recompute_known_branches(newargs)
 
