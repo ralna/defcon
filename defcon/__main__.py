@@ -11,6 +11,7 @@ Usage: defcon <command> [options] [args]
 Commands:
   gui
   make-pvd
+  subset-output
   merge-outputs
   recompute-functionals
   recompute-known-branches
@@ -53,6 +54,9 @@ def main(args=None):
     elif cmd == "make-pvd":
         import defcon.cli.makepvd
         return defcon.cli.makepvd.main(args)
+    elif cmd == "subset-output":
+        import defcon.cli.subsetoutput
+        return defcon.cli.subsetoutput.main(args)
     elif cmd == "merge-outputs":
         import defcon.cli.mergeoutputs
         return defcon.cli.mergeoutputs.main(args)
