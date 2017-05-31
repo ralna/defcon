@@ -52,6 +52,8 @@ class ArclengthContinuation(object):
         worldcomm = kwargs.get("comm", MPI.COMM_WORLD).Dup()
         kwargs["comm"] = worldcomm
 
+        if not isinstance(problem, ArclengthProblem):
+            problem = ArclengthProblem(problem)
         self.problem = problem
 
         if worldcomm.rank == 0:
@@ -179,57 +181,29 @@ class ArclengthWorker(DefconWorker):
 
     def fetch_data(self):
         problem = self.problem
-
-        self.mesh = problem.mesh(PETSc.Comm(self.teamcomm))
-        # FIXME: Seems that the space is built and never used
-        self.function_space = problem.function_space(self.mesh)
-        self.R = backend.FunctionSpace(self.mesh, "R", 0)
+        (self.function_space, self.R, self.ac_space) = problem.setup_spaces(PETSc.Comm(self.teamcomm))
 
         # Configure garbage collection frequency:
         self.determine_gc_frequency(self.function_space)
 
-        mixed_element = backend.MixedElement([self.function_space.ufl_element(), self.R.ufl_element()])
-        self.mixed_space = backend.FunctionSpace(self.mesh, mixed_element)
-
         self.consts  = [param[0] for param in self.parameters]
 
-        self.state    = backend.Function(self.mixed_space)
-        self.prev     = backend.Function(self.mixed_space)
+        self.state    = backend.Function(self.ac_space)
+        self.prev     = backend.Function(self.ac_space)
         # Keep one previous history to deflate, to make sure we don't get stuck in a loop
-        self.prevprev = backend.Function(self.mixed_space)
+        self.prevprev = backend.Function(self.ac_space)
+        # And a Function for the tangent
+        self.tangent = backend.Function(self.ac_space)
 
-        self.test     = backend.TestFunction(self.mixed_space)
+        self.test     = backend.TestFunction(self.ac_space)
         self.ds       = backend.Constant(0)
 
-        (z, lmbda) = backend.split(self.state)
-        (z_prev, lmbda_prev) = backend.split(self.prev)
-        (w, mu)    = backend.split(self.test)
-
         # Override the constant with the value of the parameter we're solving for
-        self.consts[self.freeindex] = lmbda
+        self.consts[self.freeindex] = problem.ac_to_parameter(self.state, deep=False)
+        self.ac_residual = problem.ac_residual(self.state, self.prev, self.ds, self.consts, self.test)
+        self.ac_jacobian = problem.ac_jacobian(self.ac_residual, self.state, backend.TrialFunction(self.ac_space))
 
-        self.state_residual = problem.residual(z, self.consts, w)
-        self.residual = (
-                         self.state_residual
-                       # Want to write
-                       #+ mu * problem.squared_norm(z, z_prev)
-                       # but cannot. This is a workaround
-                       + map_integrands(lambda form: mu*form, problem.squared_norm(z, z_prev, self.consts))
-                       + mu*backend.inner(lmbda - lmbda_prev, lmbda - lmbda_prev)*backend.dx
-                       - mu*self.ds**2*backend.dx  # arclength criterion
-                        )
-        self.jacobian = backend.derivative(self.residual, self.state, backend.TrialFunction(self.mixed_space))
-
-        # We pass in None here because for arclength we can't have the
-        # boundary conditions depend on the parameter values (well, one
-        # could, but it would be a lot of work)
-        self.bcs = problem.boundary_conditions(self.mixed_space.sub(0), None)
-        # Why do they break the interface at every opportunity?
-        self.hbcs = problem.boundary_conditions(self.mixed_space.sub(0), None)
-        [bc.homogenize() for bc in self.hbcs]
-
-        self.tangent = backend.Function(self.mixed_space)
-        self.state_residual_derivative = backend.derivative(self.state_residual, self.state, self.tangent)
+        (self.bcs, self.hbcs) = problem.boundary_conditions()
 
     def run(self, problem_parameters, freeindex, *args):
 
@@ -272,6 +246,7 @@ class ArclengthWorker(DefconWorker):
         bounds    = task.bounds
         ds_       = task.ds
         sign      = task.sign
+        problem   = self.problem
 
         param = params[self.freeindex]
         self.ds.assign(ds_)
@@ -286,15 +261,7 @@ class ArclengthWorker(DefconWorker):
 
         # Load the solution into the previous value
         solution = self.io.fetch_solutions(params, [branchid])[0]
-
-        if backend.__name__  == "dolfin":
-            backend.assign(self.state.sub(0), solution)
-            r = backend.Function(self.R)
-            r.assign(backend.Constant(param))
-            backend.assign(self.state.sub(1), r)
-            del r
-        elif backend.__name__ == "firedrake":
-            raise NotImplementedError("Don't know how to assign to subfunctions in firedrake")
+        problem.load_solution(solution, backend.Constant(param), self.state)
 
         # Data about functionals
         functionals = self.compute_functionals(solution)
@@ -312,20 +279,9 @@ class ArclengthWorker(DefconWorker):
             current_params[self.freeindex] = param
 
             # Step 1. Compute the tangent linearisation at self.state
-            (z, lmbda) = backend.split(self.state)
-            (w, mu)    = backend.split(self.test)
-            (z_tlm, lmbda_tlm) = backend.split(self.tangent)
+            F = problem.tangent_residual(self.state, self.tangent, self.tangent_prev, sign, self.test)
+            J = problem.tangent_jacobian(F, self.tangent, backend.TrialFunction(self.ac_space))
 
-            # Normalisation condition
-            if self.tangent_prev is not None:
-                # point in the same direction as before
-                normalisation_condition = backend.inner(self.tangent, self.tangent_prev) - backend.Constant(1.0)
-            else:
-                # start going in the direction of sign
-                normalisation_condition = lmbda_tlm - backend.Constant(copysign(1.0, sign))
-
-            F = self.state_residual_derivative + mu*normalisation_condition*backend.dx
-            J = backend.derivative(F, self.tangent, backend.TrialFunction(self.tangent.function_space()))
             self.log("Computing tangent")
             solverparams = self.problem.solver_parameters(current_params, task.__class__)
             solverparams["snes_linesearch_type"] = "basic"
@@ -342,6 +298,8 @@ class ArclengthWorker(DefconWorker):
             # Step 2. Update the state guess with the tangent
             self.prevprev.assign(self.prev)
             self.prev.assign(self.state)
+            z_tlm = problem.ac_to_state(self.tangent, deep=False)
+            lmbda_tlm = problem.ac_to_parameter(self.tangent, deep=False)
             nrm = sqrt(backend.assemble(self.problem.squared_norm(z_tlm, backend.zero(*z_tlm.ufl_shape), self.consts) + backend.inner(lmbda_tlm, lmbda_tlm)*backend.dx))
 
             # Step 3. Solve the arclength system
@@ -357,7 +315,7 @@ class ArclengthWorker(DefconWorker):
                     self.deflation.deflate([self.prevprev])
 
                 self.log("Computing arclength step")
-                (success, iters) = newton(self.residual, self.jacobian, self.state, self.bcs,
+                (success, iters) = newton(self.ac_residual, self.ac_jacobian, self.state, self.bcs,
                                           self.problem.nonlinear_problem,
                                           self.problem.solver,
                                           self.problem.solver_parameters(current_params, task.__class__),
@@ -381,7 +339,8 @@ class ArclengthWorker(DefconWorker):
                 break
 
             # Step 4. Compute functionals and save information
-            (z_, lmbda_) = self.state.split(deepcopy=True)
+            z_ = problem.ac_to_state(self.state, deep=True)
+            lmbda_ = problem.ac_to_parameter(self.state, deep=True)
             functionals = self.compute_functionals(z_)
             del z_
             param = self.fetch_R(lmbda_)
@@ -392,7 +351,7 @@ class ArclengthWorker(DefconWorker):
 
             # Step 5. Cycle the tangent linear variables
             if self.tangent_prev is None:
-                self.tangent_prev = backend.Function(self.mixed_space)
+                self.tangent_prev = backend.Function(self.ac_space)
             self.tangent_prev.assign(self.tangent)
 
             # FIXME: this is quadratic in ds^-1; it's doing work of O(num_steps), O(num_steps) times
@@ -521,3 +480,129 @@ class Dummy(object):
     def __init__(self, parameters, constants=None):
         self.parameters = parameters
         self.constants  = constants
+
+class ArclengthProblem(object):
+    def __init__(self, problem):
+        self.problem = problem
+
+        self.state_residual = None
+        self.state_residual_derivative = None
+
+        # A list of functions to just call the underlying problem on
+        self.passthrough = ["parameters", "functionals", "io", "solver_parameters",
+                            "nonlinear_problem", "solver", "squared_norm"]
+
+    def setup_spaces(self, comm):
+        problem = self.problem
+        mesh = problem.mesh(comm)
+
+        self.state_space = problem.function_space(mesh)
+        state_element = self.state_space.ufl_element()
+
+        R_element = backend.FiniteElement("R", state_element.cell(), 0)
+        self.R = backend.FunctionSpace(mesh, R_element)
+
+        ac_element = backend.MixedElement([state_element, R_element])
+        self.ac_space = backend.FunctionSpace(mesh, ac_element)
+
+        return (self.state_space, self.R, self.ac_space)
+
+    def ac_to_state(self, ac, deep=True):
+        # Given the mixed space representing what we're solving the augmented
+        # arclength system for, return the part of it that denotes the state
+        # we're solving for
+        if deep:
+            return ac.split(deepcopy=True)[0]
+        else:
+            return backend.split(ac)[0]
+
+    def ac_to_parameter(self, ac, deep=True):
+        # Given the mixed space representing what we're solving the augmented
+        # arclength system for, return the part of it that denotes the parameter
+        # we're solving for
+        if deep:
+            return ac.split(deepcopy=True)[1]
+        else:
+            return backend.split(ac)[1]
+
+    def ac_residual(self, ac, ac_prev, ds, params, test):
+        # At this point, params[freeindex] is *itself* a part of the state ac --
+        # not a Constant. This is because we're solving for it.
+        # See the call to ac_to_parameter() in ArclengthWorker.fetch_data.
+        problem = self.problem
+
+        (z,  lmbda)  = backend.split(ac)
+        (z_, lmbda_) = backend.split(ac_prev)
+        (w,  mu)     = backend.split(test)
+
+        if self.state_residual is None:
+            self.state_residual = problem.residual(z, params, w)
+
+        workaround = lambda form: mu*form
+        ac_residual = (
+                       self.state_residual
+                       # Want to write
+                       # + mu * problem.squared_norm(z, z_)
+                       # but cannot. This is a workaround
+                       + map_integrands(workaround, problem.squared_norm(z, z_, params))
+                       + mu*backend.inner(lmbda - lmbda_, lmbda - lmbda_)*backend.dx
+                       - mu*ds**2*backend.dx
+                      )
+
+        return ac_residual
+
+    def ac_jacobian(self, ac_residual, ac, trial):
+        return backend.derivative(ac_residual, ac, trial)
+
+    def tangent_residual(self, ac, tangent, tangent_prev, sign, test):
+        problem = self.problem
+
+        if self.state_residual_derivative is None:
+            self.state_residual_derivative = backend.derivative(self.state_residual, ac, tangent)
+
+        lmbda_tlm = self.ac_to_parameter(tangent, deep=False)
+        mu        = self.ac_to_parameter(test,    deep=False)
+
+        if tangent_prev is not None:
+            # point in the same direction as before
+            normalisation_condition = backend.inner(tangent, tangent_prev) - backend.Constant(1)
+        else:
+            # start going in direction of sign
+            normalisation_condition = lmbda_tlm - backend.Constant(copysign(1.0, sign))
+
+        tangent_residual = self.state_residual_derivative + mu*normalisation_condition*backend.dx
+
+        return tangent_residual
+
+    def tangent_jacobian(self, tangent_residual, tangent, trial):
+        return backend.derivative(tangent_residual, tangent, trial)
+
+    def boundary_conditions(self):
+        # We pass in None here for the parameters because for arclength we
+        # can't have the boundary conditions depend on the parameter values
+        # (well, one could, but it would be a lot of work)
+        problem = self.problem
+
+        bcs = problem.boundary_conditions(self.ac_space.sub(0), None)
+
+        # Why do they break the interface at every opportunity?
+        hbcs = problem.boundary_conditions(self.ac_space.sub(0), None)
+        [bc.homogenize() for bc in hbcs]
+
+        return (bcs, hbcs)
+
+    def load_solution(self, z, param, ac_state):
+        backend.assign(ac_state.sub(0), z)
+
+        if backend.__name__  == "dolfin":
+            r = backend.Function(self.R)
+            r.assign(param)
+            backend.assign(ac_state.sub(1), r)
+        elif backend.__name__ == "firedrake":
+            raise NotImplementedError("Don't know how to assign to subfunctions in firedrake")
+
+    def __getattr__(self, name):
+        if name in self.passthrough:
+            return getattr(self.problem, name)
+        else:
+            raise AttributeError
