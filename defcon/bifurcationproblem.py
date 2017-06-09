@@ -290,7 +290,7 @@ class BifurcationProblem(object):
         except (ImportError, AssertionError):
             return iomodule.SolutionIO(prefix)
 
-    def save_pvd(self, y, pvd):
+    def save_pvd(self, y, pvd, time=None):
         """
         Save the function y to a PVD file.
 
@@ -298,8 +298,30 @@ class BifurcationProblem(object):
 
         pvd << y
         """
-        y.rename("Solution", "Solution")
+        if 'f_' in y.name():
+            y.rename("Solution", "Solution")
+
+        if time is None:
+            pvd << y
+        else:
+            pvd << (y, time)
+
+    def save_xmf(self, y, xmf, time=None):
+        """
+        Save the function y to a XDMF file.
+
+        The default is
+
+        xmf.write(
         pvd << y
+        """
+        if 'f_' in y.name():
+            y.rename("Solution", "Solution")
+
+        if time is None:
+            xmf.write(y)
+        else:
+            xmf.write(y, time)
 
     def nonlinear_problem(self, F, J, y, bcs):
         """

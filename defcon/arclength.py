@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 from __future__ import absolute_import
 
 import defcon
@@ -5,18 +6,20 @@ import defcon
 from mpi4py import MPI
 from petsc4py import PETSc
 from ufl.algorithms.map_integrands import map_integrands
-import six
 
 from math import copysign, sqrt
 from heapq import heappush, heappop
 import gc
 import json
+import six
+import os.path
 
 import defcon.backend as backend
 from defcon.master import DefconMaster
 from defcon.worker import DefconWorker
 from defcon.newton import newton
 from defcon.tasks import QuitTask, ArclengthTask, Response
+from defcon.parametertools import parameters_to_string
 
 
 class ArclengthContinuation(object):
@@ -249,6 +252,7 @@ class ArclengthWorker(DefconWorker):
         problem   = self.problem
 
         param = params[self.freeindex]
+        paramname = self.parameters[self.freeindex][1]
         self.ds.assign(ds_)
 
         self.firsttime = True
@@ -271,9 +275,18 @@ class ArclengthWorker(DefconWorker):
         # Data for step halving for robustness
         num_halvings = 0
 
+        arcpath = os.path.join(self.io.directory, "arclength", "params-%s-freeindex-%s-branchid-%s-ds-%.14e.xdmf" % (parameters_to_string(self.io.parameters, params), self.freeindex, branchid, self.ds))
+        arcxmf = backend.XDMFFile(PETSc.Comm(self.teamcomm), arcpath)
+        arcxmf.parameters["flush_output"] = True
+        arcxmf.parameters["functions_share_mesh"] = True
+        arcxmf.parameters["rewrite_function_mesh"] = False
+
+        index = -1.0 # needs to be a float, otherwise dolfin does the Wrong Thing. Argh!
+
         # And begin the main loop
         while bounds[0] <= param <= bounds[1]:
             self.collect()
+            index += 1
 
             current_params = list(params)
             current_params[self.freeindex] = param
@@ -294,6 +307,8 @@ class ArclengthWorker(DefconWorker):
             if not success:
                 self.log("Warning: failed to compute tangent", warning=True)
                 break
+            delta_param = self.fetch_R(problem.ac_to_parameter(self.tangent, deep=True))
+            self.log("Tangent δ%s = %.15e" % (paramname, delta_param))
 
             # Step 2. Update the state guess with the tangent
             self.prevprev.assign(self.prev)
@@ -341,6 +356,11 @@ class ArclengthWorker(DefconWorker):
             # Step 4. Compute functionals and save information
             z_ = problem.ac_to_state(self.state, deep=True)
             lmbda_ = problem.ac_to_parameter(self.state, deep=True)
+            lmbda_.rename(paramname, paramname)
+            self.log("Saving with index = %s" % index)
+            problem.save_xmf(z_, arcxmf, index)
+            arcxmf.write(lmbda_, index)
+
             functionals = self.compute_functionals(z_)
             del z_
             param = self.fetch_R(lmbda_)
@@ -490,7 +510,7 @@ class ArclengthProblem(object):
 
         # A list of functions to just call the underlying problem on
         self.passthrough = ["parameters", "functionals", "io", "solver_parameters",
-                            "nonlinear_problem", "solver", "squared_norm"]
+                            "nonlinear_problem", "solver", "squared_norm", "save_xmf"]
 
     def setup_spaces(self, comm):
         problem = self.problem
