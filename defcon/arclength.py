@@ -375,6 +375,7 @@ class ArclengthWorker(DefconWorker):
             self.tangent_prev.assign(self.tangent)
 
             # FIXME: this is quadratic in ds^-1; it's doing work of O(num_steps), O(num_steps) times
+            self.problem.monitor(params, branchid, self.state.split()[0], functionals)
             self.io.save_arclength(params, self.freeindex, branchid, task.ds, data)
 
         response = Response(task.taskid, success=success)
