@@ -375,6 +375,7 @@ class ArclengthWorker(DefconWorker):
             self.tangent_prev.assign(self.tangent)
 
             # FIXME: this is quadratic in ds^-1; it's doing work of O(num_steps), O(num_steps) times
+            problem.monitor(params, branchid, problem.ac_to_state(self.state, deep=True), functionals)
             self.io.save_arclength(params, self.freeindex, branchid, task.ds, data)
 
         response = Response(task.taskid, success=success)
@@ -510,7 +511,7 @@ class ArclengthProblem(object):
 
         # A list of functions to just call the underlying problem on
         self.passthrough = ["parameters", "functionals", "io", "solver_parameters",
-                            "nonlinear_problem", "solver", "squared_norm", "save_xmf"]
+                            "nonlinear_problem", "solver", "squared_norm", "save_xmf", "monitor"]
 
     def setup_spaces(self, comm):
         problem = self.problem
