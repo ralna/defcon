@@ -287,22 +287,18 @@ class SolutionIO(IO):
 # Some code to remap C- and Python-level stdout/stderr
 def remap_c_streams(stdout_filename, stderr_filename):
     import sys
-    import ctypes
+    import os
 
     if os.path.isfile(stdout_filename):
         os.remove(stdout_filename)
     if os.path.isfile(stderr_filename):
         os.remove(stderr_filename)
 
-    sys.stdout = open(stdout_filename, "a+")
-    sys.stderr = open(stderr_filename, "a+")
+    new_stdout = open(stdout_filename, "a+")
+    new_stderr = open(stderr_filename, "a+")
 
-    try:
-        libc = ctypes.CDLL("libc.so.6")
-    except:
-        return
+    os.dup2(new_stdout.fileno(), sys.stdout.fileno())
+    os.dup2(new_stderr.fileno(), sys.stderr.fileno())
 
-    stdout_c = libc.fdopen(1, "w")
-    libc.freopen(stdout_filename, "a+", stdout_c)
-    stderr_c = libc.fdopen(2, "w")
-    libc.freopen(stderr_filename, "a+", stderr_c)
+    sys.stdout = new_stdout
+    sys.stderr = new_stderr
