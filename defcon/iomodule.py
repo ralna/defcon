@@ -151,11 +151,13 @@ class SolutionIO(IO):
             f.write(solution, "/solution")
         if self.pcomm.rank == 0:
             os.rename(tmpname, self.dir(params) + "solution-%d.h5" % branchid)
-        assert os.path.exists(self.dir(params) + "solution-%d.h5" % branchid)
 
-        f = open(self.dir(params) + "functional-%d.txt" % branchid, "w")
-        s = parameters_to_string(self.functionals, funcs).replace('@', '\n') + '\n'
-        f.write(s)
+            f = open(self.dir(params) + "functional-%d.txt" % branchid, "w")
+            s = parameters_to_string(self.functionals, funcs).replace('@', '\n') + '\n'
+            f.write(s)
+
+        self.pcomm.Barrier()
+        assert os.path.exists(self.dir(params) + "solution-%d.h5" % branchid)
 
     def fetch_solutions(self, params, branchids):
         solns = []
