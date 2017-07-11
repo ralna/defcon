@@ -47,7 +47,7 @@ class NavierStokesProblem(BifurcationProblem):
               1.0/Re * inner(grad(u), grad(v))*dx
             + inner(grad(u)*u, v)*dx
             - div(v)*p*dx
-            - 1.0/Re * inner(v, p*n)*ds_outflow
+            - inner(v, p*n)*ds_outflow # as 1/Re dot(grad(u), n) = p*n on the outflow boundary (normal-stress zero)
             + q*div(u)*dx
             )
 
