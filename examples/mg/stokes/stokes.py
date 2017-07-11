@@ -1,7 +1,7 @@
 from defcon import *
 from dolfin import *
 
-from defcon.mg import get_deep_submat
+from defcon.backendimporter import get_deep_submat
 
 from petsc4py import PETSc
 
