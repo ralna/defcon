@@ -495,7 +495,7 @@ class PlotConstructor():
         known_branches = self.io.known_branches(params)
 
         # Create the file to which we will write these solutions.
-        pvd_filename = os.path.join(self.solutions_dir, "parameters=%s.pvd" % (params,))
+        pvd_filename = os.path.join(self.solutions_dir, "parameters=%s.pvd" % (params,)).replace(" ", "_")
         pvd = backend.File(pvd_filename)
 
         print("Rendering parameters %s to PVD ..." % (params,))
