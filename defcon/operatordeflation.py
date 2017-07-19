@@ -3,6 +3,8 @@ from __future__ import absolute_import
 import defcon.backend as backend
 from defcon.backend import Function, Vector, assemble, derivative, product
 
+__all__ = ['DeflationOperator', 'ShiftedDeflation']
+
 class DeflationOperator(object):
     """
     Base class for deflation operators.

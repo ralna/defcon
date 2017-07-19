@@ -20,7 +20,7 @@ from defcon.deflatedcontinuation import DeflatedContinuation
 from defcon.arclength import ArclengthContinuation
 from defcon.iomodule import IO, SolutionIO
 from defcon.tasks import DeflationTask, ContinuationTask, StabilityTask, ArclengthTask
-from defcon.operatordeflation import ShiftedDeflation
+from defcon.operatordeflation import *
 from defcon.variationalinequalities import VIBifurcationProblem, ComplementarityProblem
 
 # This might fail because h5py is missing.

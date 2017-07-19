@@ -397,7 +397,7 @@ class DefconMaster(DefconThread):
         if task.oldparams is not None:
             newpriority = self.signs[task.freeindex]*newtask.newparams[task.freeindex]
         else:
-            newpriority = float("-inf")
+            newpriority = float("-1000000")
 
         self.graph.push(newtask, newpriority)
         self.taskid_counter += 1
