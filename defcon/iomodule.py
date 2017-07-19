@@ -210,8 +210,7 @@ class SolutionIO(IO):
 
         seen = set()
         filenames = glob.glob(self.directory + "/*/solution-%d.h5" % branchid)
-        saved_param_dirs = [x.replace("output", "").split('/')[1] for x in filenames]
-        saved_params = [tuple([float(x.split('=')[-1]) for x in dirname.split('/')[-1].split('@')]) for dirname in saved_param_dirs]
+        saved_params = [tuple([float(x.split('=')[-1]) for x in filename.split('/')[-2].split('@')]) for filename in filenames]
 
         for param in saved_params:
             should_add = True
