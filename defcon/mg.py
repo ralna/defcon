@@ -55,8 +55,10 @@ def create_fs_dm(V, problem=None):
     # this gives the DM a template to create vectors inside snes
     dm.setGlobalVector(as_backend_type(Function(V).vector()).vec())
 
-    # this tells the DM how to interpolate from mesh to mesh
-    dm.setCreateInterpolation(create_interpolation)
+    if backend.__version__ >= "2017.1.0":
+        # this tells the DM how to interpolate from mesh to mesh
+        # it depends on DOLFIN > 2017.1.0
+        dm.setCreateInterpolation(create_interpolation)
 
     # if we have a mixed function space, then we need to tell PETSc
     # how to divvy up the different parts of the function space.
@@ -751,4 +753,7 @@ if backend.__name__ == "dolfin":
     }'''
 
     # compile C++ code
-    create_transfer_matrix =  compile_extension_module(code=create_transfer_matrix_code, cppargs=["-fpermissive", "-g"]).create_transfer_matrix
+    if backend.__version__ >= "2017.1.0":
+        create_transfer_matrix =  compile_extension_module(code=create_transfer_matrix_code, cppargs=["-fpermissive", "-g"]).create_transfer_matrix
+    else:
+        create_transfer_matrix = None

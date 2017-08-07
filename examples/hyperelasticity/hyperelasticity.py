@@ -66,13 +66,7 @@ class HyperelasticityProblem(BifurcationProblem):
 
     def functionals(self):
         def pointeval(u, params):
-            # use the Probe class from 'fenicstools' to evaluate the
-            # solution at the point (0.25, 0.05)
-
-            probe = Probe(array([0.25, 0.05]), u.function_space())
-            probe(u)
-            j = probe[0][1]
-            return j
+            return u((0.25, 0.05))
 
         return [(pointeval, "pointeval", r"$u(0.25, 0.05)$")]
 

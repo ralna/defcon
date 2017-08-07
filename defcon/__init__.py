@@ -31,7 +31,6 @@ except ImportError:
 
 if backend.__name__ == "dolfin":
     from defcon.nonlinearsolver import SNUFLSolver
-    from defcon.Probe import Probe # borrowed from Mikael Mortensen's excellent fenicstools
     backend.comm_world = backend.mpi_comm_world()
 
     def vec(x):
