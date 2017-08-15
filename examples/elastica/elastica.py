@@ -1,13 +1,9 @@
 # -*- coding: utf-8 -*-
-from __future__ import print_function
-
-import sys
-from math import floor
-
 from defcon import *
 from dolfin import *
 
 import matplotlib.pyplot as plt
+from math import floor
 
 from petsc4py import PETSc
 
@@ -33,7 +29,7 @@ class ElasticaProblem(BifurcationProblem):
         F = (
               inner(grad(theta), grad(v))*dx
               - lmbda**2*sin(theta)*v*dx
-              + mu*v*dx
+              + mu*cos(theta)*v*dx
             )
 
         return F
