@@ -3,13 +3,16 @@ from defcon import *
 from dolfin import *
 
 import matplotlib.pyplot as plt
+import numpy as np
 from math import floor
-
 from petsc4py import PETSc
+import scipy.integrate
+import os
 
 class ElasticaProblem(BifurcationProblem):
     def __init__(self):
         self.bcs = None
+
     def mesh(self, comm):
         return IntervalMesh(comm, 1000, 0, 1)
 
@@ -45,7 +48,17 @@ class ElasticaProblem(BifurcationProblem):
             g = project(grad(theta)[0], theta.function_space())
             return j*g((0.0,))
 
-        return [(signedL2, "signedL2", r"$\theta'(0) \|\theta\|$")]
+        def X(theta, params):
+            j = assemble(cos(theta)*dx)
+            return j
+
+        def Y(theta, params):
+            j = assemble(sin(theta)*dx)
+            return j
+
+        return [(signedL2, "signedL2", r"$\theta'(0) \|\theta\|$"),
+                (X,        "X",        r"$x(1)$"),
+                (Y,        "Y",        r"$y(1)$")]
 
     def trivial_solutions(self, V, params, freeindex):
         # check we're continuing in lambda:
@@ -117,6 +130,28 @@ class ElasticaProblem(BifurcationProblem):
 
         d = {"stable": is_stable}
         return d
+
+    def render(self, params, branchid, solution):
+        try:
+            os.makedirs('output/figures/%2.6f' % (params[0],))
+        except:
+            pass
+
+        s = np.linspace(0, 1, 200)
+        theta = [solution((s_,)) for s_ in s]
+        x = scipy.integrate.cumtrapz(np.cos(theta), s, initial=0)
+        y = scipy.integrate.cumtrapz(np.sin(theta), s, initial=0)
+        plt.clf()
+        plt.plot(x, y, '-b', linewidth=2)
+        plt.grid()
+        plt.xlabel(r'$s$')
+        plt.ylabel(r'elastica')
+        plt.title(r'$\lambda = %.3f$' % params[0])
+        plt.savefig('output/figures/%2.6f/branchid-%d.png' % (params[0], branchid))
+
+    def postprocess(self, solution, params, branchid, window):
+        self.render(params, branchid, solution)
+        plt.show()
 
     def solver_parameters(self, params, klass):
         args = {
