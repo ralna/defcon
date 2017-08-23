@@ -546,7 +546,7 @@ class DefconMaster(DefconThread):
         # the solutions have changed too much -- we may have inadvertently
         # jumped from one (mathematical) branch to another.
 
-        if response.data["go_backwards"]:
+        if response.data["go_backwards"] and self.continue_backwards:
             back_branchid = self.branchid_counter
             self.branchid_counter += 1
             backtask = ContinuationTask(taskid=self.taskid_counter,
