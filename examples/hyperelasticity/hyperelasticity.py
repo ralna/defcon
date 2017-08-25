@@ -66,9 +66,9 @@ class HyperelasticityProblem(BifurcationProblem):
 
     def functionals(self):
         def pointeval(u, params):
-            return u((0.25, 0.05))
+            return u((0.25, 0.05))[1]
 
-        return [(pointeval, "pointeval", r"$u(0.25, 0.05)$")]
+        return [(pointeval, "pointeval", r"$u_1(0.25, 0.05)$")]
 
     def number_initial_guesses(self, params):
         return 1
