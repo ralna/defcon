@@ -39,16 +39,16 @@ class GerardProblem(BifurcationProblem):
         sqr = lambda z: z**2
 
         eqns = [
-          (-(0.75*(pi1 - 2*x0) + 0.25*(pi2 - 2*x0)))*u4 + (-(0.25*(pi1 - 2*x0) + 0.75*(pi2 - 2*x0)))*u5,
+          (-(0.75*(pi1 - 11.5*x0) + 0.25*(pi2 - 11.5*x0)))*u4 + (-(0.25*(pi1 - 11.5*x0) + 0.75*(pi2 - 11.5*x0)))*u5,
           (-0.75*(pi1 - x11))*u4 + (-0.25*(pi1 - x11))*u5,
-          (-0.25*(pi2 - 3*x12))*u4 + (-0.75*(pi2 - 3*x12))*u5,
-          (-(1 - pi1 - 3*y1))/(1),
-          (-(2 - pi2 - 7*y2))/(1),
+          (-0.25*(pi2 - 3.5*x12))*u4 + (-0.75*(pi2 - 3.5*x12))*u5,
+          (-(4 - pi1 - 2*y1))/(1),
+          (-(9.6 - pi2 - 10*y2))/(1),
           x0 + x11 - y1,
           x0 + x12 - y2,
           -1 + u4 + u5,   # enforced as an equation
-          (0.75*(pi1*(x0 + x11) - sqr(x0) - 0.5*sqr(x11)) + 0.25*(pi2*(x0 + x12) - sqr(x0) - 1.5*sqr(x12))) - thetaP,
-          (0.25*(pi1*(x0 + x11) - sqr(x0) - 0.5*sqr(x11)) + 0.75*(pi2*(x0 + x12) - sqr(x0) - 1.5*sqr(x12))) - thetaP
+          (0.75*(pi1*(x0 + x11) - 5.75*sqr(x0) - 0.5*sqr(x11)) + 0.25*(pi2*(x0 + x12) - 5.75*sqr(x0) - 1.75*sqr(x12))) - thetaP,
+          (0.25*(pi1*(x0 + x11) - 5.75*sqr(x0) - 0.5*sqr(x11)) + 0.75*(pi2*(x0 + x12) - 5.75*sqr(x0) - 1.75*sqr(x12))) - thetaP
                ]
 
         return eqns
@@ -78,7 +78,7 @@ class GerardProblem(BifurcationProblem):
         return 1
 
     def number_solutions(self, params):
-        return 2
+        return 3
 
     def initial_guess(self, V, params, n):
         guess = [0]*N
