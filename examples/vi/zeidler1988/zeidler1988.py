@@ -6,13 +6,14 @@ import numpy as np
 import matplotlib.pyplot as plt
 import os
 
-alpha = 10
-lb = Constant((-alpha, 0, 0, 0, 0))
-ub = Constant((+alpha, 0, 0, 0, 0))
+alpha = 0.75
+INF = 1e20
+lb = Constant((-alpha, -INF, -INF, -INF, -INF))
+ub = Constant((+alpha, +INF, +INF, +INF, +INF))
 
 class ZeidlerProblem(BifurcationProblem):
     def mesh(self, comm):
-        mesh = UnitIntervalMesh(comm, 5)
+        mesh = UnitIntervalMesh(comm, 100)
         self.mesh = mesh
         return mesh
 
@@ -73,7 +74,7 @@ class ZeidlerProblem(BifurcationProblem):
         return Function(Z)
 
     def number_solutions(self, params):
-        return 1
+        return float("inf")
 
     def solver_parameters(self, params, klass):
         return {
@@ -81,12 +82,10 @@ class ZeidlerProblem(BifurcationProblem):
                "snes_atol": 1.0e-9,
                "snes_rtol": 1.0e-9,
                "snes_monitor": None,
-               "ksp_type": "richardson",
+               "ksp_type": "preonly",
                "ksp_monitor": None,
                "ksp_rtol": 1.0e-10,
                "ksp_atol": 1.0e-10,
-               "ksp_view": None,
-               "ksp_monitor_true_residual": None,
                "pc_type": "lu",
                "pc_factor_mat_solver_package": "umfpack",
                }
@@ -95,7 +94,6 @@ class ZeidlerProblem(BifurcationProblem):
         try:
             os.makedirs('output/figures/%2.6f' % (params[0],))
         except:
-            import traceback; traceback.print_exc()
             pass
 
         s = np.linspace(0, 1, 1000)
@@ -119,5 +117,5 @@ if __name__ == "__main__":
 
     dc = DeflatedContinuation(problem=viproblem, teamsize=1, verbose=True, clear_output=True, profile=False)
     #dc = DeflatedContinuation(problem=eqproblem, teamsize=1, verbose=True, clear_output=True, profile=False)
-    #dc.run(values=dict(P=linspace(0, 4.4, 201), g=-9.81, a=1, rho=1), freeparam="P")
-    dc.run(values=dict(P=0, g=-9.81, a=1, rho=1), freeparam="P")
+    dc.run(values=dict(P=linspace(0, 10, 201), g=-9.81, a=1, rho=1), freeparam="P")
+    #dc.run(values=dict(P=0, g=-9.81, a=1, rho=1), freeparam="P")
