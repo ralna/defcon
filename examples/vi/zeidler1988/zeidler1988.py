@@ -13,7 +13,7 @@ ub = Constant((+alpha, +INF, +INF, +INF, +INF))
 
 class ZeidlerProblem(BifurcationProblem):
     def mesh(self, comm):
-        mesh = UnitIntervalMesh(comm, 100)
+        mesh = UnitIntervalMesh(comm, 500)
         self.mesh = mesh
         return mesh
 
@@ -61,11 +61,19 @@ class ZeidlerProblem(BifurcationProblem):
         return [DirichletBC(Z.sub(0), 0, "on_boundary")]
 
     def functionals(self):
+        def signedenergy(z, params):
+            j = assemble(self.energy(z, params))
+            g = z((0.5,))[0]
+            return j*g
+
         def energy(z, params):
             j = assemble(self.energy(z, params))
             return j
 
-        return [(energy, "energy", r"$E(z)$")]
+        return [
+                (signedenergy, "signedenergy", r"$u(\frac{1}{2}) E(z)$"),
+                (energy, "energy", r"$E(z)$"),
+               ]
 
     def number_initial_guesses(self, params):
         return 1
@@ -78,10 +86,14 @@ class ZeidlerProblem(BifurcationProblem):
 
     def solver_parameters(self, params, klass):
         return {
-               "snes_max_it": 50,
+               "snes_max_it": 10000,
                "snes_atol": 1.0e-9,
                "snes_rtol": 1.0e-9,
                "snes_monitor": None,
+               "snes_linesearch_type": "basic",
+               "snes_linesearch_maxstep": 1.0,
+               "snes_linesearch_damping": 0.01,
+               "snes_linesearch_monitor": None,
                "ksp_type": "preonly",
                "ksp_monitor": None,
                "ksp_rtol": 1.0e-10,
@@ -116,6 +128,5 @@ if __name__ == "__main__":
     viproblem = VIBifurcationProblem(eqproblem, lb, ub)
 
     dc = DeflatedContinuation(problem=viproblem, teamsize=1, verbose=True, clear_output=True, profile=False)
-    #dc = DeflatedContinuation(problem=eqproblem, teamsize=1, verbose=True, clear_output=True, profile=False)
-    dc.run(values=dict(P=linspace(0, 10, 201), g=-9.81, a=1, rho=1), freeparam="P")
-    #dc.run(values=dict(P=0, g=-9.81, a=1, rho=1), freeparam="P")
+    #dc.run(values=dict(P=linspace(0, 10, 201), g=-1, a=1, rho=1), freeparam="P")
+    dc.run(values=dict(P=5.2, g=-1, a=1, rho=1))
