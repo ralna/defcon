@@ -4,6 +4,7 @@ from defcon import *
 from dolfin import *
 import numpy as np
 import matplotlib.pyplot as plt
+import gnuplotlib as gp
 import os
 
 alpha = 0.75
@@ -79,7 +80,8 @@ class ZeidlerProblem(BifurcationProblem):
         return 1
 
     def initial_guess(self, Z, params, n):
-        return Function(Z)
+        g = Expression(("x[0]*(x[0]-1)", "0", "0", "0", "0"), element=Z.ufl_element(), mpi_comm=Z.mesh().mpi_comm())
+        return interpolate(g, Z)
 
     def number_solutions(self, params):
         return float("inf")
@@ -102,16 +104,21 @@ class ZeidlerProblem(BifurcationProblem):
                "pc_factor_mat_solver_package": "umfpack",
                }
 
+    def monitor(self, params, branchid, solution, functionals):
+        x = np.linspace(0, 1, 1000)
+        u = [solution((x_,))[0] for x_ in x]
+        gp.plot(x, u, {"with": "boxes"}, _with="lines", terminal="dumb 80 40", unset="grid")
+
     def render(self, params, branchid, solution):
         try:
             os.makedirs('output/figures/%2.6f' % (params[0],))
         except:
             pass
 
-        s = np.linspace(0, 1, 1000)
-        u = [solution((s_,))[0] for s_ in s]
+        x = np.linspace(0, 1, 1000)
+        u = [solution((x_,))[0] for x_ in x]
         plt.clf()
-        plt.plot(s, u, '-b', linewidth=2)
+        plt.plot(x, u, '-b', linewidth=2)
         plt.grid()
         plt.xlabel(r'$x$')
         plt.ylabel(r'$u(x)$')
