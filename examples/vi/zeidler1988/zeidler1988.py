@@ -14,7 +14,7 @@ ub = Constant((+alpha, +INF, +INF, +INF, +INF))
 
 class ZeidlerProblem(BifurcationProblem):
     def mesh(self, comm):
-        mesh = UnitIntervalMesh(comm, 500)
+        mesh = UnitIntervalMesh(comm, 2000)
         self.mesh = mesh
         return mesh
 
@@ -87,6 +87,14 @@ class ZeidlerProblem(BifurcationProblem):
         return float("inf")
 
     def solver_parameters(self, params, klass):
+        # Use damping = 1 for first go
+        if hasattr(self, "_called"):
+            damping = 0.01
+        else:
+            damping = 1
+
+        self._called = True
+
         return {
                "snes_max_it": 10000,
                "snes_atol": 1.0e-9,
@@ -94,7 +102,7 @@ class ZeidlerProblem(BifurcationProblem):
                "snes_monitor": None,
                "snes_linesearch_type": "basic",
                "snes_linesearch_maxstep": 1.0,
-               "snes_linesearch_damping": 0.01,
+               "snes_linesearch_damping": damping,
                "snes_linesearch_monitor": None,
                "ksp_type": "preonly",
                "ksp_monitor": None,
@@ -105,9 +113,9 @@ class ZeidlerProblem(BifurcationProblem):
                }
 
     def monitor(self, params, branchid, solution, functionals):
-        x = np.linspace(0, 1, 1000)
-        u = [solution((x_,))[0] for x_ in x]
-        gp.plot(x, u, {"with": "boxes"}, _with="lines", terminal="dumb 80 40", unset="grid")
+        x = np.linspace(0, 1, 10000)
+        u = np.array([solution((x_,))[0] for x_ in x])
+        gp.plot((x, u), _with="lines", terminal="dumb 80 40", unset="grid")
 
     def render(self, params, branchid, solution):
         try:
@@ -115,7 +123,7 @@ class ZeidlerProblem(BifurcationProblem):
         except:
             pass
 
-        x = np.linspace(0, 1, 1000)
+        x = np.linspace(0, 1, 10000)
         u = [solution((x_,))[0] for x_ in x]
         plt.clf()
         plt.plot(x, u, '-b', linewidth=2)
@@ -127,8 +135,9 @@ class ZeidlerProblem(BifurcationProblem):
         plt.savefig('output/figures/%2.6f/branchid-%d.png' % (params[0], branchid))
 
     def postprocess(self, solution, params, branchid, window):
-        self.render(params, branchid, solution)
-        plt.show()
+        self.monitor(params, branchid, solution, None)
+        #self.render(params, branchid, solution)
+        #plt.show()
 
 if __name__ == "__main__":
     eqproblem = ZeidlerProblem()
