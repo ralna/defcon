@@ -84,7 +84,7 @@ class ZeidlerProblem(BifurcationProblem):
         return 1
 
     def initial_guess(self, Z, params, n):
-        g = Expression(("x[0]*(x[0]-1)", "0", "0", "0", "0"), element=Z.ufl_element(), mpi_comm=Z.mesh().mpi_comm())
+        g = Expression(("3*x[0]*(x[0]-1)", "0", "0", "0", "0"), element=Z.ufl_element(), mpi_comm=Z.mesh().mpi_comm())
         return interpolate(g, Z)
 
     def number_solutions(self, params):
@@ -101,7 +101,7 @@ class ZeidlerProblem(BifurcationProblem):
         self._called = True
 
         return {
-               "snes_max_it": 5000,
+               "snes_max_it": 2000,
                "snes_atol": 1.0e-9,
                "snes_rtol": 1.0e-9,
                "snes_monitor": None,
