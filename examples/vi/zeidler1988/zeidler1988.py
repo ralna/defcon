@@ -19,10 +19,9 @@ class ZeidlerProblem(BifurcationProblem):
         return mesh
 
     def function_space(self, mesh):
-        Ae = FiniteElement("CG", mesh.ufl_cell(), 2)
         Be = FiniteElement("CG", mesh.ufl_cell(), 1)
         Ce = FiniteElement("DG", mesh.ufl_cell(), 0)
-        Ze = MixedElement([Be, Be, Be, Ce, Ce])
+        Ze = MixedElement([Be, Be, Ce, Ce, Ce])
         Z = FunctionSpace(mesh, Ze)
         return Z
 
@@ -88,7 +87,7 @@ class ZeidlerProblem(BifurcationProblem):
         return interpolate(g, Z)
 
     def number_solutions(self, params):
-        return 6
+        return 3
         return float("inf")
 
     def solver_parameters(self, params, klass):
@@ -135,13 +134,16 @@ class ZeidlerProblem(BifurcationProblem):
         plt.clf()
         plt.figure(figsize=(10, 10))
         plt.plot(x, u, '-b', label=r'$u$', linewidth=2, markersize=1, markevery=1)
-        plt.plot(x, v, '-r', label=r'$v$', linewidth=2, markersize=1, markevery=1)
-        plt.plot(x, w, '-g', label=r'$w$', linewidth=2, markersize=1, markevery=1)
+        plt.plot(x, [alpha]*len(x), '--r', linewidth=3)
+        plt.plot(x, [-alpha]*len(x), '--r', linewidth=3)
+        #plt.plot(x, v, '-r', label=r'$v$', linewidth=2, markersize=1, markevery=1)
+        #plt.plot(x, w, '-g', label=r'$w$', linewidth=2, markersize=1, markevery=1)
         plt.grid()
         plt.xlabel(r'$x$')
-        plt.ylabel(r'$f(x)$')
-        plt.legend(loc='best')
-        #plt.ylim([-1, 1])
+        plt.ylabel(r'$u(x)$')
+        #plt.legend(loc='best')
+        plt.ylim([-1, 1])
+        plt.xlim([0, 1])
         plt.title(r'$P = %.3f$' % params[0])
         plt.savefig('output/figures/%2.6f/branchid-%d.png' % (params[0], branchid))
 

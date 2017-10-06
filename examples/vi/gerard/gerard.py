@@ -4,6 +4,7 @@ Economic problem with three equilibria, taken from https://arxiv.org/abs/1706.08
 and a GAMS formulation supplied by Prof. Michael Ferris
 """
 
+from __future__ import print_function
 from defcon import *
 from dolfin import *
 import numpy
@@ -88,9 +89,9 @@ class GerardProblem(BifurcationProblem):
         solution = solution.split(deepcopy=True)[0]
         u = solution.vector().array()
         r = self.equations(u)
-        print "Iterate:  %s" % list(u)
-        print "Residual: %s" % self.equations(u)
-        print "Product:  %s" % list(numpy.array(r) * u)
+        print("Iterate:  %s" % list(u))
+        print("Residual: %s" % self.equations(u))
+        print("Product:  %s" % list(numpy.array(r) * u))
 
     def solver_parameters(self, params, klass):
         return {
