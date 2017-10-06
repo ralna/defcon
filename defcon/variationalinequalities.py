@@ -21,6 +21,7 @@ class VIBifurcationProblem(object):
         Inputs: problem is the BifurcationProblem associated with the *unconstrained*
         rootfinding problem. The bounds are acquired from problem.bounds().
         """
+        assert not isinstance(problem, VIBifurcationProblem)
         self.problem = problem
         self.function_spaces = {}
         self.lbs = {}

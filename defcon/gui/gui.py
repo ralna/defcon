@@ -287,7 +287,7 @@ class PlotConstructor():
                     self.maxparam = float(maxparam)
                     self.is_vi = literal_eval(is_vi)
 
-                    if self.is_vi: self.problem = VIBifurcationProblem(self.problem)
+                    if self.is_vi and not isinstance(self.problem, VIBifurcationProblem): self.problem = VIBifurcationProblem(self.problem)
 
                     # Now that we know we're dealing with a VI or not, initialise I/O
                     self.V = self.problem.function_space(self.mesh)

@@ -19,7 +19,11 @@ class ZeidlerProblem(BifurcationProblem):
         return mesh
 
     def function_space(self, mesh):
-        Z = VectorFunctionSpace(mesh, "CG", 1, dim=5)
+        Ae = FiniteElement("CG", mesh.ufl_cell(), 2)
+        Be = FiniteElement("CG", mesh.ufl_cell(), 1)
+        Ce = FiniteElement("DG", mesh.ufl_cell(), 0)
+        Ze = MixedElement([Be, Be, Be, Ce, Ce])
+        Z = FunctionSpace(mesh, Ze)
         return Z
 
     def parameters(self):
