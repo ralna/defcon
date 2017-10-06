@@ -121,3 +121,11 @@ if __name__ == "__main__":
 
     dc = DeflatedContinuation(problem=problem, deflation=deflation, teamsize=1, verbose=True, clear_output=True, profile=True)
     dc.run(values={"f": 0})
+
+    if backend.comm_world.rank == 0:
+        print()
+        params = (0,)
+        branches = dc.thread.io.known_branches(params)
+        for branch in branches:
+            functionals = dc.thread.io.fetch_functionals([params], branch)[0]
+            print("Solution: %s" % functionals)
