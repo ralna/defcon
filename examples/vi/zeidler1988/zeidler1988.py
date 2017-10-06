@@ -130,9 +130,9 @@ class ZeidlerProblem(BifurcationProblem):
         w = [solution((x_,))[2] for x_ in x]
         plt.clf()
         plt.figure(figsize=(10, 10))
-        plt.plot(x, u, '-b', label=r'$u$', linewidth=2)
-        plt.plot(x, v, '-r', label=r'$v$', linewidth=2)
-        plt.plot(x, w, '-g', label=r'$w$', linewidth=2)
+        plt.plot(x, u, '-b', label=r'$u$', linewidth=2, markersize=1, markevery=1)
+        plt.plot(x, v, '-r', label=r'$v$', linewidth=2, markersize=1, markevery=1)
+        plt.plot(x, w, '-g', label=r'$w$', linewidth=2, markersize=1, markevery=1)
         plt.grid()
         plt.xlabel(r'$x$')
         plt.ylabel(r'$f(x)$')
