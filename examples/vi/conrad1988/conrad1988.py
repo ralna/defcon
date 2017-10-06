@@ -95,13 +95,17 @@ class BratuProblem(BifurcationProblem):
                }
         return args
 
-if __name__ == "__main__":
-    eqproblem = BratuProblem()
-    lb = Constant(-1e20)
-    ub = Expression("1 + 5*sqrt(x[0]*x[0] + x[1]*x[1])", degree=1)
-    viproblem = VIBifurcationProblem(eqproblem, lb, ub)
+    def bounds(self, V):
+        lb = Constant(-1e20)
+        ub = Expression("1 + 5*sqrt(x[0]*x[0] + x[1]*x[1])", degree=1, mpi_comm=V.mesh().mpi_comm())
 
-    dc = DeflatedContinuation(problem=viproblem, teamsize=1, verbose=True, clear_output=True, logfiles=False)
+        l = interpolate(lb, V)
+        u = interpolate(ub, V)
+        return (l, u)
+
+if __name__ == "__main__":
+    problem = BratuProblem()
+    dc = DeflatedContinuation(problem=problem, teamsize=1, verbose=True, clear_output=True, logfiles=False)
 
     # Continue in lambda. The folds lie between [2.038, 2.04] and [1.575, 1.58]
     lambdas = list(arange(1.5, 1.575, 0.00125)) + list(linspace(1.575, 1.58, 20))[:-1] + list(arange(1.58, 2.038, 0.00125)) + list(linspace(2.038, 2.04, 20))[:-1] + list(arange(2.04, 3.0, 0.00125))

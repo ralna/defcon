@@ -84,6 +84,7 @@ class ZeidlerProblem(BifurcationProblem):
         return interpolate(g, Z)
 
     def number_solutions(self, params):
+        return 6
         return float("inf")
 
     def solver_parameters(self, params, klass):
@@ -145,10 +146,13 @@ class ZeidlerProblem(BifurcationProblem):
         self.render(params, branchid, solution)
         #plt.show()
 
-if __name__ == "__main__":
-    eqproblem = ZeidlerProblem()
-    viproblem = VIBifurcationProblem(eqproblem, lb, ub)
+    def bounds(self, V):
+        l = interpolate(lb, V)
+        u = interpolate(ub, V)
+        return (l, u)
 
-    dc = DeflatedContinuation(problem=viproblem, teamsize=1, verbose=True, clear_output=True, profile=False)
+if __name__ == "__main__":
+    problem = ZeidlerProblem()
+    dc = DeflatedContinuation(problem=problem, teamsize=1, verbose=True, clear_output=True, profile=False)
     #dc.run(values=dict(P=linspace(0, 10, 201), g=-1, a=1, rho=1), freeparam="P")
     dc.run(values=dict(P=5.2, g=-1, a=1, rho=1))

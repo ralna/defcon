@@ -4,7 +4,7 @@ import sys
 
 from defcon import backend
 from defcon.cli.common import fetch_bifurcation_problem
-
+import six
 
 def usage(executable):
     sys.exit("""A script that applies the postprocess routine to all solutions.
@@ -38,14 +38,10 @@ def main(args):
     io.setup(params, functionals, Z)
     params = consts
 
-    for branchid in range(io.max_branch()):
+    for branchid in six.moves.xrange(io.max_branch()+1):
         for values in io.known_parameters(fixed={}, branchid=branchid):
             # Read solution
             solution = io.fetch_solutions(values, [branchid])[0]
-
-            print("branchid = %s" % branchid)
-            print("values = %s" % (values,))
-            print("Solution at 0.5: %s" % (solution((0.5,)),))
 
             # Assign constants
             for (const, val) in zip(consts, values):

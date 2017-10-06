@@ -469,3 +469,12 @@ class BifurcationProblem(object):
         """
 
         return True
+
+    def bounds(self, function_space):
+        """
+        This method supports the solution of variational inequalities with box constraints.
+
+        Interpolate the (lower, upper) bounds to functions in function_space,
+        and return the tuple (lower, upper).
+        """
+        pass

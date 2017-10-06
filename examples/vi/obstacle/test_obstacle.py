@@ -1,14 +1,13 @@
 from defcon import *
-from obstacle import ObstacleProblem, lb, ub
+from obstacle import ObstacleProblem
 
 def test_obstacle():
-    eqproblem = ObstacleProblem()
-    viproblem = VIBifurcationProblem(eqproblem, lb, ub)
-    dc = DeflatedContinuation(viproblem, teamsize=1, verbose=True, clear_output=True)
+    problem = ObstacleProblem()
+    dc = DeflatedContinuation(problem, teamsize=1, verbose=True, clear_output=True)
     dc.run(values={"f": -10.0})
 
-    io = viproblem.io()
-    io.setup(viproblem.parameters(), viproblem.functionals(), None)
+    io = problem.io()
+    io.setup(problem.parameters(), problem.functionals(), None)
 
     params = (-10.0,)
 

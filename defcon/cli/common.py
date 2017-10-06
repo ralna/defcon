@@ -71,4 +71,7 @@ def fetch_bifurcation_problem(path):
         print("Failed to fetch bifurcation problem")
         return None
 
+    vi = "bounds" in problem.__class__.__dict__
+    if vi: problem = VIBifurcationProblem(problem)
+
     return problem

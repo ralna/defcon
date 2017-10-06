@@ -38,7 +38,7 @@ def main(args):
     io.setup(params, functionals, Z)
     params = consts
 
-    for branchid in range(io.max_branch()):
+    for branchid in range(io.max_branch()+1):
         for values in io.known_parameters(fixed={}, branchid=branchid):
             # Read solution
             solution = io.fetch_solutions(values, [branchid])[0]

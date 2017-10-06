@@ -11,6 +11,8 @@ from defcon import backend, StabilityTask
 from defcon.cli.common import fetch_bifurcation_problem
 import defcon.parametertools
 
+import six
+
 
 def usage(executable):
     sys.exit("""A script that computes the stability of all solutions.
@@ -46,7 +48,7 @@ def main(args):
 
     opts = PETSc.Options()
 
-    for branchid in xrange(io.max_branch()):
+    for branchid in six.moves.xrange(io.max_branch()+1):
         params = io.known_parameters(fixed={}, branchid=branchid)
         for param in params:
             consts = map(backend.Constant, param)

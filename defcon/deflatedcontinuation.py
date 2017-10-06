@@ -9,6 +9,7 @@ from defcon.parametertools import Parameters
 from defcon.thread import DefconThread
 from defcon.worker import DefconWorker
 from defcon.master import DefconMaster
+from defcon.variationalinequalities import VIBifurcationProblem
 
 
 class DeflatedContinuation(object):
@@ -55,6 +56,11 @@ class DeflatedContinuation(object):
 
         worldcomm = kwargs.get("comm", MPI.COMM_WORLD).Dup()
         kwargs["comm"] = worldcomm
+
+        # Is the user solving a variational inequality or not? Check if the user
+        # has overridden the bounds method or not
+        vi = "bounds" in problem.__class__.__dict__
+        if vi: problem = VIBifurcationProblem(problem)
 
         self.problem = problem
 

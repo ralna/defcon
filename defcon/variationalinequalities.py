@@ -13,19 +13,15 @@ def vec(x):
     return as_backend_type(x).vec()
 
 class VIBifurcationProblem(object):
-    def __init__(self, problem, lb, ub):
+    def __init__(self, problem):
         """
         Construct a BifurcationProblem for analysing variational inequalities.
+        This is generally for internal use only.
 
         Inputs: problem is the BifurcationProblem associated with the *unconstrained*
-        rootfinding problem. lb and ub are lower and upper bounds respectively;
-        they will be interpolated into the state function space associated with the
-        underlying problem.
+        rootfinding problem. The bounds are acquired from problem.bounds().
         """
         self.problem = problem
-        self.lb = lb
-        self.ub = ub
-
         self.function_spaces = {}
         self.lbs = {}
         self.ubs = {}
@@ -48,25 +44,23 @@ class VIBifurcationProblem(object):
         Ze = MixedElement([De, De, De]) # PDE solution, multiplier for lower bound, multiplier for upper bound
         Z  = FunctionSpace(mesh, Ze)
 
-        if self.lb is not None and self.ub is not None: # the GUI doesn't know the bounds
-            ub = vec(interpolate(self.ub, D))
-            lb = vec(interpolate(self.lb, D))
-            zero = vec(Function(D))
+        (lb, ub) = map(vec, self.problem.bounds(D))
+        zero = vec(Function(D))
 
-            key = mesh.num_cells()
-            self.function_spaces[key] = D
-            self.lbs[key] = lb
-            self.ubs[key] = ub
-            self.zeros[key] = zero
+        key = mesh.num_cells()
+        self.function_spaces[key] = D
+        self.lbs[key] = lb
+        self.ubs[key] = ub
+        self.zeros[key] = zero
 
-            comm = mesh.mpi_comm()
-            is_state = PETSc.IS().createGeneral(Z.sub(0).dofmap().dofs(), comm=comm)
-            is_lb = PETSc.IS().createGeneral(Z.sub(1).dofmap().dofs(), comm=comm)
-            is_ub = PETSc.IS().createGeneral(Z.sub(2).dofmap().dofs(), comm=comm)
+        comm = mesh.mpi_comm()
+        is_state = PETSc.IS().createGeneral(Z.sub(0).dofmap().dofs(), comm=comm)
+        is_lb = PETSc.IS().createGeneral(Z.sub(1).dofmap().dofs(), comm=comm)
+        is_ub = PETSc.IS().createGeneral(Z.sub(2).dofmap().dofs(), comm=comm)
 
-            self.is_state[key] = is_state
-            self.is_lb[key] = is_lb
-            self.is_ub[key] = is_ub
+        self.is_state[key] = is_state
+        self.is_lb[key] = is_lb
+        self.is_ub[key] = is_ub
 
         return Z
 

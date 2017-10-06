@@ -110,10 +110,14 @@ class GerardProblem(BifurcationProblem):
                "pc_factor_mat_solver_package": "mumps",
                }
 
-if __name__ == "__main__":
-    eqproblem = GerardProblem()
-    viproblem = VIBifurcationProblem(eqproblem, lb, ub)
-    deflation = ShiftedDeflation(viproblem, power=1, shift=1)
+    def bounds(self, V):
+        l = interpolate(lb, V)
+        u = interpolate(ub, V)
+        return (l, u)
 
-    dc = DeflatedContinuation(problem=viproblem, deflation=deflation, teamsize=1, verbose=True, clear_output=True, profile=True)
+if __name__ == "__main__":
+    problem = GerardProblem()
+    deflation = ShiftedDeflation(problem, power=1, shift=1)
+
+    dc = DeflatedContinuation(problem=problem, deflation=deflation, teamsize=1, verbose=True, clear_output=True, profile=True)
     dc.run(values={"f": 0})

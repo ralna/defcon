@@ -77,9 +77,12 @@ class ObstacleProblem(BifurcationProblem):
                "pc_factor_mat_solver_package": "mumps",
                }
 
-if __name__ == "__main__":
-    eqproblem = ObstacleProblem()
-    viproblem = VIBifurcationProblem(eqproblem, lb, ub)
+    def bounds(self, V):
+        l = interpolate(lb, V)
+        u = interpolate(ub, V)
+        return (l, u)
 
-    dc = DeflatedContinuation(problem=viproblem, teamsize=1, verbose=True, clear_output=True)
+if __name__ == "__main__":
+    problem = ObstacleProblem()
+    dc = DeflatedContinuation(problem=problem, teamsize=1, verbose=True, clear_output=True)
     dc.run(values={"f": -10})
