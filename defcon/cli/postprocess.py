@@ -7,7 +7,7 @@ from defcon.cli.common import fetch_bifurcation_problem
 
 
 def usage(executable):
-    sys.exit("""A script that computes the functionals of all solutions.
+    sys.exit("""A script that applies the postprocess routine to all solutions.
 
 Use like
 
@@ -17,7 +17,7 @@ Use like
 
 def main(args):
     if len(args) != 3:
-        usage(args[0] if len(args) > 0 else "defcon recompute-functionals")
+        usage(args[0] if len(args) > 0 else "defcon postprocess")
 
     probpath = args[1]
     outputdir = args[2]
@@ -43,18 +43,12 @@ def main(args):
             # Read solution
             solution = io.fetch_solutions(values, [branchid])[0]
 
+            print("branchid = %s" % branchid)
+            print("values = %s" % (values,))
+            print("Solution at 0.5: %s" % (solution((0.5,)),))
+
             # Assign constants
             for (const, val) in zip(consts, values):
                 const.assign(val)
 
-            # Compute functionals
-            funcs = []
-            for functional in functionals:
-                func = functional[0]
-                j = func(solution, consts)
-                assert isinstance(j, float)
-                funcs.append(j)
-
-            # Save to disk again
-            print("Saving values: %s, branchid: %d, functionals %s" % (values, branchid, funcs))
-            io.save_solution(solution, funcs, values, branchid)
+            problem.postprocess(solution, consts, branchid, None)

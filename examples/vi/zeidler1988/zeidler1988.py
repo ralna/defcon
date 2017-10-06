@@ -89,14 +89,14 @@ class ZeidlerProblem(BifurcationProblem):
     def solver_parameters(self, params, klass):
         # Use damping = 1 for first go
         if hasattr(self, "_called"):
-            damping = 0.01
+            damping = 0.05
         else:
             damping = 1
 
         self._called = True
 
         return {
-               "snes_max_it": 10000,
+               "snes_max_it": 5000,
                "snes_atol": 1.0e-9,
                "snes_rtol": 1.0e-9,
                "snes_monitor": None,
@@ -125,18 +125,24 @@ class ZeidlerProblem(BifurcationProblem):
 
         x = np.linspace(0, 1, 10000)
         u = [solution((x_,))[0] for x_ in x]
+        v = [solution((x_,))[1] for x_ in x]
+        w = [solution((x_,))[2] for x_ in x]
         plt.clf()
-        plt.plot(x, u, '-b', linewidth=2)
+        plt.figure(figsize=(10, 10))
+        plt.plot(x, u, '-b', label=r'$u$', linewidth=2)
+        plt.plot(x, v, '-r', label=r'$v$', linewidth=2)
+        plt.plot(x, w, '-g', label=r'$w$', linewidth=2)
         plt.grid()
         plt.xlabel(r'$x$')
-        plt.ylabel(r'$u(x)$')
-        plt.ylim([-1, 1])
+        plt.ylabel(r'$f(x)$')
+        plt.legend(loc='best')
+        #plt.ylim([-1, 1])
         plt.title(r'$P = %.3f$' % params[0])
         plt.savefig('output/figures/%2.6f/branchid-%d.png' % (params[0], branchid))
 
     def postprocess(self, solution, params, branchid, window):
         self.monitor(params, branchid, solution, None)
-        #self.render(params, branchid, solution)
+        self.render(params, branchid, solution)
         #plt.show()
 
 if __name__ == "__main__":

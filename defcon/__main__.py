@@ -16,6 +16,7 @@ Commands:
   recompute-functionals
   recompute-known-branches
   recompute-stability
+  postprocess
 
 Help:
   defcon <command> -h
@@ -69,6 +70,9 @@ def main(args=None):
     elif cmd == "recompute-stability":
         import defcon.cli.recomputestability
         return defcon.cli.recomputestability.main(args)
+    elif cmd == "postprocess":
+        import defcon.cli.postprocess
+        return defcon.cli.postprocess.main(args)
     else:
         print("Unknown command specified.")
         usage()
