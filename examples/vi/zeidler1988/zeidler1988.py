@@ -9,8 +9,8 @@ import os
 
 alpha = 0.75
 INF = 1e20
-lb = Constant((-alpha, -INF, -INF, -INF, -INF))
-ub = Constant((+alpha, +INF, +INF, +INF, +INF))
+lb = Constant((-alpha, -INF, -INF))
+ub = Constant((+alpha, +INF, +INF))
 
 class ZeidlerProblem(BifurcationProblem):
     def mesh(self, comm):
@@ -21,7 +21,7 @@ class ZeidlerProblem(BifurcationProblem):
     def function_space(self, mesh):
         Be = FiniteElement("CG", mesh.ufl_cell(), 1)
         Ce = FiniteElement("DG", mesh.ufl_cell(), 0)
-        Ze = MixedElement([Be, Be, Ce, Ce, Ce])
+        Ze = MixedElement([Be, Be, Ce])
         Z = FunctionSpace(mesh, Ze)
         return Z
 
@@ -37,9 +37,10 @@ class ZeidlerProblem(BifurcationProblem):
                 ]
 
     def energy(self, z, params):
-        (u, v, w, l1, l2) = split(z)
+        (u, v, l) = split(z)
         (P, a, g, rho) = params
         x = SpatialCoordinate(self.mesh)[0]
+        w = v.dx(0)
         E = (
             + 0.5 * a * inner(w, w)*dx
             - 0.5 * P * inner(v, v)*dx
@@ -48,11 +49,10 @@ class ZeidlerProblem(BifurcationProblem):
         return E
 
     def lagrangian(self, z, params):
-        (u, v, w, l1, l2) = split(z)
+        (u, v, l) = split(z)
         L = (
               self.energy(z, params)
-            - inner(l1, v - u.dx(0))*dx
-            - inner(l2, w - v.dx(0))*dx
+            - inner(l, v - u.dx(0))*dx
             )
         return L
 
@@ -82,7 +82,7 @@ class ZeidlerProblem(BifurcationProblem):
         return 1
 
     def initial_guess(self, Z, params, n):
-        g = Expression(("3*x[0]*(x[0]-1)", "0", "0", "0", "0"), element=Z.ufl_element(), mpi_comm=Z.mesh().mpi_comm())
+        g = Expression(("3*x[0]*(x[0]-1)", "0", "0"), element=Z.ufl_element(), mpi_comm=Z.mesh().mpi_comm())
         return interpolate(g, Z)
 
     def number_solutions(self, params):
