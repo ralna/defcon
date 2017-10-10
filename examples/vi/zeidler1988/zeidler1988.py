@@ -42,7 +42,7 @@ class ZeidlerProblem(BifurcationProblem):
         x = SpatialCoordinate(self.mesh)[0]
         E = (
             + 0.5 * a * inner(w, w)*dx
-            - P*inner(v, v)*dx
+            - 0.5 * P * inner(v, v)*dx
             - rho*g*u*dx
             )
         return E
@@ -65,17 +65,16 @@ class ZeidlerProblem(BifurcationProblem):
         return [DirichletBC(Z.sub(0), 0, "on_boundary")]
 
     def functionals(self):
-        def signedenergy(z, params):
-            j = assemble(self.energy(z, params))
-            g = z((0.5,))[0]
-            return j*g
+        def pointeval(z, params):
+            g = z((0.25,))[0]
+            return g
 
         def energy(z, params):
             j = assemble(self.energy(z, params))
             return j
 
         return [
-                (signedenergy, "signedenergy", r"$u(\frac{1}{2}) E(z)$"),
+                (pointeval, "pointeval", r"$u(\frac{1}{4})$"),
                 (energy, "energy", r"$E(z)$"),
                ]
 
@@ -98,6 +97,8 @@ class ZeidlerProblem(BifurcationProblem):
             damping = 1
 
         self._called = True
+        print "klass: %s" % klass
+        print "damping: %s" % damping
 
         return {
                "snes_max_it": 2000,
@@ -116,12 +117,12 @@ class ZeidlerProblem(BifurcationProblem):
                "pc_factor_mat_solver_package": "umfpack",
                }
 
-    def monitor(self, params, branchid, solution, functionals):
+    def monitorx(self, params, branchid, solution, functionals):
         x = np.linspace(0, 1, 10000)
         u = np.array([solution((x_,))[0] for x_ in x])
         gp.plot((x, u), _with="lines", terminal="dumb 80 40", unset="grid")
 
-    def render(self, params, branchid, solution):
+    def render(self, params, branchid, solution, window):
         try:
             os.makedirs('output/figures/%2.6f' % (params[0],))
         except:
@@ -132,7 +133,8 @@ class ZeidlerProblem(BifurcationProblem):
         v = [solution((x_,))[1] for x_ in x]
         w = [solution((x_,))[2] for x_ in x]
         plt.clf()
-        plt.figure(figsize=(10, 10))
+        if window is None:
+            h = plt.figure(figsize=(10, 10))
         plt.plot(x, u, '-b', label=r'$u$', linewidth=2, markersize=1, markevery=1)
         plt.plot(x, [alpha]*len(x), '--r', linewidth=3)
         plt.plot(x, [-alpha]*len(x), '--r', linewidth=3)
@@ -145,20 +147,33 @@ class ZeidlerProblem(BifurcationProblem):
         plt.ylim([-1, 1])
         plt.xlim([0, 1])
         plt.title(r'$P = %.3f$' % params[0])
-        plt.savefig('output/figures/%2.6f/branchid-%d.png' % (params[0], branchid))
+        if window is not None:
+            plt.show()
+            plt.savefig('output/figures/%2.6f/branchid-%d.png' % (params[0], branchid))
+        else:
+            plt.savefig('output/figures/%2.6f/branchid-%d.png' % (params[0], branchid))
+            plt.close(h)
 
     def postprocess(self, solution, params, branchid, window):
-        self.monitor(params, branchid, solution, None)
-        self.render(params, branchid, solution)
-        #plt.show()
+        #self.monitor(params, branchid, solution, None)
+        print "params[0]: ", float(params[0])
+        if float(params[0]) == 10.4:
+            self.render(params, branchid, solution, window)
 
     def bounds(self, V):
         l = interpolate(lb, V)
         u = interpolate(ub, V)
         return (l, u)
 
+    def squared_norm(self, z1, z2, params):
+        u1 = split(z1)[0]
+        u2 = split(z2)[0]
+
+        diff = u1 - u2
+        return inner(diff, diff)*dx #+ inner(grad(diff), grad(diff))*dx
+
 if __name__ == "__main__":
     problem = ZeidlerProblem()
-    dc = DeflatedContinuation(problem=problem, teamsize=1, verbose=True, clear_output=True, profile=False)
-    #dc.run(values=dict(P=linspace(0, 10, 201), g=-1, a=1, rho=1), freeparam="P")
-    dc.run(values=dict(P=5.2, g=-1, a=1, rho=1))
+    dc = DeflatedContinuation(problem=problem, teamsize=1, verbose=True, clear_output=True, profile=False, continue_backwards=True, logfiles=False)
+    #dc.run(values=dict(P=linspace(0, 11, 401), g=-0.001, a=1, rho=1), freeparam="P")
+    dc.run(values=dict(P=10.4, g=-1, a=1, rho=1))
