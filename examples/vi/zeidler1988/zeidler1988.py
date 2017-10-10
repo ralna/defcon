@@ -14,7 +14,7 @@ ub = Constant((+alpha, +INF, +INF))
 
 class ZeidlerProblem(BifurcationProblem):
     def mesh(self, comm):
-        mesh = UnitIntervalMesh(comm, 2000)
+        mesh = UnitIntervalMesh(comm, 1000)
         self.mesh = mesh
         return mesh
 
@@ -92,7 +92,7 @@ class ZeidlerProblem(BifurcationProblem):
     def solver_parameters(self, params, klass):
         # Use damping = 1 for first go
         if hasattr(self, "_called"):
-            damping = 0.8
+            damping = 0.9
         else:
             damping = 1
 
