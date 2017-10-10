@@ -92,7 +92,7 @@ class ZeidlerProblem(BifurcationProblem):
     def solver_parameters(self, params, klass):
         # Use damping = 1 for first go
         if hasattr(self, "_called"):
-            damping = 0.1
+            damping = 0.8
         else:
             damping = 1
 
