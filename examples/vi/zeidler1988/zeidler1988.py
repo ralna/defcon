@@ -82,8 +82,7 @@ class ZeidlerProblem(BifurcationProblem):
         return 1
 
     def initial_guess(self, Z, params, n):
-        g = Expression(("3*x[0]*(x[0]-1)", "0", "0"), element=Z.ufl_element(), mpi_comm=Z.mesh().mpi_comm())
-        return interpolate(g, Z)
+        return Function(Z)
 
     def number_solutions(self, params):
         return 3
@@ -134,31 +133,30 @@ class ZeidlerProblem(BifurcationProblem):
         w = [solution((x_,))[2] for x_ in x]
         plt.clf()
         if window is None:
-            h = plt.figure(figsize=(10, 10))
+            #h = plt.figure(figsize=(10, 10))
+            h = plt.figure()
         plt.plot(x, u, '-b', label=r'$u$', linewidth=2, markersize=1, markevery=1)
         plt.plot(x, [alpha]*len(x), '--r', linewidth=3)
         plt.plot(x, [-alpha]*len(x), '--r', linewidth=3)
         #plt.plot(x, v, '-r', label=r'$v$', linewidth=2, markersize=1, markevery=1)
         #plt.plot(x, w, '-g', label=r'$w$', linewidth=2, markersize=1, markevery=1)
         plt.grid()
-        plt.xlabel(r'$x$')
-        plt.ylabel(r'$u(x)$')
+        plt.xlabel(r'$s$')
+        plt.ylabel(r'$y(s)$')
         #plt.legend(loc='best')
         plt.ylim([-1, 1])
         plt.xlim([0, 1])
-        plt.title(r'$P = %.3f$' % params[0])
+        #plt.title(r'$P = %.3f$' % params[0])
         if window is not None:
             plt.show()
             plt.savefig('output/figures/%2.6f/branchid-%d.png' % (params[0], branchid))
         else:
-            plt.savefig('output/figures/%2.6f/branchid-%d.png' % (params[0], branchid))
+            plt.savefig('output/figures/%2.6f/branchid-%d.pdf' % (params[0], branchid))
             plt.close(h)
 
     def postprocess(self, solution, params, branchid, window):
         #self.monitor(params, branchid, solution, None)
-        print "params[0]: ", float(params[0])
-        if float(params[0]) == 10.4:
-            self.render(params, branchid, solution, window)
+        self.render(params, branchid, solution, window)
 
     def bounds(self, V):
         l = interpolate(lb, V)
