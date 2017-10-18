@@ -3,8 +3,6 @@
 from defcon import *
 from dolfin import *
 import numpy as np
-import matplotlib.pyplot as plt
-import gnuplotlib as gp
 import os
 
 alpha = 0.75
@@ -119,6 +117,7 @@ class ZeidlerProblem(BifurcationProblem):
     def monitorx(self, params, branchid, solution, functionals):
         x = np.linspace(0, 1, 10000)
         u = np.array([solution((x_,))[0] for x_ in x])
+        import gnuplotlib as gp
         gp.plot((x, u), _with="lines", terminal="dumb 80 40", unset="grid")
 
     def render(self, params, branchid, solution, window):
@@ -127,6 +126,7 @@ class ZeidlerProblem(BifurcationProblem):
         except:
             pass
 
+        import matplotlib.pyplot as plt
         x = np.linspace(0, 1, 10000)
         u = [solution((x_,))[0] for x_ in x]
         v = [solution((x_,))[1] for x_ in x]
