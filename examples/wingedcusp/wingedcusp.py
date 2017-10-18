@@ -1,13 +1,6 @@
 # -*- coding: utf-8 -*-
-import sys
-from   math import floor
-
 from defcon import *
 from dolfin import *
-
-import matplotlib.pyplot as plt
-
-from petsc4py import PETSc
 
 parameters["form_compiler"]["representation"] = "quadrature"
 
