@@ -77,7 +77,32 @@ or
 
 for *editable* installs into the user directory (typically `~/.local`).
 
-## Using in FEniCS Docker containers
+## Use in anaconda environments
+
+The easiest way to use defcon is to install FEniCS via anaconda and
+then install defcon in the same environment. Here is an example of how
+to do this:
+
+    # Install FEniCS
+    conda create -n fenicsproject -c conda-forge fenics
+    source activate fenicsproject
+
+    # Install other dependencies
+    conda install scipy
+    pip install h5py # conda-supplied h5py is incompatible with FEniCS
+    pip install https://bitbucket.org/mpi4py/mpi4py/get/master.tar.gz
+    conda install matplotlib scipy ipython pyqt
+
+    # Install defcon
+    cd /path/to/defcon
+    pip install -e .
+
+    # Try it out
+    cd examples/wingedcusp
+    mpiexec -n 2 python wingedcusp.py
+    defcon gui
+
+## Use in FEniCS Docker containers
 
 FEniCS Docker containers introduce a convenient way of distributing FEniCS on
 many platforms, see
@@ -88,8 +113,8 @@ To use defcon in a FEniCS docker container, simply fire up a container with
 development version of FEniCS, e.g. using `fenicsproject run dev`, and in the
 container type
 
-    pip2 install --user h5py
-    pip2 install --user https://bitbucket.org/pefarrell/defcon/get/master.tar.gz
+    pip install --user h5py
+    pip install --user https://bitbucket.org/pefarrell/defcon/get/master.tar.gz
 
 Then you can navigate to defcon demos and run them
 
@@ -98,7 +123,9 @@ Then you can navigate to defcon demos and run them
 
 ## Running the GUI in docker
 
-To use the defcon GUI, a slightly more complicated procedure is needed.
+To use the defcon GUI, a much more complicated procedure is needed.
+We suggest installing FEniCS via anaconda as described above, instead.
+However, if you're very keen on GUIs + docker, here are some notes.
 
 ### Connecting X11 applications on Linux
 One needs to allow a docker container to connect to host's X11 system:
