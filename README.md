@@ -58,7 +58,7 @@ docker images using Bitbucket Pipelines (with Python 2) and CircleCI (with
 Python 3). This ensures that defcon should always run with a recent FEniCS
 development version.
 
-[![Pipelines Py2](https://bitbucket-badges.useast.atlassian.io/badge/fenics-project/dolfin.svg)](https://bitbucket.org/fenics-project/dolfin/addon/pipelines/home)
+[![Pipelines Py2](https://bitbucket-badges.useast.atlassian.io/badge/pefarrell/defcon.svg)](https://bitbucket.org/pefarrell/defcon/addon/pipelines/home)
 [![Circle Py3](https://circleci.com/bb/pefarrell/defcon.svg?style=svg)](https://circleci.com/bb/pefarrell/defcon)
 
 ## Code Examples
