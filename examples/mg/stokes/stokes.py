@@ -69,7 +69,7 @@ class StokesProblem(BifurcationProblem):
     def number_solutions(self, params):
         return 1
 
-    def solver(self, problem, solver_params, prefix="", **kwargs):
+    def solver(self, problem, params, solver_params, prefix="", **kwargs):
         solver = SNUFLSolver(problem, prefix=prefix, solver_parameters=solver_params, **kwargs)
         snes = solver.snes
         dm = snes.dm

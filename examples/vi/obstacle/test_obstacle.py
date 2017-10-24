@@ -4,12 +4,12 @@ from obstacle import ObstacleProblem
 def test_obstacle():
     problem = ObstacleProblem()
     dc = DeflatedContinuation(problem, teamsize=1, verbose=True, clear_output=True)
-    dc.run(values={"f": -10.0})
+    dc.run(values={"f": -10.0, "scale": 1.0})
 
     io = problem.io()
     io.setup(problem.parameters(), problem.functionals(), None)
 
-    params = (-10.0,)
+    params = (-10.0, 1.0)
 
     if backend.comm_world.rank == 0:
         assert len(io.known_branches(params)) == 1

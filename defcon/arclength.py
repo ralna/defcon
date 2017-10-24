@@ -301,6 +301,7 @@ class ArclengthWorker(DefconWorker):
             solverparams["snes_max_it"] = 1
             (success, iters) = newton(F, J, self.tangent, self.hbcs,
                                       self.problem.nonlinear_problem,
+                                      current_params,
                                       self.problem.solver,
                                       solverparams,
                                       self.teamno)
@@ -332,6 +333,7 @@ class ArclengthWorker(DefconWorker):
                 self.log("Computing arclength step")
                 (success, iters) = newton(self.ac_residual, self.ac_jacobian, self.state, self.bcs,
                                           self.problem.nonlinear_problem,
+                                          current_params,
                                           self.problem.solver,
                                           self.problem.solver_parameters(current_params, task.__class__),
                                           self.teamno, self.deflation)

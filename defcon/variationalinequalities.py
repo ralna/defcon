@@ -24,12 +24,9 @@ class VIBifurcationProblem(object):
         assert not isinstance(problem, VIBifurcationProblem)
         self.problem = problem
         self.function_spaces = {}
-        self.lbs = {}
-        self.ubs = {}
         self.is_state = {}
         self.is_lb    = {}
         self.is_ub    = {}
-        self.zeros    = {}
 
     def __getattr__(self, name):
         return getattr(self.problem, name)
@@ -45,14 +42,8 @@ class VIBifurcationProblem(object):
         Ze = MixedElement([De, De, De]) # PDE solution, multiplier for lower bound, multiplier for upper bound
         Z  = FunctionSpace(mesh, Ze)
 
-        (lb, ub) = map(vec, self.problem.bounds(D))
-        zero = vec(Function(D))
-
         key = mesh.num_cells()
         self.function_spaces[key] = D
-        self.lbs[key] = lb
-        self.ubs[key] = ub
-        self.zeros[key] = zero
 
         comm = mesh.mpi_comm()
         is_state = PETSc.IS().createGeneral(Z.sub(0).dofmap().dofs(), comm=comm)
@@ -90,8 +81,8 @@ class VIBifurcationProblem(object):
         assign(z.sub(0), u)
         return z
 
-    def solver(self, problem, solver_params, prefix="", **kwargs):
-        base = self.problem.solver(problem, solver_params, prefix=prefix, **kwargs)
+    def solver(self, problem, params, solver_params, prefix="", **kwargs):
+        base = self.problem.solver(problem, params, solver_params, prefix=prefix, **kwargs)
         snes = base.snes
 
         u_dvec = as_backend_type(problem.u.vector())
@@ -99,12 +90,14 @@ class VIBifurcationProblem(object):
         comm = mesh.mpi_comm()
         key  = mesh.num_cells()
 
-        lb = self.lbs[key]
-        ub = self.ubs[key]
+        D = self.function_spaces[key]
+
+        (lb, ub) = map(vec, self.problem.bounds(D, params))
+        zero = vec(Function(D))
+
         is_state  = self.is_state[key]
         is_lb = self.is_lb[key]
         is_ub = self.is_ub[key]
-        zero  = self.zeros[key]
         deflation = problem.deflation
 
         class MySolver(object):

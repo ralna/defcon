@@ -115,7 +115,9 @@ Launch with mpiexec: mpiexec -n <number of processes> python %s
                 values[param] = list(values[param])
 
         if freeparam is None:
-            assert len(values) == 1 or max([len(values[key]) for key in values]) == 1
+            if not (len(values) == 1 or max([len(values[key]) for key in values]) == 1):
+                self.thread.log("Must set freeparam in this case.", warning=True)
+                assert False
             freeparam = sorted(values.keys())[0]
 
         parameters = Parameters(problem_parameters, values)

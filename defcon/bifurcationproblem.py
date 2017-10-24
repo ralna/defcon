@@ -330,7 +330,7 @@ class BifurcationProblem(object):
         else:
             return backend.NonlinearVariationalProblem(F, y, bcs, J=J)
 
-    def solver(self, problem, solver_params, prefix="", **kwargs):
+    def solver(self, problem, params, solver_params, prefix="", **kwargs):
         """
         The class used to solve the nonlinear problem.
 
@@ -470,7 +470,7 @@ class BifurcationProblem(object):
 
         return True
 
-    def bounds(self, function_space):
+    def bounds(self, function_space, params):
         """
         This method supports the solution of variational inequalities with box constraints.
 

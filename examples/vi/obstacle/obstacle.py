@@ -2,23 +2,6 @@
 from defcon import *
 from dolfin import *
 
-class Obstacle(Expression):
-    def eval(self, values, x):
-        if x[0] < -0.5:
-            values[0] = -0.2
-            return
-        if -0.5 <= x[0] <= 0.0:
-            values[0] = -0.4
-            return
-        if 0.0 <= x[0] < 0.5:
-            values[0] = -0.6
-            return
-        if 0.5 <= x[0] <= 1.0:
-            values[0] = -0.8
-            return
-lb = Obstacle(degree=1)
-ub = Constant(1e20)
-
 class ObstacleProblem(BifurcationProblem):
     def mesh(self, comm):
         return RectangleMesh(comm, Point(-1, -1), Point(1, 1), 64, 64, "crossed")
@@ -32,7 +15,9 @@ class ObstacleProblem(BifurcationProblem):
 
     def parameters(self):
         f = Constant(0)
-        return [(f, "f", r"$f$")]
+        scale = Constant(0)
+        return [(f, "f", r"$f$"),
+                (scale, "scale", "scale")]
 
     def residual(self, u, params, v):
         f = params[0]
@@ -77,7 +62,25 @@ class ObstacleProblem(BifurcationProblem):
                "pc_factor_mat_solver_package": "mumps",
                }
 
-    def bounds(self, V):
+    def bounds(self, V, params):
+        scale = params[1]
+        class Obstacle(Expression):
+            def eval(self, values, x):
+                if x[0] < -0.5:
+                    values[0] = scale*-0.2
+                    return
+                if -0.5 <= x[0] <= 0.0:
+                    values[0] = scale*-0.4
+                    return
+                if 0.0 <= x[0] < 0.5:
+                    values[0] = scale*-0.6
+                    return
+                if 0.5 <= x[0] <= 1.0:
+                    values[0] = scale*-0.8
+                    return
+        lb = Obstacle(degree=1)
+        ub = Constant(1e20)
+
         l = interpolate(lb, V)
         u = interpolate(ub, V)
         return (l, u)
@@ -85,4 +88,4 @@ class ObstacleProblem(BifurcationProblem):
 if __name__ == "__main__":
     problem = ObstacleProblem()
     dc = DeflatedContinuation(problem=problem, teamsize=1, verbose=True, clear_output=True)
-    dc.run(values={"f": -10})
+    dc.run(values={"f": -10, "scale": linspace(1, 2, 5)}, freeparam="scale")

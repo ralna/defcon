@@ -200,6 +200,7 @@ class DefconWorker(DefconThread):
             self.deflation.deflate(other_solutions + self.trivial_solutions)
             (success, iters) = newton(self.residual, self.jacobian, self.state, bcs,
                              self.problem.nonlinear_problem,
+                             task.newparams,
                              self.problem.solver,
                              self.problem.solver_parameters(task.newparams, task.__class__),
                              self.teamno, self.deflation, self.dm)
@@ -301,6 +302,7 @@ class DefconWorker(DefconThread):
             self.deflation.deflate(other_solutions + self.trivial_solutions)
             (success, iters) = newton(self.residual, self.jacobian, self.state, bcs,
                              self.problem.nonlinear_problem,
+                             task.newparams,
                              self.problem.solver,
                              self.problem.solver_parameters(task.newparams, task.__class__),
                              self.teamno, self.deflation, self.dm)
@@ -318,6 +320,7 @@ class DefconWorker(DefconThread):
             self.deflation.deflate(other_solutions + self.trivial_solutions)
             (success_, iters) = newton(self.residual, self.jacobian, self.state, bcs,
                              self.problem.nonlinear_problem,
+                             avg,
                              self.problem.solver,
                              self.problem.solver_parameters(avg, task.__class__),
                              self.teamno, self.deflation, self.dm)
@@ -331,6 +334,7 @@ class DefconWorker(DefconThread):
                 self.deflation.deflate(other_solutions + self.trivial_solutions)
                 (success, iters) = newton(self.residual, self.jacobian, self.state, bcs,
                                  self.problem.nonlinear_problem,
+                                 task.newparams,
                                  self.problem.solver,
                                  self.problem.solver_parameters(task.newparams, task.__class__),
                                  self.teamno, self.deflation, self.dm)

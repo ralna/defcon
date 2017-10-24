@@ -158,7 +158,7 @@ class ZeidlerProblem(BifurcationProblem):
         #self.monitor(params, branchid, solution, None)
         self.render(params, branchid, solution, window)
 
-    def bounds(self, V):
+    def bounds(self, V, params):
         l = interpolate(lb, V)
         u = interpolate(ub, V)
         return (l, u)
