@@ -65,5 +65,6 @@ class KojimaProblem(ComplementarityProblem):
 
 if __name__ == "__main__":
     problem = KojimaProblem(F, N)
-    dc = DeflatedContinuation(problem, teamsize=1, clear_output=True)
+    deflation = ShiftedDeflation(problem, power=2, shift=1)
+    dc = DeflatedContinuation(problem, deflation=deflation, teamsize=1, clear_output=True)
     dc.run(values={"lambda": 0})

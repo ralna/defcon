@@ -172,6 +172,6 @@ class ZeidlerProblem(BifurcationProblem):
 
 if __name__ == "__main__":
     problem = ZeidlerProblem()
-    dc = DeflatedContinuation(problem=problem, teamsize=1, verbose=True, clear_output=True, profile=False, continue_backwards=True, logfiles=False)
-    #dc.run(values=dict(P=linspace(0, 11, 401), g=-0.001, a=1, rho=1), freeparam="P")
+    deflation = ShiftedDeflation(problem, power=2, shift=1)
+    dc = DeflatedContinuation(problem=problem, deflation=deflation, teamsize=1, verbose=True, clear_output=True, profile=False, continue_backwards=True, logfiles=False)
     dc.run(values=dict(P=10.4, g=-1, a=1, rho=1))

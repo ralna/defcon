@@ -71,7 +71,8 @@ class AggarwalProblem(ComplementarityProblem):
 
 if __name__ == "__main__":
     problem = AggarwalProblem(F, N)
-    dc = DeflatedContinuation(problem, teamsize=1, clear_output=True)
+    deflation = ShiftedDeflation(problem, power=2, shift=1)
+    dc = DeflatedContinuation(problem, deflation=deflation, teamsize=1, clear_output=True)
     start = 0.001
     lambdas = [start] + list(linspace(start, 1, 51)[1:])
     dc.run(values={"lambda": lambdas})
