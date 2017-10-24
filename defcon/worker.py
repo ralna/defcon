@@ -204,6 +204,10 @@ class DefconWorker(DefconThread):
                              self.problem.solver_parameters(task.newparams, task.__class__),
                              self.teamno, self.deflation, self.dm)
 
+            if iters == 0:
+                self.log("Appear to have detected trivial branch.")
+                success = False
+
         self.state_id = (None, None) # not sure if it is a solution we care about yet
 
         # Get the functionals now, so we can send them to the master.
