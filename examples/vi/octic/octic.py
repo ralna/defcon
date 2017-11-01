@@ -10,9 +10,9 @@ J(x) = (x^2 (1-x)^2)^2
 
 subject to
 
-x >= -0.8.
+x >= -0.9.
 
-Has stationary points at -0.8, -1/root(2), +1/root(2), 1,
+Has stationary points at -0.9, -1/root(2), +1/root(2), 1,
 and a double root at 0.
 """
 
@@ -78,20 +78,17 @@ class OcticProblem(BifurcationProblem):
                }
 
     def bounds(self, R, params):
-        l = interpolate(Constant(-0.8), R)
+        l = interpolate(Constant(-0.9), R)
         u = interpolate(Constant(+2), R)
         return (l, u)
+
+    def monitor(self, params, branchid, solution, functionals):
+        # N.B. This solution has the Lagrange multipliers too.
+        (x, l, _) = solution((0.5,))
+        print("Solution: (%s, %s)" % (x, l))
 
 if __name__ == "__main__":
     problem = OcticProblem()
     deflation = ShiftedDeflation(problem, power=2, shift=1)
     dc = DeflatedContinuation(problem=problem, deflation=deflation, teamsize=1, verbose=True, clear_output=True, profile=False)
     dc.run(values=dict(f=0))
-
-    if backend.comm_world.rank == 0:
-        print()
-        params = (0,)
-        branches = dc.thread.io.known_branches(params)
-        for branch in branches:
-            functionals = dc.thread.io.fetch_functionals([params], branch)[0]
-            print("Solution: %s" % functionals)
