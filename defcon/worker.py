@@ -151,6 +151,7 @@ class DefconWorker(DefconThread):
             if oldparams is None:
                 # We're dealing with an initial guess
                 guess = self.problem.initial_guess(self.function_space, newparams, branchid)
+                assert guess is not None
                 self.state.assign(guess)
                 self.state_id = (oldparams, branchid)
                 return
