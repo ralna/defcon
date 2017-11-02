@@ -296,7 +296,7 @@ class ArclengthWorker(DefconWorker):
             J = problem.tangent_jacobian(F, self.tangent, backend.TrialFunction(self.ac_space))
 
             self.log("Computing tangent")
-            solverparams = self.problem.solver_parameters(current_params, task.__class__)
+            solverparams = self.problem.solver_parameters(current_params, task)
             solverparams["snes_linesearch_type"] = "basic"
             solverparams["snes_max_it"] = 1
             (success, iters) = newton(F, J, self.tangent, self.hbcs,
@@ -335,7 +335,7 @@ class ArclengthWorker(DefconWorker):
                                           self.problem.nonlinear_problem,
                                           current_params,
                                           self.problem.solver,
-                                          self.problem.solver_parameters(current_params, task.__class__),
+                                          self.problem.solver_parameters(current_params, task),
                                           self.teamno, self.deflation)
 
                 if success: # exit adaptive loop

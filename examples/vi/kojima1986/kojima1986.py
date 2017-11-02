@@ -47,7 +47,7 @@ class KojimaProblem(ComplementarityProblem):
     def number_solutions(self, params):
         return 2
 
-    def solver_parameters(self, params, klass, **kwargs):
+    def solver_parameters(self, params, task, **kwargs):
         args = {
                "snes_max_it": 100,
                "snes_atol": 1.0e-9,

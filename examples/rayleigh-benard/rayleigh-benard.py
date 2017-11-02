@@ -101,7 +101,7 @@ class RayleighBenardProblem(BifurcationProblem):
         T.rename("Temperature", "Temperature")
         pvd << u
 
-    def solver_parameters_fieldsplit(self, params, klass):
+    def solver_parameters_fieldsplit(self, params, task):
         solver_params = {
             "snes_max_it": 100,
             "snes_atol": 1.0e-9,
@@ -132,7 +132,7 @@ class RayleighBenardProblem(BifurcationProblem):
         }
         return solver_params
 
-    def solver_parameters(self, params, klass, **kwargs):
+    def solver_parameters(self, params, task, **kwargs):
         solver_params = {
             "snes_max_it": 100,
             "snes_atol": 1.0e-9,

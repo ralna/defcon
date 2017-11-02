@@ -72,7 +72,7 @@ class ElasticaProblem(BifurcationProblem):
     def squared_norm(self, a, b, params):
         return inner(a - b, a - b)*dx + inner(grad(a - b), grad(a - b))*dx
 
-    def solver_parameters(self, params, klass, **kwargs):
+    def solver_parameters(self, params, task, **kwargs):
         return {
             "snes_max_it": 100,
             "snes_atol": 1.0e-9,

@@ -401,7 +401,7 @@ class BifurcationProblem(object):
         """
         pass
 
-    def solver_parameters(self, params, klass, **kwargs):
+    def solver_parameters(self, params, task, **kwargs):
         """
         Returns a dictionary with the PETSc options to configure
         the backend nonlinear solver.  Users should
@@ -412,7 +412,7 @@ class BifurcationProblem(object):
         so that users could adapt the solver strategy depending on the
         parameter regime if needed.
 
-        klass is one of {DeflationTask, ContinuationTask, StabilityTask, ArclengthTask},
+        task is an instance of {DeflationTask, ContinuationTask, StabilityTask, ArclengthTask},
         and allows for the user to tune the solver parameters as required."""
         return {}
 

@@ -96,10 +96,10 @@ class ZeidlerProblem(BifurcationProblem):
         #return 3
         return float("inf")
 
-    def solver_parameters(self, params, klass, **kwargs):
+    def solver_parameters(self, params, task, **kwargs):
         # Use damping = 1 for first go
 
-        if klass is ContinuationTask:
+        if isinstance(task, ContinuationTask):
             damping = 1
         else:
             if hasattr(self, "_called"):
@@ -108,7 +108,6 @@ class ZeidlerProblem(BifurcationProblem):
                 damping = 1
 
         self._called = True
-        print "klass: %s" % klass
 
         return {
                "snes_max_it": 200,

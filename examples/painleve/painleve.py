@@ -50,7 +50,7 @@ class PainleveProblem(BifurcationProblem):
     def number_solutions(self, params):
         return 2
 
-    def solver_parameters(self, params, klass, **kwargs):
+    def solver_parameters(self, params, task, **kwargs):
         return {
                "snes_type": "newtonls",
                "snes_linesearch_type": "basic",

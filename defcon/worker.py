@@ -203,7 +203,7 @@ class DefconWorker(DefconThread):
                              self.problem.nonlinear_problem,
                              task.newparams,
                              self.problem.solver,
-                             self.problem.solver_parameters(task.newparams, task.__class__),
+                             self.problem.solver_parameters(task.newparams, task),
                              self.teamno, self.deflation, self.dm)
 
             if iters == 0:
@@ -305,7 +305,7 @@ class DefconWorker(DefconThread):
                              self.problem.nonlinear_problem,
                              task.newparams,
                              self.problem.solver,
-                             self.problem.solver_parameters(task.newparams, task.__class__),
+                             self.problem.solver_parameters(task.newparams, task),
                              self.teamno, self.deflation, self.dm)
 
         if not success:
@@ -323,7 +323,7 @@ class DefconWorker(DefconThread):
                              self.problem.nonlinear_problem,
                              avg,
                              self.problem.solver,
-                             self.problem.solver_parameters(avg, task.__class__, averaging=True),
+                             self.problem.solver_parameters(avg, task, averaging=True),
                              self.teamno, self.deflation, self.dm)
 
             if not success_:
@@ -337,7 +337,7 @@ class DefconWorker(DefconThread):
                                  self.problem.nonlinear_problem,
                                  task.newparams,
                                  self.problem.solver,
-                                 self.problem.solver_parameters(task.newparams, task.__class__, averaging=True),
+                                 self.problem.solver_parameters(task.newparams, task, averaging=True),
                                  self.teamno, self.deflation, self.dm)
                 if success:
                     self.log("Averaging succeeded!")
@@ -409,7 +409,7 @@ class DefconWorker(DefconThread):
         stabev = Event("stability task")
         stabev.begin()
 
-        options = self.problem.solver_parameters(task.oldparams, task.__class__)
+        options = self.problem.solver_parameters(task.oldparams, task)
         opts = PETSc.Options()
         for k in options:
             opts[k] = options[k]

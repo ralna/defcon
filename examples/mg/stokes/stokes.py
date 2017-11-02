@@ -106,7 +106,7 @@ class StokesProblem(BifurcationProblem):
         return solver
 
 
-    def solver_parameters(self, params, klass, **kwargs):
+    def solver_parameters(self, params, task, **kwargs):
         args = {
                "snes_type": "ksponly",
                "snes_max_it": 10,
