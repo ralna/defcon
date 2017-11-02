@@ -174,7 +174,7 @@ class ReducedNaghdi(BifurcationProblem):
         copy[0] *= 1.01
         state.vector()[:] = copy[:]
 
-    def solver_parameters(self, params, klass):
+    def solver_parameters(self, params, klass, **kwargs):
         return {
                "snes_max_it": 20,
                "snes_atol": 1.0e-10,

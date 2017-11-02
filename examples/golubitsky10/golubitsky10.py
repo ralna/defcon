@@ -55,7 +55,7 @@ class GolubitskyProblem(BifurcationProblem):
         if lmbda > +0.7: return 2
         return 4
 
-    def solver_parameters(self, params, klass):
+    def solver_parameters(self, params, klass, **kwargs):
         args = {
                "snes_max_it": 50,
                "snes_atol": 1.0e-9,

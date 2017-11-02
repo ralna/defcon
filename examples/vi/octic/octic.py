@@ -59,7 +59,7 @@ class OcticProblem(BifurcationProblem):
     def number_solutions(self, params):
         return float("inf")
 
-    def solver_parameters(self, params, klass):
+    def solver_parameters(self, params, klass, **kwargs):
         return {
                "snes_max_it": 50,
                "snes_atol": 1.0e-14,
@@ -86,6 +86,8 @@ class OcticProblem(BifurcationProblem):
         # N.B. This solution has the Lagrange multipliers too.
         (x, l, _) = solution((0.5,))
         print("Solution: (%s, %s)" % (x, l))
+        dE = 8*x**7 - 12*x**5 + 4*x**3
+        print("J'(x): %s" % dE)
 
 if __name__ == "__main__":
     problem = OcticProblem()

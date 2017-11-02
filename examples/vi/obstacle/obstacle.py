@@ -48,7 +48,7 @@ class ObstacleProblem(BifurcationProblem):
     def number_solutions(self, params):
         return 1
 
-    def solver_parameters(self, params, klass):
+    def solver_parameters(self, params, klass, **kwargs):
         return {
                "snes_max_it": 50,
                "snes_atol": 1.0e-9,

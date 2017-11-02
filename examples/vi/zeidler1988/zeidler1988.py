@@ -86,7 +86,7 @@ class ZeidlerProblem(BifurcationProblem):
         return 3
         return float("inf")
 
-    def solver_parameters(self, params, klass):
+    def solver_parameters(self, params, klass, **kwargs):
         # Use damping = 1 for first go
         if hasattr(self, "_called"):
             damping = 0.9

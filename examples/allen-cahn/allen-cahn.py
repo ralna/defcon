@@ -57,7 +57,7 @@ class AllenCahnProblem(BifurcationProblem):
         if delta == 0.04: return 3
         else:             return float("inf")
 
-    def solver_parameters(self, params, klass):
+    def solver_parameters(self, params, klass, **kwargs):
         return {
                "snes_max_it": 50,
                "snes_atol": 1.0e-9,

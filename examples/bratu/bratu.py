@@ -48,7 +48,7 @@ class BratuProblem(BifurcationProblem):
         if lmbda > 3.513: return 0
         else: return 2
 
-    def solver_parameters(self, params, klass):
+    def solver_parameters(self, params, klass, **kwargs):
         return {
                "snes_max_it": 100,
                "snes_atol": 1.0e-9,

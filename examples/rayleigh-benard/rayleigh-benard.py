@@ -132,7 +132,7 @@ class RayleighBenardProblem(BifurcationProblem):
         }
         return solver_params
 
-    def solver_parameters(self, params, klass):
+    def solver_parameters(self, params, klass, **kwargs):
         solver_params = {
             "snes_max_it": 100,
             "snes_atol": 1.0e-9,

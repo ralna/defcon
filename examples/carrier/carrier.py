@@ -86,7 +86,7 @@ class CarrierProblem(BifurcationProblem):
 
         return inner(a - b, a - b)*dx + sqrt(eps)*inner(grad(a - b), grad(a - b))*dx
 
-    def solver_parameters(self, params, klass):
+    def solver_parameters(self, params, klass, **kwargs):
         return {
                "snes_max_it": 100,
                "snes_atol": 1.0e-9,

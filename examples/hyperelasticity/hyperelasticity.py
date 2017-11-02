@@ -190,7 +190,7 @@ class HyperelasticityProblem(BifurcationProblem):
 
         return d
 
-    def solver_parameters(self, params, klass):
+    def solver_parameters(self, params, klass, **kwargs):
         return {
                "snes_max_it": 100,
                "snes_atol": 1.0e-7,

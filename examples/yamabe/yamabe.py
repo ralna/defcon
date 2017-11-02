@@ -56,7 +56,7 @@ class YamabeProblem(BifurcationProblem):
     def initial_guess(self, V, params, n):
         return interpolate(Constant(1), V)
 
-    def solver_parameters(self, params, klass):
+    def solver_parameters(self, params, klass, **kwargs):
         return {
                "snes_max_it": 100,
                "snes_stol": 0.0,

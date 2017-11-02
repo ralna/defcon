@@ -153,7 +153,7 @@ class ElasticaProblem(BifurcationProblem):
         self.render(params, branchid, solution)
         plt.show()
 
-    def solver_parameters(self, params, klass):
+    def solver_parameters(self, params, klass, **kwargs):
         args = {
                "snes_max_it": 40,
                "snes_atol": 1.0e-9,

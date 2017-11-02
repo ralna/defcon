@@ -51,7 +51,7 @@ class WingedCuspProblem(BifurcationProblem):
         else:
             return 1
 
-    def solver_parameters(self, params, klass):
+    def solver_parameters(self, params, klass, **kwargs):
         args = {
                "snes_max_it": 20,
                "snes_atol": 1.0e-9,

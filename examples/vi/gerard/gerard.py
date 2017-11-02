@@ -93,7 +93,7 @@ class GerardProblem(BifurcationProblem):
         print("Residual: %s" % self.equations(u))
         print("Product:  %s" % list(numpy.array(r) * u))
 
-    def solver_parameters(self, params, klass):
+    def solver_parameters(self, params, klass, **kwargs):
         return {
                "snes_max_it": 100,
                "snes_max_funcs": 1000000,
