@@ -81,6 +81,11 @@ class VIBifurcationProblem(object):
         assign(z.sub(0), u)
         return z
 
+    def squared_norm(self, a, b, params):
+        (ua, lba, uba) = split(a)
+        (ub, lbb, ubb) = split(b)
+        return self.problem.squared_norm(ua, ub, params) + inner(lba - lbb, lba - lbb)*dx + inner(uba - ubb, uba - ubb)*dx
+
     def solver(self, problem, params, solver_params, prefix="", **kwargs):
         base = self.problem.solver(problem, params, solver_params, prefix=prefix, **kwargs)
         snes = base.snes
