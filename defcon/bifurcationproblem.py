@@ -146,6 +146,31 @@ class BifurcationProblem(object):
         """
         return backend.derivative(F, state, trial)
 
+    def assembler(self, J, F, state, bcs):
+        """
+        This method defines the assembler to use to assemble
+        the linear systems.
+
+        Users rarely need to change this. It might be useful
+        to override this in cases where one does not want to impose the Dirichlet
+        BCs symmetrically, or where one wants to use a custom
+        assembler (e.g. with fenics-shells).
+
+        *Arguments*
+          J (:py:class:`ufl.form.Form`)
+            the output of BifurcationProblem.jacobian
+          F (:py:class:`ufl.form.Form`)
+            the output of BifurcationProblem.residual
+          state (:py:class:`dolfin.Function`)
+            the function we're solving for
+          bcs (:py:class:`dolfin.DirichletBC`)
+            the output of BifurcationProblem.boundary_conditions
+        *Returns*
+          an assembler for the problem
+        """
+
+        return backend.SystemAssembler(J, F, bcs)
+
     def objective(self, F, state, params):
         """
         WARNING: this method is currently unused, pending the implementation

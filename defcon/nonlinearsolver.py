@@ -41,9 +41,14 @@ if backend.__name__ == "dolfin":
 
             (J, F, bcs, P) = (problem.J, problem.F, problem.bcs, problem.P)
 
-            self.ass = SystemAssembler(J, F, bcs)
-            if P is not None:
-                self.Pass = SystemAssembler(P, F, bcs)
+            if hasattr(problem, 'problem'):
+                self.ass = problem.problem.assembler(J, F, u, bcs)
+                if P is not None:
+                    self.Pass = problem.problem.assembler(P, F, u, bcs)
+            else:
+                self.ass = SystemAssembler(J, F, bcs)
+                if P is not None:
+                    self.Pass = SystemAssembler(P, F, bcs)
 
             self.b = self.init_residual()
             snes.setFunction(self.residual, self.b.vec())
