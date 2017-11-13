@@ -310,40 +310,40 @@ class BifurcationProblem(object):
 
         return iomodule.SolutionIO(prefix)
 
-    def save_pvd(self, y, pvd, time=None):
+    def save_pvd(self, state, pvd, time=None):
         """
-        Save the function y to a PVD file.
+        Save the function state to a PVD file.
 
         The default is
 
-        pvd << y
+        pvd << state
         """
-        if 'f_' in y.name():
-            y.rename("Solution", "Solution")
+        if 'f_' in state.name():
+            state.rename("Solution", "Solution")
 
         if time is None:
-            pvd << y
+            pvd << state
         else:
-            pvd << (y, time)
+            pvd << (state, time)
 
-    def save_xmf(self, y, xmf, time=None):
+    def save_xmf(self, state, xmf, time=None):
         """
-        Save the function y to a XDMF file.
+        Save the function state to a XDMF file.
 
         The default is
 
         xmf.write(
-        pvd << y
+        pvd << state
         """
-        if 'f_' in y.name():
-            y.rename("Solution", "Solution")
+        if 'f_' in state.name():
+            state.rename("Solution", "Solution")
 
         if time is None:
-            xmf.write(y)
+            xmf.write(state)
         else:
-            xmf.write(y, time)
+            xmf.write(state, time)
 
-    def nonlinear_problem(self, F, J, y, bcs):
+    def nonlinear_problem(self, F, J, state, bcs):
         """
         The class used to assemble the nonlinear problem.
 
@@ -351,9 +351,9 @@ class BifurcationProblem(object):
         want to do something unusual in the assembly process.
         """
         if backend.__name__ == "dolfin":
-            return nonlinearproblem.GeneralProblem(F, y, bcs, J=J, problem=self)
+            return nonlinearproblem.GeneralProblem(F, state, bcs, J=J, problem=self)
         else:
-            return backend.NonlinearVariationalProblem(F, y, bcs, J=J)
+            return backend.NonlinearVariationalProblem(F, state, bcs, J=J)
 
     def solver(self, problem, params, solver_params, prefix="", **kwargs):
         """

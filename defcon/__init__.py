@@ -45,6 +45,7 @@ elif backend.__name__ == "firedrake":
     backend.comm_world = MPI.COMM_WORLD
 
 from defcon.backend import HDF5File
+from defcon.dcsolve import dcsolve
 
 # We have to disable the GC (this is a general thing with running DOLFIN in parallel).
 # By default, each Python process decides completely by itself whether to do a
