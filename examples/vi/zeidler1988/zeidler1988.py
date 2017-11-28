@@ -5,7 +5,7 @@ from dolfin import *
 import numpy as np
 import os
 
-alpha = 0.75
+alpha = 0.4
 INF = 1e20
 lb = Constant((-alpha, -INF, -INF))
 ub = Constant((+alpha, +INF, +INF))
@@ -87,23 +87,14 @@ class ZeidlerProblem(BifurcationProblem):
         return float("inf")
 
     def solver_parameters(self, params, task, **kwargs):
-        # Use damping = 1 for first go
-        if hasattr(self, "_called"):
-            damping = 0.9
-        else:
-            damping = 1
-
-        self._called = True
-        print "damping: %s" % damping
-
         return {
                "snes_max_it": 2000,
                "snes_atol": 1.0e-9,
                "snes_rtol": 1.0e-9,
                "snes_monitor": None,
-               "snes_linesearch_type": "basic",
+               "snes_linesearch_type": "l2",
                "snes_linesearch_maxstep": 1.0,
-               "snes_linesearch_damping": damping,
+               "snes_linesearch_damping": 1.0,
                "snes_linesearch_monitor": None,
                "ksp_type": "preonly",
                "ksp_monitor": None,
