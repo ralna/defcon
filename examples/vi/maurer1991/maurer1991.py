@@ -126,6 +126,8 @@ class MaurerProblem(BifurcationProblem):
         except:
             pass
 
+        j = assemble(self.energy(split(solution)[0], params)) - float(params[0])
+
         import matplotlib.pyplot as plt
         s = np.linspace(0, 1, 10000)
         x = [solution((s_,))[0] for s_ in s]
@@ -145,7 +147,7 @@ class MaurerProblem(BifurcationProblem):
         #plt.legend(loc='best')
         plt.ylim([-1.1*d, 1.1*d])
         plt.xlim([0, 1])
-        plt.title(r'$\alpha = %.3f$' % params[0])
+        plt.title(r'$\alpha = %3.3f, E = %3.3f$' % (params[0], j))
         if window is not None:
             plt.show()
             plt.savefig('output/figures/%2.6f/branchid-%d.png' % (params[0], branchid))
