@@ -9,7 +9,7 @@ d = 0.05
 
 class MaurerProblem(BifurcationProblem):
     def mesh(self, comm):
-        mesh = UnitIntervalMesh(comm, 1000)
+        mesh = UnitIntervalMesh(comm, 100)
         self.mesh = mesh
         return mesh
 
@@ -61,7 +61,7 @@ class MaurerProblem(BifurcationProblem):
             return g
 
         def energy(z, params):
-            j = assemble(self.energy(z, params))
+            j = assemble(self.energy(z, params)) - float(params[0])
             return j
 
         return [
@@ -75,6 +75,7 @@ class MaurerProblem(BifurcationProblem):
     def initial_guess(self, Z, params, n):
         comm = self.mesh.mpi_comm()
         expr = Expression(("-4*d*x[0]*(x[0]-1)", "0", "0"), d=d, mpi_comm=comm, element=Z.ufl_element())
+        #expr = Expression(("0.5*d*sin(n*pi*x[0]) + 0.5*d*sin((n+1)*pi*x[0])", "0", "0"), d=d, n=2, mpi_comm=comm, element=Z.ufl_element())
         return interpolate(expr, Z)
 
     def trivial_solutions(self, Z, params, freeindex):
@@ -85,18 +86,18 @@ class MaurerProblem(BifurcationProblem):
 
     def solver_parameters(self, params, task, **kwargs):
         # Use damping = 1 for first go
-        if hasattr(self, "_called"):
-            damping = 1
+        if "averaging" in kwargs or not hasattr(self, "_called"):
+            damping = 0.1
+            maxit = 200
         else:
             damping = 1
+            maxit = 100
 
         self._called = True
-        damping = 0.01
-        damping = 1
         print "damping: %s" % damping
 
         return {
-               "snes_max_it": 20000,
+               "snes_max_it": maxit,
                "snes_max_funcs": 200000,
                "snes_atol": 1.0e-9,
                "snes_rtol": 1.0e-9,
@@ -173,4 +174,6 @@ if __name__ == "__main__":
     problem = MaurerProblem()
     deflation = ShiftedDeflation(problem, power=2, shift=1)
     dc = DeflatedContinuation(problem=problem, deflation=deflation, teamsize=1, verbose=True, clear_output=True, profile=False, continue_backwards=True, logfiles=False)
-    dc.run(values=dict(alpha=9.88))
+    #dc.run(values=dict(alpha=linspace(9.88, 156.6737, 500)))
+    #dc.run(values=dict(alpha=linspace(91.469, 156.673, 101)))
+    dc.run(values=dict(alpha=linspace(156.673, 91.469, 101)))
