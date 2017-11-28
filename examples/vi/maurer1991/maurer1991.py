@@ -65,7 +65,7 @@ class MaurerProblem(BifurcationProblem):
             return j
 
         return [
-                (energy, "energy", r"$E(z)$"),
+                (energy, "energy", r"$E(z, \alpha) - \alpha$"),
                 (pointeval, "pointeval", r"$u(\frac{1}{2})$"),
                ]
 
@@ -143,14 +143,14 @@ class MaurerProblem(BifurcationProblem):
         plt.xlabel(r'$s$')
         plt.ylabel(r'$y(s)$')
         #plt.legend(loc='best')
-        plt.ylim([-d, d])
+        plt.ylim([-1.1*d, 1.1*d])
         plt.xlim([0, 1])
         plt.title(r'$\alpha = %.3f$' % params[0])
         if window is not None:
             plt.show()
             plt.savefig('output/figures/%2.6f/branchid-%d.png' % (params[0], branchid))
         else:
-            plt.savefig('output/figures/%2.6f/branchid-%d.pdf' % (params[0], branchid))
+            plt.savefig('output/figures/%2.6f/branchid-%d.png' % (params[0], branchid))
             plt.close(h)
 
     def postprocess(self, solution, params, branchid, window):
