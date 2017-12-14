@@ -75,11 +75,13 @@ class DefconMaster(DefconThread):
     def seed_initial_tasks(self, parameters, values, freeindex):
         # Queue initial tasks
         initialparams = parameters.floats(value=values[0], freeindex=freeindex)
+        self.initialparams = initialparams
 
         # Send off initial tasks
         knownbranches = self.io.known_branches(initialparams)
         self.branchid_counter = len(knownbranches)
         if len(knownbranches) > 0:
+            self.used_initial_guesses = False
             nguesses = len(knownbranches)
             self.log("Using %d known solutions at %s" % (nguesses, initialparams,))
 
@@ -89,6 +91,7 @@ class DefconMaster(DefconThread):
                     self.insert_continuation_task(initialparams, freeindex, branch, priority=float("-inf"))
         else:
             self.log("Using user-supplied initial guesses at %s" % (initialparams,))
+            self.used_initial_guesses = True
             oldparams = None
             nguesses = self.problem.number_initial_guesses(initialparams)
             for guess in range(nguesses):
@@ -117,6 +120,7 @@ class DefconMaster(DefconThread):
 
     def run(self, parameters, freeparam):
         self.parameters = parameters
+        self.freeparam = freeparam
         freeindex = self.parameters.labels.index(freeparam)
 
         self.configure_io(parameters)
@@ -452,6 +456,24 @@ class DefconMaster(DefconThread):
                 self.graph.push(bconttask, newpriority)
                 self.taskid_counter += 1
 
+        # * If we've found new solutions for the initial parameters, try all of
+        #   the initial guesses again (otherwise the behaviour is different
+        #   between one worker and many workers if you have multiple initial
+        #   guesses)
+        if task.newparams == self.initialparams and self.used_initial_guesses:
+            nguesses = self.problem.number_initial_guesses(self.initialparams)
+            for guess in range(nguesses):
+                # skip the one we've already inserted an extra task for
+                if task.oldparams is None and task.branchid == guess: continue
+
+                newtask = DeflationTask(taskid=self.taskid_counter,
+                                        oldparams=None,
+                                        freeindex=task.freeindex,
+                                        branchid=guess,
+                                        newparams=self.initialparams)
+                self.graph.push(newtask, float("-inf"))
+                self.taskid_counter += 1
+
         # We'll also make sure that any other DeflationTasks in the queue
         # that have these parameters know about the existence of this branch.
         old_parameter_map = self.parameter_map[task.newparams]
@@ -571,6 +593,23 @@ class DefconMaster(DefconThread):
                 self.graph.push(backstabtask, backstabpriority)
                 self.taskid_counter += 1
 
+        # If we've found new solutions for the initial parameters, try all of
+        # the initial guesses again (otherwise the behaviour is different
+        # between one worker and many workers if you have multiple initial
+        # guesses)
+        if task.newparams == self.initialparams and self.used_initial_guesses:
+            nguesses = self.problem.number_initial_guesses(self.initialparams)
+            for guess in range(nguesses):
+                # skip the one we've already inserted an extra task for
+                if task.oldparams is None and task.branchid == guess: continue
+
+                newtask = DeflationTask(taskid=self.taskid_counter,
+                                        oldparams=None,
+                                        freeindex=task.freeindex,
+                                        branchid=guess,
+                                        newparams=self.initialparams)
+                self.graph.push(newtask, float("-inf"))
+                self.taskid_counter += 1
 
         # Now let's ask the user if they want to do anything special,
         # e.g. insert new tasks going in another direction.
