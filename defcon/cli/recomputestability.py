@@ -73,3 +73,4 @@ def main(args):
             d = problem.compute_stability(consts, branchid, solution)
             io.save_stability(d["stable"], d.get("eigenvalues", []), d.get("eigenfunctions", []), floats, branchid)
             print("parameters/branchid %s/%s: stability: %s" % (floats, branchid, d["stable"]))
+            gc.collect()

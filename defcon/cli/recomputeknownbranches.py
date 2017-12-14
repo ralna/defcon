@@ -4,6 +4,7 @@ import sys
 import os
 import glob
 import h5py
+import gc
 
 from defcon import backend
 from defcon.cli.common import fetch_bifurcation_problem
@@ -57,5 +58,6 @@ def main(args):
             old_pm = pm[params]
             pm[params] = [branchid] + old_pm
         f.close()
+        gc.collect()
 
     io.close_parameter_map()

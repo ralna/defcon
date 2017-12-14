@@ -1,6 +1,7 @@
 from __future__ import absolute_import, print_function
 
 import sys
+import gc
 
 from defcon import backend
 from defcon.cli.common import fetch_bifurcation_problem
@@ -58,3 +59,4 @@ def main(args):
             # Save to disk again
             print("Saving values: %s, branchid: %d, functionals %s" % (values, branchid, funcs))
             io.save_solution(solution, funcs, values, branchid)
+            gc.collect()
