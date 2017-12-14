@@ -5,6 +5,7 @@ import sys
 from defcon import backend
 from defcon.cli.common import fetch_bifurcation_problem
 import six
+import gc
 
 def usage(executable):
     sys.exit("""A script that applies the postprocess routine to all solutions.
@@ -47,4 +48,5 @@ def main(args):
             for (const, val) in zip(consts, values):
                 const.assign(val)
 
-            problem.postprocess(solution, consts, branchid, None)
+            problem.postprocess(solution, values, branchid, None)
+            gc.collect()
