@@ -28,7 +28,10 @@ def import_backend():
         import dolfin
         assert dolfin.has_petsc4py()
 
-        dolfin.set_log_level(dolfin.ERROR)
+        try:
+            dolfin.set_log_level(dolfin.ERROR)
+        except AttributeError:
+            dolfin.set_log_level(dolfin.LogLevel.ERROR)
 
         dolfin.parameters["form_compiler"]["representation"] = "uflacs"
         dolfin.parameters["form_compiler"]["optimize"]     = True

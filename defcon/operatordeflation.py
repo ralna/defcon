@@ -1,7 +1,8 @@
 from __future__ import absolute_import
 
 import defcon.backend as backend
-from defcon.backend import Function, Vector, assemble, derivative, product
+from ufl import product
+from defcon.backend import Function, Vector, assemble, derivative
 
 __all__ = ['DeflationOperator', 'ShiftedDeflation']
 
