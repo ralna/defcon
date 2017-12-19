@@ -11,7 +11,7 @@ from defcon.mg import create_dm
 from defcon.thread import DefconThread
 from defcon.operatordeflation import ShiftedDeflation
 from defcon.profiling import DummyEvent
-from defcon.compatibility import function_space_dimension
+from defcon.compatibility import function_space_dimension, make_comm
 
 
 class DefconWorker(DefconThread):
@@ -72,7 +72,8 @@ class DefconWorker(DefconThread):
                 self.signs.append(-1)
 
         # Fetch data from the problem.
-        self.mesh = self.problem.mesh(PETSc.Comm(self.teamcomm))
+
+        self.mesh = self.problem.mesh(make_comm(self.teamcomm))
         self.function_space = self.problem.function_space(self.mesh)
         self.dm = create_dm(self.function_space, self.problem)
 
