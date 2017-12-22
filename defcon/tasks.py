@@ -148,22 +148,25 @@ class ArclengthTask(Task):
       branchid (int)
         Which branch to continue
       bounds (tuple of floats)
-        Upper and lower bounds of interest
+        Upper and lower bounds of interest on the parameter
+      funcbounds (funcindex, lower bound, upper bound)
+        Upper and lower bounds of interest on the functional
       sign (+1 or -1)
         Whether to initially continue forwards or backwards in parameter
       ds (float)
         Size of step in arclength
     """
-    def __init__(self, taskid, params, branchid, bounds, sign, ds):
+    def __init__(self, taskid, params, branchid, bounds, funcbounds, sign, ds):
         self.taskid = taskid
         self.params = params
         self.branchid = branchid
         self.bounds = bounds
+        self.funcbounds = funcbounds
         self.sign = sign
         self.ds = ds
 
     def __str__(self):
-        return "ArclengthTask(taskid=%s, params=%s, branchid=%s, sign=%s, ds=%s, bounds=%s)" % (self.taskid, self.params, self.branchid, self.sign, self.ds, self.bounds)
+        return "ArclengthTask(taskid=%s, params=%s, branchid=%s, sign=%s, ds=%s, bounds=%s, funcbounds=%s)" % (self.taskid, self.params, self.branchid, self.sign, self.ds, self.bounds, self.funcbounds)
 
 class Response(object):
     """

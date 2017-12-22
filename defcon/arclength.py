@@ -64,7 +64,7 @@ class ArclengthContinuation(object):
         else:
             self.thread = ArclengthWorker(problem, **kwargs)
 
-    def run(self, params, free, ds, sign, bounds, branchids=None):
+    def run(self, params, free, ds, sign, bounds, funcbounds=None, branchids=None):
         """
         The main execution routine.
 
@@ -80,7 +80,9 @@ class ArclengthContinuation(object):
           sign (:py:class:`int`)
             The initial direction of travel for the parameter (must be +1 or -1)
           bounds (:py:class:`tuple`)
-            The bounds of interest (param_min, param_max)
+            The bounds of interest for the parameter (param_min, param_max)
+          funcbounds (:py:class:`tuple`)
+            The bounds of interest for the functional (func_name, func_min, func_max)
           branchids (:py:class:`list`)
             The list of branchids to continue (or None for all of them)
         """
@@ -104,6 +106,9 @@ Launch with mpiexec: mpiexec -n <number of processes> python %s
         assert ds > 0
         assert len(bounds) == 2
         assert bounds[0] < bounds[1]
+        if funcbounds is not None:
+            assert len(funcbounds) == 3
+            assert funcbounds[1] < funcbounds[2]
 
         # Fix the fixed parameters and identify the free parameter.
         freeindex = None
@@ -118,9 +123,21 @@ Launch with mpiexec: mpiexec -n <number of processes> python %s
 
         assert bounds[0] <= params[freeindex] <= bounds[1]
 
+        # If we have bounds on the functional, figure out the functional index
+        if funcbounds is not None:
+            funcname = funcbounds[0]
+
+            funcindex = None
+            for (i, functionaldata) in enumerate(self.problem.functionals()):
+                if functionaldata[1] == funcname:
+                    funcindex = i
+                    break
+            assert funcindex is not None
+            funcbounds = (funcindex, funcbounds[1], funcbounds[2])
+
         # Aaaand .. run.
 
-        self.thread.run(problem_parameters, freeindex, params, ds, sign, bounds, branchids)
+        self.thread.run(problem_parameters, freeindex, params, ds, sign, bounds, funcbounds, branchids)
 
     def bifurcation_diagram(self, functional, parameter, branchids=None, style="o-k", **kwargs):
         if self.thread.rank != 0:
@@ -247,6 +264,7 @@ class ArclengthWorker(DefconWorker):
         params    = task.params
         branchid  = task.branchid
         bounds    = task.bounds
+        funcbounds  = task.funcbounds
         ds_       = task.ds
         sign      = task.sign
         problem   = self.problem
@@ -380,6 +398,13 @@ class ArclengthWorker(DefconWorker):
             problem.monitor(params, branchid, problem.ac_to_state(self.state, deep=True), functionals)
             self.io.save_arclength(params, self.freeindex, branchid, task.ds, data)
 
+            # Finally check if we should carry on wrt the functional
+            if funcbounds is not None:
+                (funcindex, funclo, funchi) = funcbounds
+                if not funclo <= functionals[funcindex] <= funchi:
+                    self.log("Breaking arclength continuation due to functional bounds")
+                    break
+
         response = Response(task.taskid, success=success)
         if self.teamrank == 0:
             self.log("Sending response %s to master" % response)
@@ -411,7 +436,7 @@ class ArclengthMaster(DefconMaster):
         # Don't need DefconMaster's callbacks
         del self.callbacks
 
-    def seed_initial_tasks(self, params, ds, sign, bounds, branchids):
+    def seed_initial_tasks(self, params, ds, sign, bounds, funcbounds, branchids):
         if branchids is None:
             branchids = self.io.known_branches(params)
 
@@ -420,6 +445,7 @@ class ArclengthMaster(DefconMaster):
                                  params=params,
                                  branchid=branchid,
                                  bounds=bounds,
+                                 funcbounds=funcbounds,
                                  sign=sign,
                                  ds=ds)
             heappush(self.new_tasks, (branchid, task))
@@ -442,7 +468,7 @@ class ArclengthMaster(DefconMaster):
             self.log("ALERT: team lost! idle_teams and wait_tasks: \n%s\n%s" % (self.idle_teams, [(key, str(self.wait_tasks[key][0])) for key in self.wait_tasks]), warning=True)
 
 
-    def run(self, problem_parameters, freeindex, params, ds, sign, bounds, branchids):
+    def run(self, problem_parameters, freeindex, params, ds, sign, bounds, funcbounds, branchids):
         self.functionals = self.problem.functionals
         self.parameters  = problem_parameters
         self.freeindex   = freeindex
@@ -461,7 +487,7 @@ class ArclengthMaster(DefconMaster):
         self.wait_tasks = {} # tasks dispatched, waiting to hear back
 
         # Seed initial tasks
-        self.seed_initial_tasks(params, ds, sign, bounds, branchids)
+        self.seed_initial_tasks(params, ds, sign, bounds, funcbounds, branchids)
 
         # The main master loop.
         while not self.finished():
