@@ -16,7 +16,7 @@ def test_bratu():
     if backend.comm_world.rank == 0:
         assert len(io.known_branches((3.0,))) == 2
 
-        data = json.load(open("output/arclength/params-lambda=5.000000000000000e-01-freeindex-0-branchid-0-ds-5.00000000000000e-01.json", "r"))
+        data = json.load(open("output/arclength/params-lambda=5.000000000000000e-01-freeindex-0-branchid-0-ds-5.00000000000000e-01-sign-1.json", "r"))
         x = [entry[0] for entry in data]
         y = [entry[1][0] for entry in data]
         assert len(x) == len(y)

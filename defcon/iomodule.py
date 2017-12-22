@@ -261,7 +261,7 @@ class SolutionIO(IO):
         if self.pcomm.rank == 0:
             os.rename(f.name, filename)
 
-    def save_arclength(self, params, freeindex, branchid, ds, data):
+    def save_arclength(self, params, freeindex, branchid, ds, sign, data):
         try:
             if not os.path.exists(self.directory + os.path.sep + "arclength"):
                 os.makedirs(self.directory + os.path.sep + "arclength")
@@ -275,7 +275,7 @@ class SolutionIO(IO):
         os.fsync(f.file.fileno())
         f.close()
         if self.pcomm.rank == 0:
-            os.rename(f.name, self.directory + os.path.sep + "arclength/params-%s-freeindex-%s-branchid-%s-ds-%.14e.json" % (parameters_to_string(self.parameters, params), freeindex, branchid, ds))
+            os.rename(f.name, self.directory + os.path.sep + "arclength/params-%s-freeindex-%s-branchid-%s-ds-%.14e-sign-%d.json" % (parameters_to_string(self.parameters, params), freeindex, branchid, ds, sign))
 
     def fetch_stability(self, params, branchids):
         stables = []

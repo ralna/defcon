@@ -316,7 +316,7 @@ class ArclengthWorker(DefconWorker):
             self.log("Computing tangent")
             solverparams = self.problem.solver_parameters(current_params, task)
             solverparams["snes_linesearch_type"] = "basic"
-            solverparams["snes_max_it"] = 1
+            solverparams["snes_max_it"] = 3 # maybe need some iterative refinement
             (success, iters) = newton(F, J, self.tangent, self.hbcs,
                                       self.problem.nonlinear_problem,
                                       current_params,
@@ -396,7 +396,7 @@ class ArclengthWorker(DefconWorker):
 
             # FIXME: this is quadratic in ds^-1; it's doing work of O(num_steps), O(num_steps) times
             problem.monitor(params, branchid, problem.ac_to_state(self.state, deep=True), functionals)
-            self.io.save_arclength(params, self.freeindex, branchid, task.ds, data)
+            self.io.save_arclength(params, self.freeindex, branchid, task.ds, task.sign, data)
 
             # Finally check if we should carry on wrt the functional
             if funcbounds is not None:
@@ -534,14 +534,14 @@ class ArclengthProblem(object):
     def __init__(self, problem):
         self.problem = problem
 
-        self.state_residual = None
-        self.state_residual_derivative = None
-
         # A list of functions to just call the underlying problem on
         self.passthrough = ["parameters", "functionals", "io", "solver_parameters",
                             "nonlinear_problem", "solver", "squared_norm", "save_xmf", "monitor"]
 
     def setup_spaces(self, comm):
+        self.state_residual = None
+        self.state_residual_derivative = None
+
         problem = self.problem
         mesh = problem.mesh(comm)
 
