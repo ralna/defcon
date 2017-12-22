@@ -7,14 +7,21 @@ from defcon.newton import newton
 from defcon.tasks import DeflationTask
 from defcon.mg import create_dm
 
-def dcsolve(problem, params, comm=backend.comm_world):
+def dcsolve(problem, params, comm=backend.comm_world, guess=None):
 
     vi = "bounds" in problem.__class__.__dict__
     if vi: problem = VIBifurcationProblem(problem)
 
     mesh = problem.mesh(comm)
     Z = problem.function_space(mesh)
-    z = problem.initial_guess(Z, params, 0)
+
+    if guess is None:
+        z = problem.initial_guess(Z, params, 0)
+    elif isinstance(guess, int):
+        z = problem.initial_guess(Z, params, guess)
+    elif isinstance(guess, backend.Function):
+        z = guess.copy(deepcopy=True)
+
     v = backend.TestFunction(Z)
     w = backend.TrialFunction(Z)
 
