@@ -130,7 +130,7 @@ Launch with mpiexec: mpiexec -n <number of processes> python %s
 
         self.thread.run(parameters, freeparam)
 
-    def bifurcation_diagram(self, functional, fixed={}, style="ok", **kwargs):
+    def bifurcation_diagram(self, functional, fixed={}, style="ok", branches=None, **kwargs):
         if self.thread.rank != 0:
             return
 
@@ -159,7 +159,20 @@ Launch with mpiexec: mpiexec -n <number of processes> python %s
         assert len(freeindices) == 1
         freeindex = freeindices[0]
 
-        for branchid in six.moves.xrange(io.max_branch() + 1):
+        class DefaultExtents(object):
+            def __getitem__(self, key):
+                return [-float("inf"), +float("inf")]
+
+        if branches is None:
+            branches = six.moves.xrange(io.max_branch() + 1)
+            extents = DefaultExtents()
+        if isinstance(branches, list):
+            extents = DefaultExtents()
+        elif isinstance(branches, dict):
+            extents = branches
+
+        for branchid in branches:
+            extent = extents[branchid]
             xs = []
             ys = []
             params = io.known_parameters(fixed, branchid)
@@ -167,8 +180,10 @@ Launch with mpiexec: mpiexec -n <number of processes> python %s
             for i in six.moves.xrange(0, len(params)):
                 param = params[i]
                 func = funcs[i]
-                xs.append(param[freeindex])
-                ys.append(func[funcindex])
+
+                if extent[0] <= param[freeindex] <= extent[1]:
+                    xs.append(param[freeindex])
+                    ys.append(func[funcindex])
             plt.plot(xs, ys, style, **kwargs)
 
         plt.grid()
