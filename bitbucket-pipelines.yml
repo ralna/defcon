@@ -4,15 +4,15 @@ pipelines:
   default:
     - step:
         script:
-          - pip2 install --no-cache-dir --upgrade pytest
+          - pip3 install --no-cache-dir --upgrade pytest
           - export CC=mpicc
           - export HDF5_MPI=ON
-          - pip2 install --no-binary ":all:" --no-cache-dir h5py
+          - pip3 install --no-binary ":all:" --no-cache-dir h5py
           - export HOME=/home/fenics
           - export FENICS_PREFIX=$HOME/local
           - export FENICS_PYTHON_MAJOR_VERSION=3
           - export FENICS_PYTHON_MINOR_VERSION=5
           - source /home/fenics/fenics.env.conf
           - cd $BITBUCKET_CLONE_DIR
-          - pip2 install --no-cache-dir .
-          - mpiexec -n 2 python2 -m pytest -x -v .
+          - pip3 install --no-cache-dir .
+          - mpiexec -n 2 python3 -m pytest -x -v .
