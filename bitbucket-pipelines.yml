@@ -10,8 +10,8 @@ pipelines:
           - pip2 install --no-binary ":all:" --no-cache-dir h5py
           - export HOME=/home/fenics
           - export FENICS_PREFIX=$HOME/local
-          - export FENICS_PYTHON_MAJOR_VERSION=2
-          - export FENICS_PYTHON_MINOR_VERSION=7
+          - export FENICS_PYTHON_MAJOR_VERSION=3
+          - export FENICS_PYTHON_MINOR_VERSION=5
           - source /home/fenics/fenics.env.conf
           - cd $BITBUCKET_CLONE_DIR
           - pip2 install --no-cache-dir .
