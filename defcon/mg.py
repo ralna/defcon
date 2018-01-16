@@ -140,16 +140,7 @@ def create_interpolation(dmc, dmf):
     return (pmat.mat(), None)
 
 if backend.__name__ == "dolfin":
-    from defcon.backend import compile_extension_module
     create_transfer_matrix_code = r'''
-    #include <dolfin/geometry/BoundingBoxTree.h>
-    #include <dolfin/fem/FiniteElement.h>
-    #include <dolfin/fem/GenericDofMap.h>
-    #include <dolfin/common/RangedIndexSet.h>
-    #include <petscmat.h>
-
-    namespace dolfin
-    {
         // Coordinate comparison operator
         struct lt_coordinate
         {
@@ -750,10 +741,48 @@ if backend.__name__ == "dolfin":
           ierr = MatDestroy(&I); CHKERRABORT(PETSC_COMM_WORLD, ierr);
           return ptr;
         }
-    }'''
+    '''
 
     # compile C++ code
-    if backend.__version__ > "2017.1.0":
-        create_transfer_matrix =  compile_extension_module(code=create_transfer_matrix_code, cppargs=["-fpermissive", "-g"]).create_transfer_matrix
+    if "2017.1.0" < backend.__version__ < "2018.1.0":
+        from defcon.backend import compile_extension_module
+
+        create_transfer_matrix_code = \
+        r"""
+        #include <dolfin/geometry/BoundingBoxTree.h>
+        #include <dolfin/fem/FiniteElement.h>
+        #include <dolfin/fem/GenericDofMap.h>
+        #include <dolfin/common/RangedIndexSet.h>
+        #include <petscmat.h>
+
+        namespace dolfin
+        {
+        """ \
+        + create_transfer_matrix_code + \
+        r"""
+        }
+        """
+
+        create_transfer_matrix = compile_extension_module(code=create_transfer_matrix_code, cppargs=["-fpermissive", "-g"]).create_transfer_matrix
+    elif backend.__version__ >= "2018.1.0":
+        from defcon.backend import compile_cpp_code
+        create_transfer_matrix_code = \
+        r"""
+        #include <pybind11/pybind11.h>
+
+        #include <dolfin.h>
+        #include <dolfin/common/RangedIndexSet.h>
+        #include <petscmat.h>
+
+        using namespace dolfin;
+        """ \
+        + create_transfer_matrix_code + \
+        r"""
+        PYBIND11_MODULE(SIGNATURE, m)
+        {
+          m.def("create_transfer_matrix", &create_transfer_matrix);
+        }
+        """
+        create_transfer_matrix = compile_cpp_code(create_transfer_matrix_code).create_transfer_matrix
     else:
         create_transfer_matrix = None
