@@ -6,6 +6,7 @@ from defcon.backendimporter import get_deep_submat
 from defcon.backend import *
 from petsc4py import PETSc
 from numpy import where, array, int32
+from ufl import diag
 
 def vec(x):
     if isinstance(x, Function):
@@ -397,7 +398,7 @@ class ComplementarityProblem(BifurcationProblem):
     def functionals(self):
         def fetch_component(i):
             def func(z, params):
-                return z.vector().array()[i]
+                return z.vector().get_local()[i]
             return (func, "z[%d]" % i, r"z_{%d}" % i)
 
         def l2norm(z, params):

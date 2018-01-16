@@ -783,6 +783,12 @@ if backend.__name__ == "dolfin":
           m.def("create_transfer_matrix", &create_transfer_matrix);
         }
         """
-        create_transfer_matrix = compile_cpp_code(create_transfer_matrix_code).create_transfer_matrix
+        create_transfer_matrix_cpp = compile_cpp_code(create_transfer_matrix_code).create_transfer_matrix
+
+        def create_transfer_matrix(Vc, Vf):
+            Vc = Vc._cpp_object
+            Vf = Vf._cpp_object
+            return create_transfer_matrix_cpp(Vc, Vf)
+
     else:
         create_transfer_matrix = None

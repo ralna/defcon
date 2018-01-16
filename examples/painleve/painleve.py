@@ -44,7 +44,9 @@ class PainleveProblem(BifurcationProblem):
 
     def initial_guess(self, V, params, n):
         m = -sqrt(1.0/(6*L))
+        print("a")
         expr = Expression("m*x[0]", m=m, degree=1, mpi_comm=V.mesh().mpi_comm())
+        print("b")
         return interpolate(expr, V)
 
     def number_solutions(self, params):

@@ -34,7 +34,7 @@ class WingedCuspProblem(BifurcationProblem):
 
     def functionals(self):
         def value(x, params):
-            return x.vector().array()[0]
+            return x.vector().get_local()[0]
 
         return [(value, "value", r"$x$")]
 

@@ -1,7 +1,7 @@
 from defcon import *
 from painleve import PainleveProblem
 
-def test_allen_cahn():
+def test_painleve():
     problem = PainleveProblem()
     dc = DeflatedContinuation(problem, teamsize=1, verbose=True, clear_output=True)
     dc.run(values={"a": [6.0]})

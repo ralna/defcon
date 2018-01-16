@@ -4,8 +4,8 @@ from __future__ import absolute_import
 import defcon
 
 from mpi4py import MPI
-from petsc4py import PETSc
 from ufl.algorithms.map_integrands import map_integrands
+import ufl
 
 from math import copysign, sqrt
 from heapq import heappush, heappop
@@ -20,6 +20,7 @@ from defcon.worker import DefconWorker
 from defcon.newton import newton
 from defcon.tasks import QuitTask, ArclengthTask, Response
 from defcon.parametertools import parameters_to_string
+from defcon.compatibility import make_comm
 
 
 class ArclengthContinuation(object):
@@ -201,7 +202,7 @@ class ArclengthWorker(DefconWorker):
 
     def fetch_data(self):
         problem = self.problem
-        (self.function_space, self.R, self.ac_space) = problem.setup_spaces(PETSc.Comm(self.teamcomm))
+        (self.function_space, self.R, self.ac_space) = problem.setup_spaces(make_comm(self.teamcomm))
 
         # Configure garbage collection frequency:
         self.determine_gc_frequency(self.function_space)
@@ -294,7 +295,7 @@ class ArclengthWorker(DefconWorker):
         num_halvings = 0
 
         arcpath = os.path.join(self.io.directory, "arclength", "params-%s-freeindex-%s-branchid-%s-ds-%.14e.xdmf" % (parameters_to_string(self.io.parameters, params), self.freeindex, branchid, self.ds))
-        arcxmf = backend.XDMFFile(PETSc.Comm(self.teamcomm), arcpath)
+        arcxmf = backend.XDMFFile(make_comm(self.teamcomm), arcpath)
         arcxmf.parameters["flush_output"] = True
         arcxmf.parameters["functions_share_mesh"] = True
         arcxmf.parameters["rewrite_function_mesh"] = False
@@ -334,7 +335,7 @@ class ArclengthWorker(DefconWorker):
             self.prev.assign(self.state)
             z_tlm = problem.ac_to_state(self.tangent, deep=False)
             lmbda_tlm = problem.ac_to_parameter(self.tangent, deep=False)
-            nrm = sqrt(backend.assemble(self.problem.squared_norm(z_tlm, backend.zero(*z_tlm.ufl_shape), self.consts) + backend.inner(lmbda_tlm, lmbda_tlm)*backend.dx))
+            nrm = sqrt(backend.assemble(self.problem.squared_norm(z_tlm, ufl.zero(*z_tlm.ufl_shape), self.consts) + backend.inner(lmbda_tlm, lmbda_tlm)*backend.dx))
 
             # Step 3. Solve the arclength system
             # I will employ an adaptive loop: if the continuation doesn't
@@ -415,7 +416,7 @@ class ArclengthWorker(DefconWorker):
         Given a Function in FunctionSpace(mesh, "R", 0), return its value as a float.
         """
         if backend.__name__ == "dolfin":
-            rval = r.vector().array()
+            rval = r.vector().get_local()
             if len(rval) == 0:
                 rval = 0.0
             else:
