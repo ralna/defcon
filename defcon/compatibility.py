@@ -14,7 +14,10 @@ def make_comm(comm):
     # Garth has arbitrarily broken the API for no good reason
     # whatsoever, with no opportunity for discussion. Wonderful.
 
+    # Update: it's broken *again*, this time by removing has_pybind11. Genius
     if backend.__name__ == "dolfin" and hasattr(backend, "has_pybind11") and backend.has_pybind11():
+        return comm
+    elif backend.__name__ == "dolfin" and backend.__version__ >= "2018.1.0":
         return comm
     elif backend.__name__ == "dolfin":
         return PETSc.Comm(comm)

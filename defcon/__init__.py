@@ -31,7 +31,12 @@ except ImportError:
 
 if backend.__name__ == "dolfin":
     from defcon.nonlinearsolver import SNUFLSolver
-    backend.comm_world = backend.mpi_comm_world()
+
+    # Lots of arbitrary interface changes
+    try:
+        backend.comm_world = backend.mpi_comm_world()
+    except AttributeError:
+        backend.comm_world = backend.MPI.comm_world
 
     def vec(x):
         if isinstance(x, backend.Function):
