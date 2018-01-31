@@ -2,22 +2,21 @@
 # are intended for use in the BifurcationProblem.predict method.
 
 import defcon.backend as backend
-from backend import Constant, derivative, Expression, TestFunction, TrialFunction, Function
-
+from ufl import derivative
 from defcon.newton import newton
 from defcon.tasks import TangentPredictionTask
 from defcon.variationalinequalities import VIBifurcationProblem
 
 def tangent(problem, solution, oldparams, newparams, hint=None):
-    oldparams = map(Constant, oldparams)
-    chgparams = map(Constant, (new - old for (new, old) in zip(newparams, oldparams)))
+    oldparams = map(backend.Constant, oldparams)
+    chgparams = map(backend.Constant, (new - old for (new, old) in zip(newparams, oldparams)))
 
     Z = solution.function_space()
-    v = TestFunction(Z)
-    w = TrialFunction(Z)
+    v = backend.TestFunction(Z)
+    w = backend.TrialFunction(Z)
 
     # FIXME: cache the symbolic calculation once, it can be expensive sometimes
-    du = Function(Z)
+    du = backend.Function(Z)
 
     F = problem.residual(solution, oldparams, v)
     G = derivative(F, solution, du) + sum(derivative(F, oldparam, chgparam) for (oldparam, chgparam) in zip(oldparams, chgparams))
