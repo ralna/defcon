@@ -8,8 +8,8 @@ from defcon.tasks import TangentPredictionTask
 from defcon.variationalinequalities import VIBifurcationProblem
 
 def tangent(problem, solution, oldparams, newparams, hint=None):
-    oldparams = map(backend.Constant, oldparams)
-    chgparams = map(backend.Constant, (new - old for (new, old) in zip(newparams, oldparams)))
+    coldparams = [backend.Constant(x) for x in oldparams]
+    chgparams = [backend.Constant(new-old) for (new, old) in zip(newparams, oldparams)]
 
     Z = solution.function_space()
     v = backend.TestFunction(Z)
@@ -18,8 +18,8 @@ def tangent(problem, solution, oldparams, newparams, hint=None):
     # FIXME: cache the symbolic calculation once, it can be expensive sometimes
     du = backend.Function(Z)
 
-    F = problem.residual(solution, oldparams, v)
-    G = derivative(F, solution, du) + sum(derivative(F, oldparam, chgparam) for (oldparam, chgparam) in zip(oldparams, chgparams))
+    F = problem.residual(solution, coldparams, v)
+    G = derivative(F, solution, du) + sum(derivative(F, oldparam, chgparam) for (oldparam, chgparam) in zip(coldparams, chgparams))
 
     J = problem.jacobian(G, du, chgparams, v, w)
 
@@ -33,7 +33,7 @@ def tangent(problem, solution, oldparams, newparams, hint=None):
     # FIXME: make this optional
     teamno = 0
 
-    task = TangentPredictionTask(map(float, oldparams), map(float, newparams))
+    task = TangentPredictionTask(oldparams, newparams)
 
     # FIXME: there's probably a more elegant way to do this.
     # Or should we use one semismooth Newton step? After all
