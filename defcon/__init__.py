@@ -19,9 +19,10 @@ from defcon.bifurcationproblem import BifurcationProblem
 from defcon.deflatedcontinuation import DeflatedContinuation
 from defcon.arclength import ArclengthContinuation
 from defcon.iomodule import IO, SolutionIO
-from defcon.tasks import DeflationTask, ContinuationTask, StabilityTask, ArclengthTask
+from defcon.tasks import DeflationTask, ContinuationTask, StabilityTask, ArclengthTask, TangentPredictionTask
 from defcon.operatordeflation import *
 from defcon.variationalinequalities import VIBifurcationProblem, ComplementarityProblem
+from defcon.prediction import tangent
 
 # This might fail because h5py is missing.
 try:

@@ -85,7 +85,13 @@ class ObstacleProblem(BifurcationProblem):
         u = interpolate(ub, V)
         return (l, u)
 
+    def predict(self, problem, solution, oldparams, newparams, hint):
+        # This actually does all the work of the solver.
+        # The linearised prediction is essentially perfect because the
+        # energy to be minimised is quadratic.
+        return tangent(problem, solution, oldparams, newparams, hint)
+
 if __name__ == "__main__":
     problem = ObstacleProblem()
     dc = DeflatedContinuation(problem=problem, teamsize=1, verbose=True, clear_output=True)
-    dc.run(values={"f": -10, "scale": linspace(1, 2, 5)}, freeparam="scale")
+    dc.run(values={"f": linspace(0, -20, 41), "scale": 1}, freeparam="f")

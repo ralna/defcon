@@ -55,6 +55,10 @@ class BratuProblem(BifurcationProblem):
                "pc_type": "lu"
                }
 
+    def predict(self, problem, solution, oldparams, newparams, hint):
+	# Use tangent continuation
+        return tangent(problem, solution, oldparams, newparams, hint)
+
 if __name__ == "__main__":
     import matplotlib.pyplot as plt
 

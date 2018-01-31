@@ -76,6 +76,7 @@ class DefconWorker(DefconThread):
         self.mesh = self.problem.mesh(make_comm(self.teamcomm))
         self.function_space = self.problem.function_space(self.mesh)
         self.dm = create_dm(self.function_space, self.problem)
+        self.problem._dm = self.dm
 
         # Configure garbage collection frequency:
         self.determine_gc_frequency(self.function_space)
@@ -296,6 +297,9 @@ class DefconWorker(DefconThread):
         with Event("continuation: boundary conditions"):
             bcs = self.problem.boundary_conditions(self.function_space, task.newparams)
 
+        with Event("continuation: predictor"):
+            hint = self.problem.predict(self.problem, self.state, task.oldparams, task.newparams, task.hint)
+
         ig = self.state.copy(deepcopy=True)
 
         # Try to solve it
@@ -399,7 +403,8 @@ class DefconWorker(DefconThread):
                                     freeindex=task.freeindex,
                                     branchid=task.branchid,
                                     newparams=newparams,
-                                    direction=task.direction)
+                                    direction=task.direction,
+                                    hint=hint)
             task.ensure(response.data["ensure_branches"])
             task.prevsqdist = sqdist
 

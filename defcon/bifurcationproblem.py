@@ -503,3 +503,36 @@ class BifurcationProblem(object):
         and return the tuple (lower, upper).
         """
         pass
+
+    def predict(self, problem, solution, oldparams, newparams, hint):
+        """
+        This method asks the problem to make a (cheap) prediction for how the
+        branch will change when we move in parameter space from oldparams to
+        newparams. For example, the user might solve a tangent linearisation to
+        construct a guess, or use past information to construct a secant
+        linearisation.
+
+        On entry, solution contains the solution for oldparams. On exit, the
+        guess for the solution at newparams should be written into solution.
+
+        The problem variable is _usually_ the same as self, but might not be
+        when additional problems are derived from base ones (e.g. if you are
+        solving a VI, a VIBifurcationProblem is constructed from the
+        BifurcationProblem you supply, so self will be a BifurcationProblem and
+        problem will be the VIBifurcationProblem you actually want to use).
+
+        The hint variable is a device for this method to communicate with itself
+        across calls (e.g. for secant or arclength continuation). Whatever this
+        routine returns on the first call will be passed as the hint on the
+        second, and so on. The hint is None for the first call.
+
+        By default, this routine does nothing, and hence implements zero-order
+        continuation.
+
+        Standard implementations of various prediction algorithms are available
+        in defcon/prediction.py. Use like
+
+        def predict(self, *args, **kwargs):
+            return tangent(*args, **kwargs)
+        """
+        pass

@@ -35,14 +35,17 @@ class ContinuationTask(Task):
         Parameter values to continue to
       direction (+1 or -1)
         +1 means go increasing in parameter direction; -1 to go backwards
+      hint (arbitrary, user-supplied)
+        Data passed along from predictor to predictor (e.g. previous tangent direction for arclength)
     """
-    def __init__(self, taskid, oldparams, freeindex, branchid, newparams, direction, ensure_branches=None):
+    def __init__(self, taskid, oldparams, freeindex, branchid, newparams, direction, ensure_branches=None, hint=None):
         self.taskid    = taskid
         self.oldparams = oldparams
         self.freeindex = freeindex
         self.branchid  = branchid
         self.newparams = newparams
         self.direction = direction
+        self.hint      = hint
         assert isinstance(branchid, int)
         assert self.oldparams != self.newparams
 
@@ -167,6 +170,24 @@ class ArclengthTask(Task):
 
     def __str__(self):
         return "ArclengthTask(taskid=%s, params=%s, branchid=%s, sign=%s, ds=%s, bounds=%s, funcbounds=%s)" % (self.taskid, self.params, self.branchid, self.sign, self.ds, self.bounds, self.funcbounds)
+
+class TangentPredictionTask(Task):
+    """
+    A task that represents the computation of a linearised prediction/
+
+    *Arguments*
+      oldparams (tuple)
+        Parameter values where we have the solution
+      newparams (tuple)
+        Parameter values we're guessing for
+    """
+    def __init__(self, oldparams, newparams):
+        self.oldparams = oldparams
+        self.newparams = newparams
+
+    def __str__(self):
+        return "TangentPredictionTask(oldparams=%s, newparams=%s)" % (self.oldparams, self.newparams)
+
 
 class Response(object):
     """
