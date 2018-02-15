@@ -56,7 +56,7 @@ class BratuProblem(BifurcationProblem):
                }
 
     def predict(self, problem, solution, oldparams, newparams, hint):
-	# Use tangent continuation
+        # Use tangent continuation
         return tangent(problem, solution, oldparams, newparams, hint)
 
 if __name__ == "__main__":
