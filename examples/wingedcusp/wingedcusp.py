@@ -2,8 +2,6 @@
 from defcon import *
 from dolfin import *
 
-parameters["form_compiler"]["representation"] = "quadrature"
-
 class WingedCuspProblem(BifurcationProblem):
     def mesh(self, comm):
         return UnitIntervalMesh(comm, 2)
