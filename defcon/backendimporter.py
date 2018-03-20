@@ -1,6 +1,4 @@
 from __future__ import absolute_import
-from petsc4py import PETSc
-
 import sys
 
 def import_backend():
@@ -21,12 +19,25 @@ def import_backend():
         # both loaded, don't know what to do
         raise ImportError("Import exactly one of dolfin or firedrake before importing defcon.")
 
-    else: # nothing loaded, default to DOLFIN
-        use_dolfin = True
+    else: # nothing loaded, try importing
+        try:
+            import dolfin
+            use_dolfin = True
+            use_firedrake = False
+        except ImportError:
+            try:
+                import firedrake
+                use_dolfin = False
+                use_firedrake = True
+            except ImportError:
+                raise ImportError("Must have one of dolfin or firedrake installed.")
+
 
     if use_dolfin:
         import dolfin
         assert dolfin.has_petsc4py()
+        from petsc4py import PETSc
+
 
         try:
             dolfin.set_log_level(dolfin.ERROR)
@@ -47,7 +58,7 @@ def import_backend():
         # which regularly breaks my deflation code. Disable it.
         dolfin.PETScOptions.set("snes_divergence_tolerance", -1)
 
-        return dolfin
+        return (dolfin, PETSc)
 
     elif use_firedrake:
         # firedrake imported, no dolfin
@@ -59,10 +70,10 @@ def import_backend():
         opts = PETSc.Options()
         opts.setValue("snes_divergence_tolerance", -1)
 
-        return firedrake
+        return (firedrake, PETSc)
 
 
-backend = import_backend()
+(backend, PETSc) = import_backend()
 
 # Monkey-patch modules so that user can import from a backend
 sys.modules['defcon.backend'] = backend
