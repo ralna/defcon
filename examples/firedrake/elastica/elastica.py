@@ -2,16 +2,12 @@
 import sys
 from   math import floor
 
-from petsc4py import PETSc
 from firedrake import *
 from defcon import *
 
 import matplotlib.pyplot as plt
 
 class ElasticaProblem(BifurcationProblem):
-    def __init__(self):
-        self.bcs = None
-
     def mesh(self, comm):
         return IntervalMesh(1000, 0, 1, comm=comm)
 
@@ -37,11 +33,7 @@ class ElasticaProblem(BifurcationProblem):
         return F
 
     def boundary_conditions(self, V, params):
-        # The boundary conditions are independent of parameters, so only
-        # evaluate them once for efficiency.
-        if self.bcs is None:
-            self.bcs = [DirichletBC(V, 0.0, "on_boundary")]
-        return self.bcs
+        return [DirichletBC(V, 0.0, "on_boundary")]
 
     def functionals(self):
         def signedL2(theta, params):
