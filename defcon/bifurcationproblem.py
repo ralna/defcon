@@ -321,10 +321,16 @@ class BifurcationProblem(object):
         if 'f_' in state.name():
             state.rename("Solution", "Solution")
 
-        if time is None:
-            pvd << state
+        if backend.__name__ == "dolfin":
+            if time is None:
+                pvd << state
+            else:
+                pvd << (state, time)
         else:
-            pvd << (state, time)
+            if time is None:
+                pvd.write(state)
+            else:
+                pvd.write(state, time=time)
 
     def save_xmf(self, state, xmf, time=None):
         """
