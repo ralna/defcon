@@ -327,6 +327,7 @@ class BifurcationProblem(object):
             else:
                 pvd << (state, time)
         else:
+            state.rename("Solution")
             if time is None:
                 pvd.write(state)
             else:
