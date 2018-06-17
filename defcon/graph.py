@@ -40,10 +40,10 @@ class DefconGraph(object):
         return (task, team)
 
     def pop(self):
-        if len(self.new_tasks) > 0:
-            (priority, task) = heappop(self.new_tasks)
-        elif len(self.stability_tasks) > 0:
+        if len(self.stability_tasks) > 0:
             (priority, task) = heappop(self.stability_tasks)
+        elif len(self.new_tasks) > 0:
+            (priority, task) = heappop(self.new_tasks)
         else:
             raise IndexError
 
