@@ -185,7 +185,10 @@ class VIBifurcationProblem(object):
                 ksp.setOperators(M_inact)
                 ksp.setType("preonly")
                 ksp.pc.setType("lu")
-                ksp.pc.setFactorSolverPackage("mumps")
+                try:
+                    ksp.pc.setFactorSolverPackage("mumps")
+                except AttributeError:
+                    ksp.pc.setFactorSolverType("mumps")
                 ksp.setFromOptions()
                 ksp.setUp()
                 ksp.solve(rhs, du_inactive)
