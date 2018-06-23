@@ -62,9 +62,8 @@ def tangent(problem, solution, oldparams, newparams, hint=None):
         problem.problem = FixTheBounds()
 
     (success, iters) = newton(G, J, du, dubcs,
-                              problem.nonlinear_problem,
                               chgparams,
-                              problem.solver,
+                              problem,
                               problem.solver_parameters(oldparams, task),
                               teamno, deflation=None, dm=dm)
 

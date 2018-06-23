@@ -34,9 +34,8 @@ def dcsolve(problem, params, comm=backend.comm_world, guess=None):
     teamno = 0 # FIXME: make this optional
 
     (success, iters) = newton(F, J, z, bcs,
-                              problem.nonlinear_problem,
                               params,
-                              problem.solver,
+                              problem,
                               problem.solver_parameters(params, task),
                               teamno, deflation=None, dm=dm)
 
