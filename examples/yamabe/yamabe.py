@@ -7,7 +7,6 @@ from dolfin import *
 parameters["form_compiler"]["quadrature_degree"] = 5
 parameters["form_compiler"]["optimize"]     = True
 parameters["form_compiler"]["cpp_optimize"] = True
-parameters["form_compiler"]["representation"] = "quadrature"
 parameters["form_compiler"]["cpp_optimize_flags"] = "-O3 -ffast-math -march=native"
 
 class YamabeProblem(BifurcationProblem):
