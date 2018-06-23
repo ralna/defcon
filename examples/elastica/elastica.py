@@ -112,7 +112,10 @@ class ElasticaProblem(BifurcationProblem):
         pc = PETSc.PC().create(comm)
         pc.setOperators(A.mat())
         pc.setType("cholesky")
-        pc.setFactorSolverPackage("mumps")
+        try:
+            pc.setFactorSolverPackage("mumps")
+        except:
+            pc.setFactorSolverType("mumps")
         pc.setUp()
 
         F = pc.getFactorMatrix()

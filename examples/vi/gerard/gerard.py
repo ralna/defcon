@@ -13,7 +13,7 @@ inf = 1e20
 N = 10
 
 def packer(vec):
-    class DolfinIsClumsySometimes(Expression):
+    class DolfinIsClumsySometimes(UserExpression):
         def eval(self, values, x):
             values[:] = vec
         def value_shape(self):
@@ -86,8 +86,7 @@ class GerardProblem(BifurcationProblem):
         return interpolate(packer(guess), V)
 
     def monitor(self, params, branchid, solution, functionals):
-        solution = solution.split(deepcopy=True)[0]
-        u = solution.vector().array()
+        u = solution.vector().get_local()
         r = self.equations(u)
         print("Iterate:  %s" % list(u))
         print("Residual: %s" % self.equations(u))
@@ -100,6 +99,7 @@ class GerardProblem(BifurcationProblem):
                "snes_linesearch_type": "l2",
                "snes_linesearch_damping": 1.0,
                "snes_linesearch_maxstep": 1.0,
+               "snes_linesearch_monitor": None,
                "snes_atol": 1.0e-9,
                "snes_rtol": 0.0,
                "snes_monitor": None,

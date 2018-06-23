@@ -4,7 +4,7 @@ import os
 import imp
 
 from defcon import BifurcationProblem
-from defcon import VIBifurcationProblem, ComplementarityProblem
+from defcon import ComplementarityProblem
 
 
 def fetch_bifurcation_problem(path):
@@ -70,8 +70,5 @@ def fetch_bifurcation_problem(path):
         # Not good, the loop finished without break
         print("Failed to fetch bifurcation problem")
         return None
-
-    vi = "bounds" in problem.__class__.__dict__
-    if vi: problem = VIBifurcationProblem(problem)
 
     return problem

@@ -202,9 +202,8 @@ class DefconWorker(DefconThread):
             self.log("Deflating other branches %s" % task.ensure_branches)
             self.deflation.deflate(other_solutions + self.trivial_solutions)
             (success, iters) = newton(self.residual, self.jacobian, self.state, bcs,
-                             self.problem.nonlinear_problem,
                              task.newparams,
-                             self.problem.solver,
+                             self.problem,
                              self.problem.solver_parameters(task.newparams, task),
                              self.teamno, self.deflation, self.dm)
 
@@ -307,9 +306,8 @@ class DefconWorker(DefconThread):
             self.log("Deflating other branches %s" % task.ensure_branches)
             self.deflation.deflate(other_solutions + self.trivial_solutions)
             (success, iters) = newton(self.residual, self.jacobian, self.state, bcs,
-                             self.problem.nonlinear_problem,
                              task.newparams,
-                             self.problem.solver,
+                             self.problem,
                              self.problem.solver_parameters(task.newparams, task),
                              self.teamno, self.deflation, self.dm)
 
@@ -325,9 +323,8 @@ class DefconWorker(DefconThread):
             self.load_parameters(avg)
             self.deflation.deflate(other_solutions + self.trivial_solutions)
             (success_, iters) = newton(self.residual, self.jacobian, self.state, bcs,
-                             self.problem.nonlinear_problem,
                              avg,
-                             self.problem.solver,
+                             self.problem,
                              self.problem.solver_parameters(avg, task, averaging=True),
                              self.teamno, self.deflation, self.dm)
 
@@ -339,9 +336,8 @@ class DefconWorker(DefconThread):
                 self.load_parameters(task.newparams)
                 self.deflation.deflate(other_solutions + self.trivial_solutions)
                 (success, iters) = newton(self.residual, self.jacobian, self.state, bcs,
-                                 self.problem.nonlinear_problem,
                                  task.newparams,
-                                 self.problem.solver,
+                                 self.problem,
                                  self.problem.solver_parameters(task.newparams, task, averaging=True),
                                  self.teamno, self.deflation, self.dm)
                 if success:

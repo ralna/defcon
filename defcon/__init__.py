@@ -21,7 +21,7 @@ from defcon.arclength import ArclengthContinuation
 from defcon.iomodule import IO, SolutionIO
 from defcon.tasks import DeflationTask, ContinuationTask, StabilityTask, ArclengthTask, TangentPredictionTask
 from defcon.operatordeflation import *
-from defcon.variationalinequalities import VIBifurcationProblem, ComplementarityProblem
+from defcon.variationalinequalities import ComplementarityProblem
 from defcon.prediction import tangent
 
 # This might fail because h5py is missing.
