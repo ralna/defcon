@@ -5,7 +5,6 @@ import defcon.backend as backend
 from ufl import derivative
 from defcon.newton import newton
 from defcon.tasks import TangentPredictionTask
-from defcon.variationalinequalities import VIBifurcationProblem
 
 def tangent(problem, solution, oldparams, newparams, hint=None):
     coldparams = [backend.Constant(x) for x in oldparams]
@@ -38,7 +37,8 @@ def tangent(problem, solution, oldparams, newparams, hint=None):
     # FIXME: there's probably a more elegant way to do this.
     # Or should we use one semismooth Newton step? After all
     # we already have a Newton linearisation.
-    if isinstance(problem, VIBifurcationProblem):
+    vi = "bounds" in problem.__class__.__dict__
+    if vi:
         # If we're dealing with a VI, we need to enforce the appropriate
         # bound constraints on the update problem. Essentially, we need
         # that
@@ -46,30 +46,27 @@ def tangent(problem, solution, oldparams, newparams, hint=None):
         # so
         # lb - u <= du <= ub - u
 
-        orig = problem.problem
-        state = solution.split(deepcopy=True)[0]
         class FixTheBounds(object):
             def bounds(self, Z, params):
-                (lb, ub) = orig.bounds(Z, newparams)
-                lb.vector().axpy(-1.0, state.vector())
-                ub.vector().axpy(-1.0, state.vector())
+                (lb, ub) = problem.bounds(Z, newparams)
+                lb.vector().axpy(-1.0, solution.vector())
+                ub.vector().axpy(-1.0, solution.vector())
 
                 return (lb, ub)
 
             def __getattr__(self, attr):
-                return getattr(orig, attr)
+                return getattr(problem, attr)
 
-        problem.problem = FixTheBounds()
+        newproblem = FixTheBounds()
+    else:
+        newproblem = problem
 
     (success, iters) = newton(G, J, du, dubcs,
                               chgparams,
-                              problem,
+                              newproblem,
                               problem.solver_parameters(oldparams, task),
                               teamno, deflation=None, dm=dm)
 
-    if isinstance(problem, VIBifurcationProblem):
-        # Restore the original bounds calculations
-        problem.problem = orig
 
     if not success:
         # Should we raise an Exception here? After all, this is only an auxiliary

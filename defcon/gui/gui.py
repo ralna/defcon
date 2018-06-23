@@ -19,7 +19,6 @@ from defcon.gui.qtwindows import *
 
 from defcon.cli.common import fetch_bifurcation_problem
 import defcon.backend as backend
-from defcon.variationalinequalities import VIBifurcationProblem
 
 import sys, getopt, os, inspect
 import time as TimeModule
@@ -286,8 +285,6 @@ class PlotConstructor():
                     self.minparam = float(minparam)
                     self.maxparam = float(maxparam)
                     self.is_vi = literal_eval(is_vi)
-
-                    if self.is_vi and not isinstance(self.problem, VIBifurcationProblem): self.problem = VIBifurcationProblem(self.problem)
 
                     # Now that we know we're dealing with a VI or not, initialise I/O
                     self.V = self.problem.function_space(self.mesh)

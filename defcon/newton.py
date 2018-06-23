@@ -12,20 +12,36 @@ import defcon.backend as backend
 # do the solve. So we have to branch based on backend here.
 
 if backend.__name__ == "dolfin":
-    from defcon.backend import PETScOptions, PETScVector
+    from defcon.backend import PETScOptions, PETScVector, as_backend_type
 
-    def getEdy(deflation, y, dy):
-        dy_vec = PETScVector(dy)
-        return -deflation.derivative(y).inner(dy_vec)
+    def getEdy(deflation, y, dy, vi_inact):
+        deriv = as_backend_type(deflation.derivative(y)).vec()
+        if vi_inact is not None:
+            deriv_ = deriv.getSubVector(vi_inact)
+        else:
+            deriv_ = deriv
+
+        out = -deriv_.dot(dy)
+
+        if vi_inact is not None:
+            deriv.restoreSubVector(vi_inact, deriv_)
+
+        return out
 
     def setSnesMonitor(prefix):
         PETScOptions.set(prefix + "snes_monitor_cancel")
         PETScOptions.set(prefix + "snes_monitor")
 
+    def setSnesBounds(snes, bounds):
+        (lb, ub) = bounds
+        snes.setVariableBounds(backend.as_backend_type(lb.vector()).vec(), backend.as_backend_type(ub.vector()).vec())
+
 elif backend.__name__ == "firedrake":
     from defcon.backend import NonlinearVariationalSolver
 
-    def getEdy(deflation, y, dy):
+    def getEdy(deflation, y, dy, vi_inact):
+        if vi_inact is not None: raise NotImplementedError("Not implemeted yet for VIs")
+
         with deflation.derivative(y).dat.vec_ro as deriv:
             Edy = -deriv.dot(dy)
         return Edy
@@ -36,6 +52,11 @@ elif backend.__name__ == "firedrake":
         opts.setValue(prefix + "snes_monitor_cancel", "")
         opts.setValue(prefix + "snes_monitor", "")
 
+    def setSnesBounds(snes, bounds):
+        (lb, ub) = bounds
+        with lb.dat.vec_ro as lb_, ub.dat.vec_ro as ub_:
+            snes.setVariableBounds(lb_, ub_)
+
 else:
     raise ImportError("Unknown backend")
 
@@ -45,9 +66,9 @@ else:
     class ConvergenceError(Exception):
         pass
 
-def compute_tau(deflation, state, update_p):
+def compute_tau(deflation, state, update_p, vi_inact):
     if deflation is not None:
-        Edy = getEdy(deflation, state, update_p)
+        Edy = getEdy(deflation, state, update_p, vi_inact)
 
         minv = 1.0 / deflation.evaluate(state)
         tau = (1 + minv*Edy/(1 - minv*Edy))
@@ -56,23 +77,30 @@ def compute_tau(deflation, state, update_p):
         return 1
 
 class DeflatedKSP(object):
-    def __init__(self, deflation, y, ksp):
+    def __init__(self, deflation, y, ksp, snes):
         self.deflation = deflation
         self.y = y
         self.ksp = ksp
+        self.snes = snes
 
     def solve(self, ksp, b, dy_pet):
         # Use the inner ksp to solve the original problem
+        self.ksp.setOperators(*ksp.getOperators())
         self.ksp.solve(b, dy_pet)
         deflation = self.deflation
 
-        tau = compute_tau(deflation, self.y, dy_pet)
+        if self.snes.getType().startswith("vi"):
+            vi_inact = self.snes.getVIInactiveSet()
+        else:
+            vi_inact = None
+
+        tau = compute_tau(deflation, self.y, dy_pet, vi_inact)
         dy_pet.scale(tau)
 
         ksp.setConvergedReason(self.ksp.getConvergedReason())
 
-    def setUp(self, ksp):
-        ksp.setOperators(*self.ksp.getOperators())
+    def reset(self, ksp):
+        self.ksp.reset()
 
     def view(self, ksp, viewer):
         self.ksp.view(viewer)
@@ -91,9 +119,15 @@ def newton(F, J, y, bcs, params, problem, solver_params,
     snes.incrementTabLevel(teamno*2)
     setSnesMonitor(prefix)
 
+    vi = "bounds" in problem.__class__.__dict__
+    if vi:
+        snes.setType("vinewtonrsls")
+        bounds = problem.bounds(y.function_space(), params)
+        setSnesBounds(snes, bounds)
+
     oldksp = snes.ksp
     oldksp.incrementTabLevel(teamno*2)
-    defksp = DeflatedKSP(deflation, y, oldksp)
+    defksp = DeflatedKSP(deflation, y, oldksp, snes)
     snes.ksp = PETSc.KSP().createPython(defksp, comm)
     snes.ksp.pc.setType('none')
 

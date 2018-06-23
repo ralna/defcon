@@ -4,6 +4,7 @@ from dolfin import *
 import ufl
 
 parameters.form_compiler.quadrature_degree = 4
+parameters.ghost_mode = "shared_facet"
 
 # Borrowed from fenics-shells, to avoid dependency.
 # Credit to Jack Hale, Corrado Maurini, Matteo Brunetti, Stephane Bordas
@@ -54,6 +55,7 @@ class Naghdi(BifurcationProblem):
 
     def mesh(self, comm):
         mesh = Mesh(comm, "meshes/mesh-%d.xml.gz" % self.N)
+        mesh = refine(mesh)
 
         return mesh
 

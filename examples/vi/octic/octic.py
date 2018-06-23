@@ -83,9 +83,8 @@ class OcticProblem(BifurcationProblem):
         return (l, u)
 
     def monitor(self, params, branchid, solution, functionals):
-        # N.B. This solution has the Lagrange multipliers too.
-        (x, l, _) = solution((0.5,))
-        print("Solution: (%s, %s)" % (x, l))
+        x = solution((0.5,))
+        print("Solution: %s" % x)
         dE = 8*x**7 - 12*x**5 + 4*x**3
         print("J'(x): %s" % dE)
 

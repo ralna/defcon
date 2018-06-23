@@ -2,15 +2,11 @@
 # for a given set of parameters.
 
 import defcon.backend as backend
-from defcon.variationalinequalities import VIBifurcationProblem
 from defcon.newton import newton
 from defcon.tasks import DeflationTask
 from defcon.mg import create_dm
 
 def dcsolve(problem, params, comm=backend.comm_world, guess=None):
-
-    vi = "bounds" in problem.__class__.__dict__
-    if vi: problem = VIBifurcationProblem(problem)
 
     mesh = problem.mesh(comm)
     Z = problem.function_space(mesh)
