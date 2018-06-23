@@ -40,11 +40,19 @@ elif backend.__name__ == "firedrake":
     from defcon.backend import NonlinearVariationalSolver
 
     def getEdy(deflation, y, dy, vi_inact):
-        if vi_inact is not None: raise NotImplementedError("Not implemeted yet for VIs")
 
-        with deflation.derivative(y).dat.vec_ro as deriv:
-            Edy = -deriv.dot(dy)
-        return Edy
+        with deflation.derivative(y).dat.vec as deriv:
+            if vi_inact is not None:
+                deriv_ = deriv.getSubVector(vi_inact)
+            else:
+                deriv_ = deriv
+
+            out = -deriv_.dot(dy)
+
+            if vi_inact is not None:
+                deriv.restoreSubVector(vi_inact, deriv_)
+
+        return out
 
     def setSnesMonitor(prefix):
         from defcon.backend.petsc import PETSc
