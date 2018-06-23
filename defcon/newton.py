@@ -148,6 +148,8 @@ def newton(F, J, y, bcs, params, problem, solver_params,
         traceback.print_exc()
         pass
 
+    del defksp.snes # clean up circular references
+
     success = snes.getConvergedReason() > 0
     iters   = snes.getIterationNumber()
     return (success, iters)
