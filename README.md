@@ -54,12 +54,11 @@ Defcon's serial capabilities are reasonably well tested. Its parallel features
 are experimental.
 
 Defcon is being automatically tested against a development version of FEniCS
-docker images using Bitbucket Pipelines (with Python 2) and CircleCI (with
-Python 3). This ensures that defcon should always run with a recent FEniCS
-development version.
+docker images using Bitbucket Pipelines and CircleCI. This ensures that defcon
+ should always run with a recent FEniCS development version.
 
-[![Pipelines Py2](https://bitbucket-badges.useast.atlassian.io/badge/pefarrell/defcon.svg)](https://bitbucket.org/pefarrell/defcon/addon/pipelines/home)
-[![Circle Py3](https://circleci.com/bb/pefarrell/defcon.svg?style=svg)](https://circleci.com/bb/pefarrell/defcon)
+[![Pipelines](https://bitbucket-badges.useast.atlassian.io/badge/pefarrell/defcon.svg)](https://bitbucket.org/pefarrell/defcon/addon/pipelines/home)
+[![CircleCI](https://circleci.com/bb/pefarrell/defcon.svg?style=svg)](https://circleci.com/bb/pefarrell/defcon)
 
 ## Code Examples
 
@@ -69,11 +68,11 @@ section of the manuscript cited above.
 
 ## Installation
 
-    pip install .
+    pip3 install .
 
 or
 
-    pip install --user -e .
+    pip3 install --user -e .
 
 for *editable* installs into the user directory (typically `~/.local`).
 
@@ -113,13 +112,13 @@ To use defcon in a FEniCS docker container, simply fire up a container with
 development version of FEniCS, e.g. using `fenicsproject run dev`, and in the
 container type
 
-    pip install --user h5py
-    pip install --user https://bitbucket.org/pefarrell/defcon/get/master.tar.gz
+    CC=mpicc HDF5_MPI=ON pip3 install --no-binary=h5py --no-cache-dir --user h5py
+    pip3 install --user https://bitbucket.org/pefarrell/defcon/get/master.tar.gz
 
 Then you can navigate to defcon demos and run them
 
     cd /home/fenics/.local/share/defcon/examples/elastica
-    mpirun -n 2 python elastica.py
+    mpirun -n 2 python3 elastica.py
 
 ## Running the GUI in docker
 
@@ -161,15 +160,15 @@ In the container one needs to install one of PyQt5, PyQt4, or PySide.
 The most convenient is
 
     sudo apt update
-    sudo apt install -y python-pyqt5
+    sudo apt install -y python3-pyqt5
 
 After installing h5py and defcon as described above, one can run the gui and
 start a defcon application by
 
-    cd ~/local/share/defcon/examples/elastica/
+    cd /home/fenics/.local/share/defcon/examples/elastica
     export QT_GRAPHICSSYSTEM=native # may not be necessary on all systems
     defcon gui &
-    mpirun -n 2 python elastica.py
+    mpirun -n 2 python3 elastica.py
 
 Note that only aspects of FEniCS docker containers directly related to defcon
 have been shown. To setup a practical workflow (allowing preservation of JIT

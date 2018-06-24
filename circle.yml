@@ -21,7 +21,7 @@ jobs:
       - run:
           name: Install defcon
           command: |
-            pip3 install -v --user h5py
+            CC=mpicc HDF5_MPI=ON pip3 install -v --no-binary=h5py --no-cache-dir --user h5py
             pip3 install -v --user .
 
       - run:
