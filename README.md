@@ -158,7 +158,7 @@ In the container one needs to install latex and one of PyQt5, PyQt4, or PySide.
 The most convenient is
 
     sudo apt update
-    sudo apt install -y python3-pyqt5 texlive-full
+    sudo apt install -y python3-pyqt5 dvipng texlive-latex-extra texlive-fonts-recommended
 
 After installing h5py and defcon as described above, one can run the gui and
 start a defcon application by
