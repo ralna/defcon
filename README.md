@@ -78,9 +78,7 @@ for *editable* installs into the user directory (typically `~/.local`).
 
 ## Use in anaconda environments
 
-The easiest way to use defcon is to install FEniCS via anaconda and
-then install defcon in the same environment. Here is an example of how
-to do this:
+Here is an example of how to use defcon with anaconda:
 
     # Install FEniCS
     conda create -n fenicsproject -c conda-forge fenics
@@ -156,11 +154,11 @@ convince it to talk to the GUI in docker. To do so, perform the following steps:
 Don't forget to run `xhost -` when finished with the container.
 
 ### Running the GUI in the FEniCS-supplied images
-In the container one needs to install one of PyQt5, PyQt4, or PySide.
+In the container one needs to install latex and one of PyQt5, PyQt4, or PySide.
 The most convenient is
 
     sudo apt update
-    sudo apt install -y python3-pyqt5
+    sudo apt install -y python3-pyqt5 texlive-full
 
 After installing h5py and defcon as described above, one can run the gui and
 start a defcon application by
