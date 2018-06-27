@@ -409,7 +409,10 @@ class PlotConstructor():
 
             # Try to fetch the stability
             try:
-                stab = self.io.fetch_stability(xs, branchids)
+                d = self.io.fetch_stability(xs,branchids)
+                stab = []
+                for i in range(len(d)):
+                    stab.append(d[i]["stable"])
             except (RuntimeError, KeyError, IOError):
                 stab = None
 
