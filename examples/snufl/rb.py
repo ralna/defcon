@@ -22,6 +22,7 @@ params = {
     "pc_fieldsplit_0_ksp_type": "preonly",
     "fieldsplit_0_pc_type": "lu",
     "fieldsplit_0_pc_factor_mat_solver_package": "mumps",
+    "fieldsplit_0_pc_factor_mat_solver_type": "mumps",
     "fieldsplit_1_ksp_type": "preonly",
     "fieldsplit_1_pc_type": "lu"
 }

@@ -237,6 +237,7 @@ class Naghdi(BifurcationProblem):
                "ksp_type": "preonly",
                "pc_type": "cholesky",
                "pc_factor_mat_solver_package": "mumps",
+               "pc_factor_mat_solver_type": "mumps",
                "mat_mumps_icntl_24": 1,
                "mat_mumps_icntl_13": 1
                }

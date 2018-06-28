@@ -99,6 +99,7 @@ class NavierStokesProblem(BifurcationProblem):
                "ksp_type": "preonly",
                "pc_type": "lu",
                "pc_factor_mat_solver_package": "mumps",
+               "pc_factor_mat_solver_type": "mumps",
                "ksp_converged_reason": None,
                }
 

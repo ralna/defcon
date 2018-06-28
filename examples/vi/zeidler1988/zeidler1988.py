@@ -102,6 +102,7 @@ class ZeidlerProblem(BifurcationProblem):
                "ksp_atol": 1.0e-10,
                "pc_type": "lu",
                "pc_factor_mat_solver_package": "umfpack",
+               "pc_factor_mat_solver_type": "umfpack",
                }
 
     def monitorx(self, params, branchid, solution, functionals):

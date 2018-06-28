@@ -109,6 +109,7 @@ class GerardProblem(BifurcationProblem):
                "ksp_atol": 1.0e-10,
                "pc_type": "svd",
                "pc_factor_mat_solver_package": "mumps",
+               "pc_factor_mat_solver_type": "mumps",
                }
 
     def bounds(self, V, params):
