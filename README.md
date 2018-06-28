@@ -60,6 +60,12 @@ docker images using Bitbucket Pipelines and CircleCI. This ensures that defcon
 [![Pipelines](https://bitbucket-badges.useast.atlassian.io/badge/pefarrell/defcon.svg)](https://bitbucket.org/pefarrell/defcon/addon/pipelines/home)
 [![CircleCI](https://circleci.com/bb/pefarrell/defcon.svg?style=svg)](https://circleci.com/bb/pefarrell/defcon)
 
+To run the tests yourself, do
+
+    mpiexec -n 2 py.test-3 -x -v .
+
+when everything is installed.
+
 ## Code Examples
 
 The easiest way to learn how to use it is to examine the examples in
