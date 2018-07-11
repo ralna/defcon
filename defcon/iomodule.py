@@ -277,13 +277,44 @@ class SolutionIO(IO):
         if self.pcomm.rank == 0:
             os.rename(f.name, self.directory + os.path.sep + "arclength/params-%s-freeindex-%s-branchid-%s-ds-%.14e-sign-%d.json" % (parameters_to_string(self.parameters, params), freeindex, branchid, ds, sign))
 
-    def fetch_stability(self, params, branchids):
-        stables = []
+    def fetch_stability(self, params, branchids, fetch_eigenfunctions=False):
+        stabs = []
         for branchid in branchids:
-            f = open(self.dir(params) + "stability-%d.txt" % branchid, "r")
-            stable = literal_eval(f.read())
-            stables.append(stable)
-        return stables
+            stab = {}
+            fs = open(self.dir(params) + "stability-%d.txt" % branchid, "r")
+            is_stable = literal_eval(fs.read())
+            stab["stable"] =  is_stable
+
+            try:
+                filename = self.dir(params) + "eigenfunctions-%d.h5" % branchid
+                evals = []
+                eigfs = []
+
+                with HDF5File(comm=self.function_space.mesh().mpi_comm(), filename=filename, file_mode='r') as f:
+                    # get Number of Eigenvalues 
+                    num_evals= f.attributes('/eigenfunction-0')['number_eigenvalues']
+
+                    # create function space for eigenfunctions
+                    efunc = Function(self.function_space)
+
+                    # Iterate through each eigenvalues and obtain corresponding eigenfunction
+                    for i in range(num_evals):
+                        eigval = f.attributes("/eigenfunction-%d" % i)['eigenvalue']
+                        evals.append(eigval)
+
+                        if fetch_eigenfunctions:
+                            f.read(efunc, "/eigenfunction-%d" % i)
+                            f.flush()
+                            eigfs.append(efunc)
+
+                stab["eigenvalues"] = evals
+                stab["eigenfunctions"] = eigfs
+            except Exception:
+                # Couldn't find any eigenfunctions, OK
+                pass
+
+            stabs.append(stab)
+        return stabs
 
 # Some code to remap C- and Python-level stdout/stderr
 def remap_c_streams(stdout_filename, stderr_filename):
