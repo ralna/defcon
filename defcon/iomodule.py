@@ -277,44 +277,42 @@ class SolutionIO(IO):
         if self.pcomm.rank == 0:
             os.rename(f.name, self.directory + os.path.sep + "arclength/params-%s-freeindex-%s-branchid-%s-ds-%.14e-sign-%d.json" % (parameters_to_string(self.parameters, params), freeindex, branchid, ds, sign))
 
-    def fetch_stability(self, params, branchids,fetch_eigenfunctions=False):
+    def fetch_stability(self, params, branchids, fetch_eigenfunctions=False):
         stabs = []
         for branchid in branchids:
             stab = {}
-            filename = self.dir(params) + "eigenfunctions-%d.h5" % branchid
             fs = open(self.dir(params) + "stability-%d.txt" % branchid, "r")
             is_stable = literal_eval(fs.read())
             stab["stable"] =  is_stable
-            stab["hint"] = None
-            failcount=0
-            evals = []
-            eigfs = []
-            while True:
-                try:
-                    with HDF5File(comm=self.function_space.mesh().mpi_comm(), filename=filename, file_mode='r') as f:
-                        # Get Number of Eigenvalues 
-                        num_evals= f.attributes('/eigenfunction-0')['number_eigenvalues']
-                        #  create function space for eigenfunctions
-                        efunc = Function(self.function_space)
-                        # Iterate through each eigenvalues and obtain corresponding eigenfunction
-                        for i in range(num_evals):
-                            eigval=f.attributes("/eigenfunction-%d" % i)['eigenvalue']
-                            evals.append(eigval)
-                            if fetch_eigenfunctions:
-                                f.read(efunc, "/eigenfunction-%d" % i)
-                                f.flush()
-                                eigfs.append(efunc)
-                    break
-                except Exception:
-                    print("Loading file %s failed. Sleeping for a second and trying again." % filename)
-                    failcount += 1
-                    if failcount == 10:
-                        print("Tried 10 times to load file %s. Raising exception." % filename)
-                        raise
-                    time.sleep(1)
-            
-            stab["eigenvalues"] = evals
-            stab["eigenfunctions"] = eigfs
+
+            try:
+                filename = self.dir(params) + "eigenfunctions-%d.h5" % branchid
+                evals = []
+                eigfs = []
+
+                with HDF5File(comm=self.function_space.mesh().mpi_comm(), filename=filename, file_mode='r') as f:
+                    # get Number of Eigenvalues 
+                    num_evals= f.attributes('/eigenfunction-0')['number_eigenvalues']
+
+                    # create function space for eigenfunctions
+                    efunc = Function(self.function_space)
+
+                    # Iterate through each eigenvalues and obtain corresponding eigenfunction
+                    for i in range(num_evals):
+                        eigval = f.attributes("/eigenfunction-%d" % i)['eigenvalue']
+                        evals.append(eigval)
+
+                        if fetch_eigenfunctions:
+                            f.read(efunc, "/eigenfunction-%d" % i)
+                            f.flush()
+                            eigfs.append(efunc)
+
+                stab["eigenvalues"] = evals
+                stab["eigenfunctions"] = eigfs
+            except Exception:
+                # Couldn't find any eigenfunctions, OK
+                pass
+
             stabs.append(stab)
         return stabs
 
