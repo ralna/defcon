@@ -12,7 +12,14 @@ def test_elastica():
     dc.run(values={"lambda": values, "mu": [0.5]}, freeparam="lambda")
 
     io = problem.io()
-    io.setup(problem.parameters(), problem.functionals(), problem.function_space(problem.mesh(PETSc.Comm(MPI.COMM_SELF))))
+
+    # More totally unnecessary API breakages, quite frustrating
+    try:
+        V = problem.function_space(problem.mesh(PETSc.Comm(MPI.COMM_SELF)))
+    except TypeError:
+        V = problem.function_space(problem.mesh(MPI.COMM_SELF))
+
+    io.setup(problem.parameters(), problem.functionals(), V)
 
     if backend.comm_world.rank == 0:
         final = (values[-1], 0.5)
