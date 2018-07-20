@@ -25,7 +25,8 @@ def tangent(problem, solution, oldparams, newparams, hint=None):
     # FIXME: figure out if the boundary conditions depend on
     # the parameters, and set the boundary conditions on the update
     dubcs = problem.boundary_conditions(Z, newparams)
-    [dubc.homogenize() for dubc in dubcs]
+    if dubcs:
+        [dubc.homogenize() for dubc in dubcs]
 
     dm = problem._dm
 
