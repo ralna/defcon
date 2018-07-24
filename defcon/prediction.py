@@ -72,7 +72,7 @@ def tangent(problem, solution, oldparams, newparams, hint=None):
     if not success:
         # Should we raise an Exception here? After all, this is only an auxiliary
         # problem.
-        raise ValueError("Tangent linearisation failed")
+        backend.warning("Tangent linearisation failed")
 
     solution.assign(solution + du)
 
