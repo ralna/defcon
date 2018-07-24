@@ -294,15 +294,13 @@ class SolutionIO(IO):
                     # get Number of Eigenvalues 
                     num_evals= f.attributes('/eigenfunction-0')['number_eigenvalues']
 
-                    # create function space for eigenfunctions
-                    efunc = Function(self.function_space)
-
                     # Iterate through each eigenvalues and obtain corresponding eigenfunction
                     for i in range(num_evals):
                         eigval = f.attributes("/eigenfunction-%d" % i)['eigenvalue']
                         evals.append(eigval)
 
                         if fetch_eigenfunctions:
+                            efunc = Function(self.function_space)
                             f.read(efunc, "/eigenfunction-%d" % i)
                             f.flush()
                             eigfs.append(efunc)
