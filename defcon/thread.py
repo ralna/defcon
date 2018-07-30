@@ -38,6 +38,28 @@ class DefconThread(object):
         self.gc_frequency = kwargs.get("gc_frequency", 10)
         self.collect_call = 0 # counter for the garbage collector
 
+    def log(self, msg, master=False, warning=False):
+        if not self.verbose and warning is False: return
+        if master is False and self.teamrank != 0: return
+
+        if warning:
+            fmt = RED = "\033[1;37;31m%s\033[0m"
+        else:
+            if master:
+                fmt = BLUE = "\033[1;37;34m%s\033[0m"
+            else:
+                fmt = GREEN = "\033[1;37;32m%s\033[0m"
+
+        if master:
+            header = "MASTER:   "
+        else:
+            header = "TEAM %3d: " % self.teamno
+
+        timestamp = "[%s] " % time.strftime("%H:%M:%S")
+
+        print(fmt % (timestamp + header + msg))
+        sys.stdout.flush()
+
     def collect(self):
         """
         Garbage collection.
@@ -66,7 +88,10 @@ class DefconThread(object):
         self.rank = self.worldcomm.rank
 
         # Assert even divisibility of team sizes
-        assert (self.worldcomm.size-1) % self.teamsize == 0
+        if not (self.worldcomm.size-1) % self.teamsize == 0:
+            DefconThread.log(self, msg="Need to use integer * teamsize + 1 processes", master=True, warning=True)
+            raise ValueError("Incompatible nprocs = %d, teamsize = %d" % (self.worldcomm.size, self.teamsize))
+
         self.nteams = (self.worldcomm.size-1) // self.teamsize
 
         # Create local communicator for the team I will join
@@ -109,27 +134,4 @@ class DefconThread(object):
                     stderr_filename = os.devnull
 
             remap_c_streams(stdout_filename, stderr_filename)
-
-    def log(self, msg, master=False, warning=False):
-        if not self.verbose: return
-        if self.teamrank != 0: return
-
-        if warning:
-            fmt = RED = "\033[1;37;31m%s\033[0m"
-        else:
-            if master:
-                fmt = BLUE = "\033[1;37;34m%s\033[0m"
-            else:
-                fmt = GREEN = "\033[1;37;32m%s\033[0m"
-
-        if master:
-            header = "MASTER:   "
-        else:
-            header = "TEAM %3d: " % self.teamno
-
-        timestamp = "[%s] " % time.strftime("%H:%M:%S")
-
-        print(fmt % (timestamp + header + msg))
-        sys.stdout.flush()
-
 

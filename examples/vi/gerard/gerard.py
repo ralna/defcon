@@ -97,7 +97,7 @@ class GerardProblem(BifurcationProblem):
                "snes_max_it": 100,
                "snes_max_funcs": 1000000,
                "snes_linesearch_type": "l2",
-               "snes_linesearch_damping": 1.0,
+               "snes_linesearch_damping": 0.9,
                "snes_linesearch_maxstep": 1.0,
                "snes_linesearch_monitor": None,
                "snes_atol": 1.0e-9,
@@ -109,6 +109,7 @@ class GerardProblem(BifurcationProblem):
                "ksp_atol": 1.0e-10,
                "pc_type": "svd",
                "pc_factor_mat_solver_package": "mumps",
+               "pc_factor_mat_solver_type": "mumps",
                }
 
     def bounds(self, V, params):

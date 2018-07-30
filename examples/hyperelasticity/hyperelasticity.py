@@ -204,6 +204,7 @@ class HyperelasticityProblem(BifurcationProblem):
                "ksp_max_it": 2000,
                "pc_type": "gamg",
                "pc_factor_mat_solver_package": "mumps",
+               "pc_factor_mat_solver_type": "mumps",
                "eps_type": "krylovschur",
                "eps_target": -1,
                "eps_monitor_all": None,
@@ -213,6 +214,7 @@ class HyperelasticityProblem(BifurcationProblem):
                "st_ksp_type": "preonly",
                "st_pc_type": "lu",
                "st_pc_factor_mat_solver_package": "mumps",
+               "st_pc_factor_mat_solver_type": "mumps",
                }
 
 
