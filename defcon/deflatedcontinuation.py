@@ -135,7 +135,7 @@ Launch with mpiexec: mpiexec -n <number of processes> python %s
 
         import matplotlib.pyplot as plt
         if "linewidth" not in kwargs: kwargs["linewidth"] = 2
-        if "markersize" not in kwargs: kwargs["linewidth"] = 1
+        if "markersize" not in kwargs: kwargs["markersize"] = 1
 
         # Find the functional index.
         funcindex = None
