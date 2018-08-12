@@ -560,7 +560,7 @@ class DefconMaster(DefconThread):
                                         direction=task.direction)
             self.graph.wait(task.taskid, team, conttask)
             self.log("Waiting on response for %s" % conttask)
-            self.journal.team_job(team, task_to_code(conttask))
+            self.journal.team_job(team, task_to_code(conttask), newparams, task.branchid)
 
         # If the worker has instructed us to insert a continuation task
         # going backwards, then do it. This arises if the worker thinks

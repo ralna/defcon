@@ -68,7 +68,7 @@ class KonnoProblem(ComplementarityProblem):
                "snes_stol": 0.0,
                "snes_converged_reason": None,
                "snes_monitor": None,
-               "snes_linesearch_damping": 1.0,
+               "snes_linesearch_damping": 0.9,
                "snes_linesearch_maxstep": 1.0,
                "snes_linesearch_type": "l2",
                "ksp_type": "preonly",

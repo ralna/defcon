@@ -25,7 +25,8 @@ def tangent(problem, solution, oldparams, newparams, hint=None):
     # FIXME: figure out if the boundary conditions depend on
     # the parameters, and set the boundary conditions on the update
     dubcs = problem.boundary_conditions(Z, newparams)
-    [dubc.homogenize() for dubc in dubcs]
+    if dubcs:
+        [dubc.homogenize() for dubc in dubcs]
 
     dm = problem._dm
 
@@ -71,7 +72,7 @@ def tangent(problem, solution, oldparams, newparams, hint=None):
     if not success:
         # Should we raise an Exception here? After all, this is only an auxiliary
         # problem.
-        raise ValueError("Tangent linearisation failed")
+        backend.warning("Tangent linearisation failed")
 
     solution.assign(solution + du)
 
