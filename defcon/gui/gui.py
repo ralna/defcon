@@ -519,7 +519,7 @@ class PlotConstructor():
                     x = backend.interpolate(backend.Expression("x[0]", degree=1), self.V)
                     # FIXME: For functions f other than CG1, we might need to sort both arrays so that x is increasing. Check this out!
                     for (y, branchid) in zip(ys, branchids):
-                        plt.plot(x.vector().array(), y.vector().array(), '-', linewidth=3, color='b')
+                        plt.plot(x.vector().get_local(), y.vector().get_local(), '-', linewidth=3, color='b')
                         plt.title("branch %s, params %s" % (branchid, params))
                         plt.axhline(0, color='k') # Plot a black line through the origin
                         plt.show(False) # False here means the window is non-blocking, so we may continue using the GUI while the plot shows.
