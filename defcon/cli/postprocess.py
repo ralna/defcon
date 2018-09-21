@@ -39,7 +39,13 @@ def main(args):
     io.setup(params, functionals, Z)
     params = consts
 
-    for branchid in six.moves.xrange(io.max_branch()+1):
+    try:
+        max_branch = io.max_branch() + 1
+    except ValueError:
+        sys.stderr.write("No solutions found in directory %s\n" % outputdir)
+        sys.exit(1)
+
+    for branchid in six.moves.xrange(max_branch):
         for values in io.known_parameters(fixed={}, branchid=branchid):
             # Read solution
             solution = io.fetch_solutions(values, [branchid])[0]
