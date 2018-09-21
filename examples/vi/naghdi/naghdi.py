@@ -34,7 +34,7 @@ rbms = [Constant((0, 0, 1)),
 
 class Naghdi(BifurcationProblem):
 
-    def __init__(self, N):
+    def __init__(self, N=15):
         self.N = N # mesh size
 
     def d_naghdi(self, theta):
@@ -315,6 +315,6 @@ c0loadings = linspace(0, c0max, Nc0)
 cIloadings = linspace(0, cImax, NcI)
 
 if __name__ == "__main__":
-    dc = DeflatedContinuation(problem=Naghdi(15), teamsize=1, verbose=True, clear_output=True, logfiles=False)
+    dc = DeflatedContinuation(problem=Naghdi(), teamsize=1, verbose=True, clear_output=True, logfiles=False)
     #dc.run(values={"c_0": c0loadings[:2], "c_I": cIloadings[-1]}, freeparam="c_0")
     dc.run(values={"c_0": c0loadings[:1], "c_I": cIloadings[-1]}, freeparam="c_0")

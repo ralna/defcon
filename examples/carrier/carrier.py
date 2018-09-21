@@ -82,7 +82,7 @@ class CarrierProblem(BifurcationProblem):
         return (nbifurcations+1)*2
 
     def squared_norm(self, a, b, params):
-        eps = params[0]
+        eps = Constant(params[0])
 
         return inner(a - b, a - b)*dx + sqrt(eps)*inner(grad(a - b), grad(a - b))*dx
 

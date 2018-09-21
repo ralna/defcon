@@ -17,6 +17,7 @@ Commands:
   recompute-known-branches
   recompute-stability
   postprocess
+  compute-distances
 
 Help:
   defcon <command> -h
@@ -73,6 +74,9 @@ def main(args=None):
     elif cmd == "postprocess":
         import defcon.cli.postprocess
         return defcon.cli.postprocess.main(args)
+    elif cmd == "compute-distances":
+        import defcon.cli.computedistances
+        return defcon.cli.computedistances.main(args)
     else:
         print("Unknown command specified.")
         usage()
