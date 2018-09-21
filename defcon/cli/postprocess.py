@@ -42,8 +42,7 @@ def main(args):
     try:
         max_branch = io.max_branch() + 1
     except ValueError:
-        sys.stderr.write("No solutions found in directory %s\n" % outputdir)
-        sys.exit(1)
+        sys.exit("No solutions found in directory %s\n" % outputdir)
 
     for branchid in six.moves.xrange(max_branch):
         for values in io.known_parameters(fixed={}, branchid=branchid):
