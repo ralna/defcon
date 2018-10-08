@@ -41,18 +41,21 @@ def main(args):
     params = consts
 
     if len(args) == 4:
+        _values = literal_eval(args[3])
         def allvalues(branchid):
-            return [literal_eval(args[3])]
+            return [_values]
+
+        def allbranches():
+            return io.known_branches(_values)
     else:
         def allvalues(branchid):
             return io.known_parameters(fixed={}, branchid=branchid)
 
-    try:
-        max_branch = io.max_branch() + 1
-    except ValueError:
-        sys.exit("No solutions found in directory %s\n" % outputdir)
+        def allbranches():
+            max_branch = io.max_branch() + 1
+            return six.moves.xrange(max_branch)
 
-    for branchid in six.moves.xrange(max_branch):
+    for branchid in allbranches():
         for values in allvalues(branchid):
             # Read solution
             try:
