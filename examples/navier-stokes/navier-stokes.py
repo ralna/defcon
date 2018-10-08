@@ -70,7 +70,7 @@ class NavierStokesProblem(BifurcationProblem):
     def functionals(self):
         def sqL2(z, params):
             (u, p) = split(z)
-            j = assemble(inner(z, z)*dx)
+            j = assemble(inner(u, u)*dx)
             return j
 
         return [(sqL2, "sqL2", r"$\|u\|^2$")]
