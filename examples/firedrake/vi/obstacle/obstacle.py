@@ -56,7 +56,6 @@ class ObstacleProblem(BifurcationProblem):
                "ksp_rtol": 1.0e-10,
                "ksp_atol": 1.0e-10,
                "pc_type": "lu",
-               "pc_factor_mat_solver_package": "mumps",
                "pc_factor_mat_solver_type": "mumps",
                }
 

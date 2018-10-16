@@ -59,6 +59,8 @@ def fetch_bifurcation_problem(path):
                 problem = v()
             except Exception:
                 print("Failed to init BifurcationProblem subclass: %s " % v)
+                print("Backtrace follows:")
+                import traceback; traceback.print_exc()
                 print("Trying other classes...")
             else:
                 break

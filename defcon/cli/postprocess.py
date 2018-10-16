@@ -1,6 +1,7 @@
 from __future__ import absolute_import, print_function
 
 import sys
+from ast import literal_eval
 
 from defcon import backend
 from defcon.cli.common import fetch_bifurcation_problem
@@ -8,16 +9,16 @@ import six
 import gc
 
 def usage(executable):
-    sys.exit("""A script that applies the postprocess routine to all solutions.
+    sys.exit("""A script that applies the postprocess routine to all solutions, or to the solutions at a specified parameter.
 
 Use like
 
-%s /path/to/my/problem.py /path/to/output
+%s /path/to/my/problem.py /path/to/output [params]
 """ % (executable,))
 
 
 def main(args):
-    if len(args) != 3:
+    if len(args) < 3:
         usage(args[0] if len(args) > 0 else "defcon postprocess")
 
     probpath = args[1]
@@ -39,10 +40,28 @@ def main(args):
     io.setup(params, functionals, Z)
     params = consts
 
-    for branchid in six.moves.xrange(io.max_branch()+1):
-        for values in io.known_parameters(fixed={}, branchid=branchid):
+    if len(args) == 4:
+        _values = literal_eval(args[3])
+        def allvalues(branchid):
+            return [_values]
+
+        def allbranches():
+            return io.known_branches(_values)
+    else:
+        def allvalues(branchid):
+            return io.known_parameters(fixed={}, branchid=branchid)
+
+        def allbranches():
+            max_branch = io.max_branch() + 1
+            return six.moves.xrange(max_branch)
+
+    for branchid in allbranches():
+        for values in allvalues(branchid):
             # Read solution
-            solution = io.fetch_solutions(values, [branchid])[0]
+            try:
+                solution = io.fetch_solutions(values, [branchid])[0]
+            except IOError:
+                continue
 
             # Assign constants
             for (const, val) in zip(consts, values):
