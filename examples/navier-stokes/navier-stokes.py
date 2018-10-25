@@ -32,7 +32,7 @@ class NavierStokesProblem(BifurcationProblem):
 
         # build the surface labeling we'll use in the
         # residual definition
-        colours = FacetFunction("size_t", mesh)
+        colours = MeshFunction("size_t", mesh, mesh.topology().dim()-1)
         colours.set_all(0)
 
         class Outflow(SubDomain):
