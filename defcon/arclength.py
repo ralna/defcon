@@ -585,7 +585,10 @@ class ArclengthProblem(object):
         (w,  mu)     = backend.split(test)
 
         if self.state_residual is None:
-            self.state_residual = problem.residual(z, params, w)
+            try:
+                self.state_residual = problem.residual(z, params, w)
+            except:
+                self.state_residual = problem.ac_residual(ac, params, test)
 
         workaround = lambda form: mu*form
         ac_residual = (
