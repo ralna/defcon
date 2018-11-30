@@ -13,6 +13,7 @@ import gc
 import json
 import six
 import os.path
+import sys
 
 import defcon.backend as backend
 from defcon.master import DefconMaster
