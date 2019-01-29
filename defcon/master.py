@@ -178,7 +178,7 @@ class DefconMaster(DefconThread):
         # Initialise Journal
         is_vi = False
         self.journal = FileJournal(self.io.directory, self.parameters.parameters, self.functionals, freeindex, self.signs[freeindex], is_vi)
-        self.journal.setup(self.nteams, min(self.parameters.values[freeparam]), max(self.parameters.values[freeparam]))
+        self.journal.setup(self.nteams, self.teamsize, min(self.parameters.values[freeparam]), max(self.parameters.values[freeparam]))
         self.journal.sweep(self.parameters.values[freeparam][0])
 
         # Seed initial tasks

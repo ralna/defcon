@@ -279,12 +279,13 @@ class PlotConstructor():
                 if self.freeindex is None:
                     self.running = True
 
-                    freeindex, self.parameter_name, functional_names, unicode_functional_names, nteams, minparam, maxparam, othervalues, timestamp, is_vi = dataList[0].split(';')
+                    freeindex, self.parameter_name, functional_names, unicode_functional_names, nteams, teamsize, minparam, maxparam, othervalues, timestamp, is_vi = dataList[0].split(';')
                     self.othervalues = literal_eval(othervalues)
                     self.start_time = float(timestamp)
                     self.minparam = float(minparam)
                     self.maxparam = float(maxparam)
                     self.is_vi = literal_eval(is_vi)
+                    self.teamsize = int(teamsize)
 
                     # Now that we know we're dealing with a VI or not, initialise I/O
                     self.V = self.problem.function_space(self.mesh)
@@ -461,17 +462,12 @@ class PlotConstructor():
                 i += 1
 
         # Fetch parameters for which this branch is known
-        params = self.io.known_parameters(fixed, branchid)
+        paramss = self.io.known_parameters(fixed, branchid)
 
         # Create the file to which we will write these solutions.
-        pvd_filename = os.path.join(self.solutions_dir, "branchid=%s.pvd" % branchid)
-        pvd = backend.File(pvd_filename)
-
         print("Rendering branchid %s to PVD ..." % branchid)
-        for param in params:
-            print("  Saving solution at parameters %s" % (param,))
-            y = self.io.fetch_solutions(param, [branchid])[0]
-            self.problem.save_pvd(y, pvd)
+        pvd_filename = os.path.join(self.solutions_dir, "branchid=%s.pvd" % branchid)
+        self.save_pvd(paramss, [branchid], pvd_filename)
 
         # Finally, launch paraview with the newly created file.
         # If this fails, issue a warning.
@@ -492,13 +488,8 @@ class PlotConstructor():
 
         # Create the file to which we will write these solutions.
         pvd_filename = os.path.join(self.solutions_dir, "parameters=%s.pvd" % (params,)).replace(" ", "_")
-        pvd = backend.File(pvd_filename)
-
         print("Rendering parameters %s to PVD ..." % (params,))
-        for branchid in known_branches:
-            print("  Saving solution for branchid %s" % branchid)
-            y = self.io.fetch_solutions(params, [branchid])[0]
-            self.problem.save_pvd(y, pvd)
+        self.save_pvd([params], known_branches, pvd_filename)
 
         # Finally, launch paraview with the newly created file.
         # If this fails, issue a warning.
@@ -512,9 +503,9 @@ class PlotConstructor():
         if self.annotated_point is not None:
             # Get the solution from the IO module.
             (params, branchids) = self.annotated_point
-            ys = self.io.fetch_solutions(params, branchids)
 
             if self.plot_with_mpl:
+                ys = self.io.fetch_solutions(params, branchids)
                 try:
                     x = backend.interpolate(backend.Expression("x[0]", degree=1), self.V)
                     # FIXME: For functions f other than CG1, we might need to sort both arrays so that x is increasing. Check this out!
@@ -535,12 +526,7 @@ class PlotConstructor():
                 # Create the file to which we will write these solutions.
                 pvd_filename = os.path.join(self.solutions_dir, "SOLUTION$params=%s$branchids=%s.pvd" \
                     % (parameters_to_string(self.io.parameters, params), str(branchids).replace(" ", "_")))
-                pvd = backend.File(pvd_filename)
-
-                # Write the solution.
-                for y in ys:
-                    y.rename("Solution", "Solution")
-                    self.problem.save_pvd(y, pvd)
+                self.save_pvd([params], branchids, pvd_filename)
 
                 # Finally, launch paraview with the newly created file.
                 # If this fails, issue a warning.
@@ -626,6 +612,16 @@ class PlotConstructor():
             ax.clear()
         else: issuewarning("matplotlib2tikz not installed. I can't save to tikz!")
 
+    def save_pvd(self, paramss, branchids, pvdname):
+        if self.teamsize == 1 or backend.__name__ == "dolfin":
+            pvd = backend.File(pvdname)
+            for params in paramss:
+                ys = self.io.fetch_solutions(params, branchids)
+                for y in ys:
+                    y.rename("Solution", "Solution")
+                    self.problem.save_pvd(y, pvd)
+        else:
+            print("Warning: not supported by firedrake, annoyingly")
 
 def main(argv):
     # Set some defaults.

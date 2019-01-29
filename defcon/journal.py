@@ -15,7 +15,7 @@ class Journal(object):
     """
     Base class for Journal implementations.
     """
-    def setup(self, nteams, minparam, maxparam):
+    def setup(self, nteams, teamsize, minparam, maxparam):
         raise NotImplementedError
 
     def entry(self, oldparams, branchid, newparams, functionals, continuation):
@@ -48,7 +48,7 @@ class FileJournal(Journal):
         self.sweep_params = None
         self.is_vi = is_vi
 
-    def setup(self, nteams, minparam, maxparam):
+    def setup(self, nteams, teamsize, minparam, maxparam):
         """ Create the journal file and write the initial line of information. """
         # Create the journal file and directory
         try: os.mkdir(self.directory)
@@ -68,7 +68,7 @@ class FileJournal(Journal):
             pass
 
         with open(self.directory + os.path.sep + "journal.txt", 'w') as f:
-            f.write("%s;%s;%s;%s;%s;%s;%s;%s;%s;%s\n" % (self.freeindex, xlabel, ylabels, unicodeylabels, nteams, minparam, maxparam, others, time.time(), self.is_vi))
+            f.write("%s;%s;%s;%s;%s;%s;%s;%s;%s;%s;%s\n" % (self.freeindex, xlabel, ylabels, unicodeylabels, nteams, teamsize, minparam, maxparam, others, time.time(), self.is_vi))
 
     def entry(self, teamid, oldparams, branchid, newparams, functionals, continuation):
         """ Tell the journal about a new point we've discovered. """
