@@ -56,7 +56,10 @@ def main(args):
     if backend.__name__ == "firedrake":
         if os.path.isfile(filename) and len(args) > 5:
             # set whatever's necessary to re-use the same PVD
-        pvd = backend.File(filename)
+            mode = "a"
+        else:
+            mode = "w"
+        pvd = backend.File(filename, mode=mode)
     else:
         pvd = backend.File(filename)
 
