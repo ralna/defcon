@@ -11,14 +11,15 @@ from defcon.cli.common import fetch_bifurcation_problem
 def usage(executable):
     sys.exit("""A script that converts saved data to PVD.
 Use like
-%s /path/to/my/problem.py /path/to/output/directory values
+%s /path/to/my/problem.py /path/to/output/directory values [branchids] [pvdname]
 e.g.
 %s /path/to/my/problem.py /path/to/output/directory "(0, 0)"
+to fetch all branches at parameters (0, 0) and save them to a default PVD filename.
 """ % (executable, executable))
 
 
 def main(args):
-    if len(args) != 4:
+    if len(args) < 4:
         usage(args[0] if len(args) > 0 else "defcon make-pvd")
 
     probpath = args[1]
@@ -42,9 +43,23 @@ def main(args):
     io.setup(params, functionals, Z)
     params = consts
 
-    filename = os.path.join(outputdir, "viz", "values-%s.pvd" % (args[3],))
-    pvd = backend.File(filename)
-    branches = io.known_branches(values)
+    if len(args) > 4:
+        branches = literal_eval(args[4])
+    else:
+        branches = io.known_branches(values)
+
+    if len(args) > 5:
+        filename = args[5]
+    else:
+        filename = os.path.join(outputdir, "viz", "values-%s.pvd" % (args[3],))
+
+    if backend.__name__ == "firedrake":
+        if os.path.isfile(filename) and len(args) > 5:
+            # set whatever's necessary to re-use the same PVD
+        pvd = backend.File(filename)
+    else:
+        pvd = backend.File(filename)
+
     print("Known branches at %s: %s" % (values, branches))
     solutions = io.fetch_solutions(values, branches)
     for solution in solutions:
