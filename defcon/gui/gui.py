@@ -621,7 +621,17 @@ class PlotConstructor():
                     y.rename("Solution", "Solution")
                     self.problem.save_pvd(y, pvd)
         else:
-            print("Warning: not supported by firedrake, annoyingly")
+            print("Warning: firedrake does not support I/O properly, workaround is slow")
+
+            try:
+                os.remove(pvdname)
+            except OSError:
+                pass
+
+            for params in paramss:
+                args = ["mpiexec", "-n", str(self.teamsize), "defcon", "make-pvd", self.problem._path, self.io.directory, repr(params), repr(branchids), pvdname]
+                dump = Popen(args)
+                dump.wait()
 
 def main(argv):
     # Set some defaults.

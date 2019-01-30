@@ -73,4 +73,6 @@ def fetch_bifurcation_problem(path):
         print("Failed to fetch bifurcation problem")
         return None
 
+    problem._path = probpath
+
     return problem
