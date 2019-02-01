@@ -302,6 +302,7 @@ class ArclengthWorker(DefconWorker):
         arcxmf.parameters["rewrite_function_mesh"] = False
 
         index = -1.0 # needs to be a float, otherwise dolfin does the Wrong Thing. Argh!
+        s = 0.0
 
         # And begin the main loop
         while bounds[0] <= param <= bounds[1]:
@@ -366,6 +367,8 @@ class ArclengthWorker(DefconWorker):
             self.firsttime = False # start deflating prevprev
 
             if success:
+                s += float(self.ds)
+
                 if num_halvings > 0 and adaptive_loop == 0 and iters <= 4: # we have halved the step before, and this worked
                     self.ds.assign(2.0*float(self.ds))
                     self.log("Doubling step to %s" % float(self.ds))
@@ -382,6 +385,8 @@ class ArclengthWorker(DefconWorker):
             arcxmf.write(lmbda_, index)
 
             functionals = self.compute_functionals(z_)
+            problem.monitor_ac(branchid, task.sign, current_params, self.freeindex, z_, functionals, index, s)
+
             del z_
             param = self.fetch_R(lmbda_)
             del lmbda_
@@ -536,7 +541,7 @@ class ArclengthProblem(object):
 
         # A list of functions to just call the underlying problem on
         self.passthrough = ["parameters", "functionals", "io", "solver_parameters",
-                            "nonlinear_problem", "solver", "squared_norm", "save_xmf", "monitor"]
+                            "nonlinear_problem", "solver", "squared_norm", "save_xmf", "monitor", "monitor_ac"]
 
     def setup_spaces(self, comm):
         self.state_residual = None

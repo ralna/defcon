@@ -301,6 +301,14 @@ class BifurcationProblem(object):
         """
         pass
 
+    def monitor_ac(self, branchid, sign, params, freeindex, solution, functionals, index, s):
+        """
+        This method is called whenever a solution is found with arclenth.
+        The user can specify custom processing tasks here.
+        """
+        pass
+
+
     def io(self, prefix="output"):
         """
         Return an IO object that defcon will use to save solutions and functionals.
