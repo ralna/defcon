@@ -4,6 +4,7 @@ from petsc4py import PETSc
 from numpy import isnan
 
 import sys
+import weakref
 
 import defcon.backend as backend
 
@@ -89,7 +90,7 @@ class DeflatedKSP(object):
         self.deflation = deflation
         self.y = y
         self.ksp = ksp
-        self.snes = snes
+        self.snes = weakref.proxy(snes)
 
     def solve(self, ksp, b, dy_pet):
         # Use the inner ksp to solve the original problem
@@ -133,11 +134,17 @@ def newton(F, J, y, bcs, params, problem, solver_params,
         bounds = problem.bounds(y.function_space(), params)
         setSnesBounds(snes, bounds)
 
-    oldksp = snes.ksp
-    oldksp.incrementTabLevel(teamno*2)
-    defksp = DeflatedKSP(deflation, y, oldksp, snes)
-    snes.ksp = PETSc.KSP().createPython(defksp, comm)
-    snes.ksp.pc.setType('none')
+    fiddle_ksp = True
+    if snes.ksp.type == "python":
+        if isinstance(snes.ksp.getPythonContext(), DeflatedKSP):
+            fiddle_ksp = False
+
+    if fiddle_ksp:
+        oldksp = snes.ksp
+        oldksp.incrementTabLevel(teamno*2)
+        defksp = DeflatedKSP(deflation, y, oldksp, snes)
+        snes.ksp = PETSc.KSP().createPython(defksp, comm)
+        snes.ksp.pc.setType('none')
 
     try:
         solver.solve()
@@ -147,8 +154,6 @@ def newton(F, J, y, bcs, params, problem, solver_params,
         import traceback
         traceback.print_exc()
         pass
-
-    del defksp.snes # clean up circular references
 
     success = snes.getConvergedReason() > 0
     iters   = snes.getIterationNumber()
