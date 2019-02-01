@@ -1,23 +1,6 @@
 # -*- coding: utf-8 -*-
-from petsc4py import PETSc
 from firedrake import *
 from defcon import *
-
-params = {
-    "snes_max_it": 100,
-    "snes_atol": 1.0e-9,
-    "snes_rtol": 0.0,
-    "snes_monitor": None,
-    "snes_linesearch_type": "basic",
-    "mat_type": "aij",
-    "ksp_type": "preonly",
-    "pc_type": "lu",
-    "pc_factor_mat_solver_type": "mumps"
-}
-
-options = PETSc.Options()
-for k in params:
-    options[k] = params[k]
 
 class AllenCahnProblem(BifurcationProblem):
     def mesh(self, comm):
@@ -62,6 +45,22 @@ class AllenCahnProblem(BifurcationProblem):
         delta = params[0]
         if delta == 0.04: return 3
         else:             return float("inf")
+
+    def solver_parameters(self, params, task, **kwargs):
+        params = {
+            "snes_max_it": 100,
+            "snes_atol": 1.0e-9,
+            "snes_rtol": 0.0,
+            "snes_monitor": None,
+            "snes_linesearch_type": "l2",
+            "snes_linesearch_maxstep": 1.0,
+            "snes_linesearch_damping": 0.9,
+            "mat_type": "aij",
+            "ksp_type": "preonly",
+            "pc_type": "lu",
+            "pc_factor_mat_solver_type": "mumps"
+        }
+        return params
 
 if __name__ == "__main__":
     dc = DeflatedContinuation(problem=AllenCahnProblem(), teamsize=1, verbose=True, clear_output=True)
