@@ -4,7 +4,7 @@ from defcon import *
 
 class AllenCahnProblem(BifurcationProblem):
     def mesh(self, comm):
-        return UnitSquareMesh(100, 100, "crossed", comm=comm)
+        return UnitSquareMesh(100, 100, diagonal="crossed", comm=comm)
 
     def function_space(self, mesh):
         return FunctionSpace(mesh, "CG", 1)
@@ -52,9 +52,9 @@ class AllenCahnProblem(BifurcationProblem):
             "snes_atol": 1.0e-9,
             "snes_rtol": 0.0,
             "snes_monitor": None,
-            "snes_linesearch_type": "l2",
+            "snes_linesearch_type": "basic",
             "snes_linesearch_maxstep": 1.0,
-            "snes_linesearch_damping": 0.9,
+            "snes_linesearch_damping": 1.0,
             "mat_type": "aij",
             "ksp_type": "preonly",
             "pc_type": "lu",
