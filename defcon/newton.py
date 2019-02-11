@@ -120,7 +120,7 @@ def newton(F, J, y, bcs, params, problem, solver_params,
     npproblem = problem.nonlinear_problem(F, J, y, bcs)
     npproblem.deflation = deflation
 
-    solver = problem.solver(npproblem, params, solver_params, prefix=prefix, dm=dm)
+    solver = problem.solver(npproblem, params, solver_params, prefix=prefix, dm=dm, deflation=deflation)
     snes = solver.snes
 
     # all of this is likely defcon-specific and so shouldn't go
