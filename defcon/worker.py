@@ -174,7 +174,11 @@ class DefconWorker(DefconThread):
             for functional in self.functionals:
                 func = functional[0]
                 j = func(solution, self.parameters.constants)
-                assert isinstance(j, float)
+                if not isinstance(j, float):
+                    try:
+                        j = float(j)
+                    except:
+                        raise ValueError("Functional %s has returned something that can't be cast to a float" % func)
                 funcs.append(j)
 
         return funcs
