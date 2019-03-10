@@ -172,12 +172,12 @@ class SolutionIO(IO):
                         f.flush()
                     break
                 except Exception:
-                    print("Loading file %s failed. Sleeping for a second and trying again." % filename)
+                    print("Loading file %s failed. Sleeping for 10 seconds and trying again." % filename)
                     failcount += 1
                     if failcount == 10:
                         print("Tried 10 times to load file %s. Raising exception." % filename)
                         raise
-                    time.sleep(1)
+                    time.sleep(10)
 
             solns.append(soln)
         return solns
