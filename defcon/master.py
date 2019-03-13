@@ -6,6 +6,7 @@ import six
 
 import time
 
+from defcon.bifurcationproblem import BifurcationProblem
 from defcon.thread import DefconThread
 from defcon.tasks import QuitTask, ContinuationTask, DeflationTask, StabilityTask, Response
 from defcon.journal import FileJournal, task_to_code
@@ -135,7 +136,17 @@ class DefconMaster(DefconThread):
 
         # Should we insert stability tasks? Let's see if the user
         # has overridden the compute_stability method or not
-        self.compute_stability = "compute_stability" in self.problem.__class__.__dict__
+        compute_stability = False
+
+        for klass in self.problem.__class__.__mro__:
+            if klass is BifurcationProblem:
+                break
+
+            if "compute_stability" in klass.__dict__:
+                compute_stability = True
+                break
+
+        self.compute_stability = compute_stability
 
         if self.profile:
             self.graph = ProfiledDefconGraph(self.nteams)
