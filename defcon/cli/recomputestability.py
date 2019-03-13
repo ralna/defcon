@@ -51,8 +51,8 @@ def main(args):
     for branchid in six.moves.xrange(io.max_branch()+1):
         params = io.known_parameters(fixed={}, branchid=branchid)
         for param in params:
-            consts = map(backend.Constant, param)
-            floats = map(float, param)
+            consts = [backend.Constant(p) for p in param]
+            floats = [float(p) for p in param]
 
             solver_parameters = problem.solver_parameters(floats, StabilityTask)
             if "snes_linesearch_type" not in solver_parameters:
