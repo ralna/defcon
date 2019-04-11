@@ -55,8 +55,8 @@ class HyperelasticityProblem(BifurcationProblem):
 
     def boundary_conditions(self, V, params):
         eps = params[0]
-        bcl = DirichletBC(V, (0.0,  0.0), 1)
-        bcr = DirichletBC(V, (-eps, 0.0), 2)
+        bcl = DirichletBC(V, Constant((0.0,  0.0)), 1)
+        bcr = DirichletBC(V, Constant((-eps, 0.0)), 2)
 
         return [bcl, bcr]
 
