@@ -27,6 +27,7 @@ def main(args):
     if outputdir.endswith("/"): outputdir = outputdir[:-1]
     values = literal_eval(args[3])
     if isinstance(values, float): values = (values,)
+    if not isinstance(values, list): values = [values]
 
     problem = fetch_bifurcation_problem(probpath)
     if problem is None:
@@ -43,11 +44,6 @@ def main(args):
     io.setup(params, functionals, Z)
     params = consts
 
-    if len(args) > 4:
-        branches = literal_eval(args[4])
-    else:
-        branches = io.known_branches(values)
-
     if len(args) > 5:
         filename = args[5]
     else:
@@ -63,10 +59,16 @@ def main(args):
     else:
         pvd = backend.File(filename)
 
-    print("Known branches at %s: %s" % (values, branches))
-    solutions = io.fetch_solutions(values, branches)
-    for solution in solutions:
-        solution.rename("Solution", "Solution")
-        problem.save_pvd(solution, pvd)
+    for value in values:
+        if len(args) > 4:
+            branches = literal_eval(args[4])
+        else:
+            branches = io.known_branches(value)
 
-    print("Wrote to " + filename)
+        print("Known branches at %s: %s" % (value, branches))
+        solutions = io.fetch_solutions(value, branches)
+        for solution in solutions:
+            solution.rename("Solution", "Solution")
+            problem.save_pvd(solution, pvd)
+
+        print("Wrote to " + filename)

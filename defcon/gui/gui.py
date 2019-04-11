@@ -628,10 +628,9 @@ class PlotConstructor():
             except OSError:
                 pass
 
-            for params in paramss:
-                args = ["mpiexec", "-n", str(self.teamsize), "defcon", "make-pvd", self.problem._path, self.io.directory, repr(params), repr(branchids), pvdname]
-                dump = Popen(args)
-                dump.wait()
+            args = ["mpiexec", "-n", str(self.teamsize), "defcon", "make-pvd", self.problem._path, self.io.directory, repr(paramss), repr(branchids), pvdname]
+            dump = Popen(args)
+            dump.wait()
 
 def main(argv):
     # Set some defaults.
