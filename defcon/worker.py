@@ -294,6 +294,8 @@ class DefconWorker(DefconThread):
                 self.load_solution(task.oldparams, task.source_branchid, task.newparams)
             else:
                 self.load_solution(task.oldparams, task.branchid, task.newparams)
+
+            out = self.problem.transform_guess(task.oldparams, task.newparams, self.state); assert out is None
             self.load_parameters(task.newparams)
             other_solutions = self.io.fetch_solutions(task.newparams, task.ensure_branches)
 
