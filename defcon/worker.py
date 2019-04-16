@@ -193,7 +193,7 @@ class DefconWorker(DefconThread):
         # Set up the problem
         with Event("deflation: loading"):
             self.load_solution(task.oldparams, task.branchid, task.newparams)
-            out = self.problem.transform_guess(task.oldparams, task.newparams, self.state); assert out is None
+            out = self.problem.transform_guess(self.state, task, self.io); assert out is None
 
             self.load_parameters(task.newparams)
             other_solutions = self.io.fetch_solutions(task.newparams, task.ensure_branches)
@@ -295,7 +295,7 @@ class DefconWorker(DefconThread):
             else:
                 self.load_solution(task.oldparams, task.branchid, task.newparams)
 
-            out = self.problem.transform_guess(task.oldparams, task.newparams, self.state); assert out is None
+            out = self.problem.transform_guess(self.state, task, self.io); assert out is None
             self.load_parameters(task.newparams)
             other_solutions = self.io.fetch_solutions(task.newparams, task.ensure_branches)
 

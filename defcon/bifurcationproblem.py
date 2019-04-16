@@ -456,7 +456,7 @@ class BifurcationProblem(object):
         and allows for the user to tune the solver parameters as required."""
         return {}
 
-    def transform_guess(self, oldparams, newparams, state):
+    def transform_guess(self, state, task, io):
         """
         When performing deflation, it's sometimes useful to modify the
         initial guess in some way (e.g. Hermite promotion in the case
