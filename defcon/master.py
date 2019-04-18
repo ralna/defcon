@@ -94,7 +94,7 @@ class DefconMaster(DefconThread):
             self.used_initial_guesses = True
             oldparams = None
             nguesses = self.problem.number_initial_guesses(initialparams)
-            for guess in range(nguesses):
+            for guess in list(range(nguesses))[::-1]:
                 task = DeflationTask(taskid=self.taskid_counter,
                                      oldparams=oldparams,
                                      freeindex=freeindex,
