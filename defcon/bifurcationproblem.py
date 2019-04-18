@@ -597,3 +597,17 @@ class BifurcationProblem(object):
             the form for the residual
         """
         raise NotImplementedError
+
+    def launch_paraview(self, filename):
+        """
+        This can be used to set a default visualisation for paraview.
+        For example, if you override this and set it to
+
+        subprocess.Popen(["paraview", "--script=viz.py", filename])
+
+        then paraview will execute the Python script viz.py on launch.
+        (You can make such scripts with 'Start trace' in paraview.)
+        """
+
+        from subprocess import Popen
+        Popen(["paraview", filename])

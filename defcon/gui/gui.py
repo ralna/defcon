@@ -471,7 +471,7 @@ class PlotConstructor():
 
         # Finally, launch paraview with the newly created file.
         # If this fails, issue a warning.
-        try: Popen(["paraview", pvd_filename])
+        try: self.problem.launch_paraview(pvd_filename)
         except Exception as e:
             issuewarning("Oops, something went wrong with launching paraview. Are you sure you have it installed and on your PATH? The error was:")
             print(str(e))
@@ -493,7 +493,7 @@ class PlotConstructor():
 
         # Finally, launch paraview with the newly created file.
         # If this fails, issue a warning.
-        try: Popen(["paraview", pvd_filename])
+        try: self.problem.launch_paraview(pvd_filename)
         except Exception as e:
             issuewarning("Oops, something went wrong with launching paraview. Are you sure you have it installed and on your PATH? The error was:")
             print(str(e))
@@ -530,7 +530,7 @@ class PlotConstructor():
 
                 # Finally, launch paraview with the newly created file.
                 # If this fails, issue a warning.
-                try: Popen(["paraview", pvd_filename])
+                try: self.problem.launch_paraview(pvd_filename)
                 except Exception as e:
                     issuewarning("Oops, something went wrong with launching paraview. Are you sure you have it installed and on your PATH? The error was:")
                     print(str(e))
