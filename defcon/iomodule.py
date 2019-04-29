@@ -215,7 +215,7 @@ class SolutionIO(IO):
         for param in saved_params:
             should_add = True
             for (index, value) in zip(fixed_indices, fixed_values):
-                if param[index] != value:
+                if param[index] != float("%.15e" % value):
                     should_add = False
                     break
 
