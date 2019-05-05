@@ -174,7 +174,11 @@ class DefconWorker(DefconThread):
             for functional in self.functionals:
                 func = functional[0]
                 j = func(solution, self.parameters.constants)
-                assert isinstance(j, float)
+                if not isinstance(j, float):
+                    try:
+                        j = float(j)
+                    except:
+                        raise ValueError("Functional %s has returned something that can't be cast to a float" % func)
                 funcs.append(j)
 
         return funcs
@@ -189,7 +193,7 @@ class DefconWorker(DefconThread):
         # Set up the problem
         with Event("deflation: loading"):
             self.load_solution(task.oldparams, task.branchid, task.newparams)
-            out = self.problem.transform_guess(task.oldparams, task.newparams, self.state); assert out is None
+            out = self.problem.transform_guess(self.state, task, self.io); assert out is None
 
             self.load_parameters(task.newparams)
             other_solutions = self.io.fetch_solutions(task.newparams, task.ensure_branches)
@@ -290,6 +294,8 @@ class DefconWorker(DefconThread):
                 self.load_solution(task.oldparams, task.source_branchid, task.newparams)
             else:
                 self.load_solution(task.oldparams, task.branchid, task.newparams)
+
+            out = self.problem.transform_guess(self.state, task, self.io); assert out is None
             self.load_parameters(task.newparams)
             other_solutions = self.io.fetch_solutions(task.newparams, task.ensure_branches)
 

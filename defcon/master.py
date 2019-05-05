@@ -6,6 +6,7 @@ import six
 
 import time
 
+from defcon.bifurcationproblem import BifurcationProblem
 from defcon.thread import DefconThread
 from defcon.tasks import QuitTask, ContinuationTask, DeflationTask, StabilityTask, Response
 from defcon.journal import FileJournal, task_to_code
@@ -93,7 +94,7 @@ class DefconMaster(DefconThread):
             self.used_initial_guesses = True
             oldparams = None
             nguesses = self.problem.number_initial_guesses(initialparams)
-            for guess in range(nguesses):
+            for guess in list(range(nguesses))[::-1]:
                 task = DeflationTask(taskid=self.taskid_counter,
                                      oldparams=oldparams,
                                      freeindex=freeindex,
@@ -135,7 +136,17 @@ class DefconMaster(DefconThread):
 
         # Should we insert stability tasks? Let's see if the user
         # has overridden the compute_stability method or not
-        self.compute_stability = "compute_stability" in self.problem.__class__.__dict__
+        compute_stability = False
+
+        for klass in self.problem.__class__.__mro__:
+            if klass is BifurcationProblem:
+                break
+
+            if "compute_stability" in klass.__dict__:
+                compute_stability = True
+                break
+
+        self.compute_stability = compute_stability
 
         if self.profile:
             self.graph = ProfiledDefconGraph(self.nteams)
@@ -178,7 +189,7 @@ class DefconMaster(DefconThread):
         # Initialise Journal
         is_vi = False
         self.journal = FileJournal(self.io.directory, self.parameters.parameters, self.functionals, freeindex, self.signs[freeindex], is_vi)
-        self.journal.setup(self.nteams, min(self.parameters.values[freeparam]), max(self.parameters.values[freeparam]))
+        self.journal.setup(self.nteams, self.teamsize, min(self.parameters.values[freeparam]), max(self.parameters.values[freeparam]))
         self.journal.sweep(self.parameters.values[freeparam][0])
 
         # Seed initial tasks

@@ -59,7 +59,7 @@ setup(name="defcon",
       license="GNU LGPL v3 or later",
       packages=packages,
       package_dir={"defcon": "defcon"},
-      package_data={"defcon": ["Probe/*.h", "Probe/*.cpp", "gui/resources/*.png"]},
+      package_data={"defcon": ["gui/resources/*.png"]},
       data_files=[(os.path.join("share", "defcon", os.path.dirname(f)), [f])
                   for f in demofiles],
       entry_points=entry_points,

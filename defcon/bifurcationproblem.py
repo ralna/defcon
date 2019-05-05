@@ -301,6 +301,14 @@ class BifurcationProblem(object):
         """
         pass
 
+    def monitor_ac(self, branchid, sign, params, freeindex, solution, functionals, index, s):
+        """
+        This method is called whenever a solution is found with arclenth.
+        The user can specify custom processing tasks here.
+        """
+        pass
+
+
     def io(self, prefix="output"):
         """
         Return an IO object that defcon will use to save solutions and functionals.
@@ -448,7 +456,7 @@ class BifurcationProblem(object):
         and allows for the user to tune the solver parameters as required."""
         return {}
 
-    def transform_guess(self, oldparams, newparams, state):
+    def transform_guess(self, state, task, io):
         """
         When performing deflation, it's sometimes useful to modify the
         initial guess in some way (e.g. Hermite promotion in the case
@@ -543,3 +551,63 @@ class BifurcationProblem(object):
             return tangent(*args, **kwargs)
         """
         pass
+
+    def ac_residual(self, ac_state, params, ac_test):
+        """
+        This method is an ugly workaround for a serious design flaw in UFL.
+
+        In UFL, one cannot split or differentiate a form with respect to the
+        output of split. This is a problem for us when we do arclength continuation,
+        as I need to re-use the user's residual in a bigger system for state x parameter.
+        However, if the user's code uses split or derivative (quite reasonable and
+        common things to do), this breaks.
+
+        When the arclength code is calculating the state residual, it first tries to
+        call BifurcationProblem.residual on the state component of the bigger mixed
+        function space; if that fails, it calls this, on the _entire_ arclength
+        state and test functions. This means that one can do something like
+
+        def residual(self, u, params, v):
+            # Normal state residual
+            Energy = self.energy(u, params)
+            L = derivative(Energy, u, v)
+
+            return L
+
+        def ac_residual(self, ac, params, w):
+            # State residual for use in arclength calculation
+            (u, _) = split(ac)
+            Energy = self.energy(u, params)
+            L = derivative(Energy, ac, w)
+
+            return L
+
+        to take the derivative with respect to the whole function instead of the original
+        split state.
+
+        *Arguments*
+          state (:py:class:`dolfin.Function`)
+            a Function in the FunctionSpace
+          params (tuple of :py:class:`dolfin.Constant`)
+            the parameters to use, in the same order returned by parameters()
+          test  (:py:class:`dolfin.TestFunction`)
+            the test function to use in defining the residual
+        *Returns*
+          residual (:py:class:`ufl.form.Form`)
+            the form for the residual
+        """
+        raise NotImplementedError
+
+    def launch_paraview(self, filename):
+        """
+        This can be used to set a default visualisation for paraview.
+        For example, if you override this and set it to
+
+        subprocess.Popen(["paraview", "--script=viz.py", filename])
+
+        then paraview will execute the Python script viz.py on launch.
+        (You can make such scripts with 'Start trace' in paraview.)
+        """
+
+        from subprocess import Popen
+        Popen(["paraview", filename])

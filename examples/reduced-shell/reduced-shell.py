@@ -6,15 +6,9 @@
 # This example shows how to do multi-parameter continuation
 # (see the branch_found method of the ReducedNaghdi class).
 
-import sys
-import os
-from   math import floor
-
 from petsc4py import PETSc
 from dolfin import *
 from defcon import *
-
-from numpy import array
 
 parameters.form_compiler.quadrature_degree = 4
 
@@ -100,13 +94,13 @@ class ReducedNaghdi(BifurcationProblem):
     def functionals(self):
 
         def kxx(u, params):
-            return u.vector().array()[0]
+            return u.vector().get_local()[0]
 
         def kyy(u, params):
-            return u.vector().array()[1]
+            return u.vector().get_local()[1]
 
         def kxy(u, params):
-            return u.vector().array()[2]
+            return u.vector().get_local()[2]
 
         def energy(u, params):
             params = [Constant(x) for x in params]
@@ -167,12 +161,12 @@ class ReducedNaghdi(BifurcationProblem):
         else:
             return float("inf")
 
-    def transform_guess(self, oldparams, newparams, state):
+    def transform_guess(self, state, task, io):
         # Perturb the guess to break the symmetry --- need to
         # get off the Z_2 symmetric manifold
-        copy = array(state.vector())
+        copy = state.vector().get_local()
         copy[0] *= 1.01
-        state.vector()[:] = copy[:]
+        state.vector().set_local(copy)
 
     def solver_parameters(self, params, task, **kwargs):
         return {
@@ -211,5 +205,5 @@ c0loadings = linspace(0, c0max, Nc0)
 cIloadings = linspace(0, cImax, NcI)
 
 if __name__ == "__main__":
-    dc = DeflatedContinuation(problem=ReducedNaghdi(), teamsize=1, verbose=True, clear_output=True, logfiles=True)
+    dc = DeflatedContinuation(problem=ReducedNaghdi(), teamsize=1, verbose=True, clear_output=True, logfiles=False)
     dc.run(values={"c_0": c0loadings, "c_I": cIloadings}, freeparam="c_0")

@@ -106,7 +106,7 @@ class HyperelasticityProblem(BifurcationProblem):
 
         if snes.ksp.type != "preonly":
             # Convert rigid body modes (computed in self.function_space above) to PETSc Vec
-            rbms = map(vec, self.rbms)
+            rbms = list(map(vec, self.rbms))
 
             # Create the PETSc nullspace
             nullsp = PETSc.NullSpace().create(vectors=rbms, constant=False, comm=snes.comm)

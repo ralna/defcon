@@ -27,7 +27,7 @@ class ElasticaProblem(BifurcationProblem):
         F = (
               inner(grad(theta), grad(v))*dx
               - lmbda**2*sin(theta)*v*dx
-              + mu*v*dx
+              + mu*cos(theta)*v*dx
             )
 
         return F
