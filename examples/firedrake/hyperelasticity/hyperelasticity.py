@@ -6,6 +6,7 @@ from firedrake import *
 from defcon import *
 
 from petsc4py import PETSc
+from slepc4py import SLEPc
 
 class HyperelasticityProblem(BifurcationProblem):
     def mesh(self, comm):
@@ -141,9 +142,72 @@ class HyperelasticityProblem(BifurcationProblem):
                "st_pc_type": "lu",
                "st_pc_factor_mat_solver_type": "mumps",
                }
+    def compute_stability(self, params,branchid,u,hint=None):
+        V = u.function_space()
+        trial = TrialFunction(V)
+        test = TestFunction(V)
+        
+        bcs = self.boundary_conditions(V,params)
+        comm = V.mesh().comm
+        
+        F = self.residual(u, list(map(Constant,params)),test)
+        J = derivative(F,u,trial)
+        
+        A = assemble(J, bcs=bcs)
+        M = assemble(inner(test,trial)*dx, bcs = bcs)
+        
+        # There must be a better way of doing this
+        from firedrake.preconditioners.patch import bcdofs
+        for bc in bcs:
+            M.M.handle.zeroRows(bcdofs(bc),diag = False)
+        
+        # Create the SLEPc eigensolver
+        eps = SLEPc.EPS().create(comm=comm)
+        eps.setOperators(A.M.handle, M.M.handle)
+        eps.setWhichEigenpairs(eps.Which.SMALLEST_MAGNITUDE)
+        eps.setProblemType(eps.ProblemType.GHEP)
+        eps.setFromOptions()
+
+        # If we have a hint, use it - eigenfunctions from previous solve
+        if hint is not None:
+            initial_space = []
+            for x in hint:
+                # Read only eigenfuction
+                with x.dat.vec_ro as y:
+                    initial_space.append(y.copy())
+            eps.setInitialSpace(initial_space)
+        
+        eps.solve()
+        eigenvalues = []
+        eigenfunctions = []
+        eigenfunction = Function(V, name = "Eigenfunction")
+        
+        for i in range(eps.getConverged()):
+            lmbda = eps.getEigenvalue(i)
+            assert lmbda.imag == 0
+            eigenvalues.append(lmbda.real)
+            # Write only eigenfunction
+            with eigenfunction.dat.vec_wo as x:
+                eps.getEigenvector(i,x)
+            eigenfunctions.append(eigenfunction.copy(deepcopy=True))
+
+        if min(eigenvalues) < 0:
+            is_stable = False
+        else:
+            is_stable = True
+
+        d = {"stable": is_stable,
+             "eigenvalues": eigenvalues,
+             "eigenfunctions": eigenfunctions,
+             "hint": eigenfunctions}
+        
+        return d
+        
+        
 
 
 if __name__ == "__main__":
     dc = DeflatedContinuation(problem=HyperelasticityProblem(), teamsize=1, verbose=True, clear_output=True)
     params = list(arange(0.0, 0.2, 0.001)) + [0.2]
     dc.run(values={"eps": params})
+
