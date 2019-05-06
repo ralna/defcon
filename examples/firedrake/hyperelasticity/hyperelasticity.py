@@ -159,7 +159,8 @@ class HyperelasticityProblem(BifurcationProblem):
         # There must be a better way of doing this
         from firedrake.preconditioners.patch import bcdofs
         for bc in bcs:
-            M.M.handle.zeroRows(bcdofs(bc),diag = False)
+            # Ensure symmetry of M
+            M.M.handle.zeroRowsColumns(bcdofs(bc),diag = False)
         
         # Create the SLEPc eigensolver
         eps = SLEPc.EPS().create(comm=comm)
@@ -209,4 +210,4 @@ class HyperelasticityProblem(BifurcationProblem):
 if __name__ == "__main__":
     dc = DeflatedContinuation(problem=HyperelasticityProblem(), teamsize=1, verbose=True, clear_output=True)
     params = list(arange(0.0, 0.2, 0.001)) + [0.2]
-    dc.run(values={"eps": params})
+    dc.run(values={"eps": params[:3]})
