@@ -160,7 +160,7 @@ class HyperelasticityProblem(BifurcationProblem):
         from firedrake.preconditioners.patch import bcdofs
         for bc in bcs:
             # Ensure symmetry of M
-            M.M.handle.zeroRowsColumns(bcdofs(bc),diag = False)
+            M.M.handle.zeroRowsColumns(bcdofs(bc),diag = 0)
         
         # Create the SLEPc eigensolver
         eps = SLEPc.EPS().create(comm=comm)
