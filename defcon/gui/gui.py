@@ -369,8 +369,17 @@ class PlotConstructor():
         xs = [float(point[0][self.freeindex]) for point in self.points[:self.time]]
         ys = [float(point[1][self.current_functional]) for point in self.points[:self.time]]
 
-        xlen = max(xs) - min(xs)
-        ylen = max(ys) - min(ys)
+
+        # Empty lists throw a fatal error (Python 3.4+ has a better solution)
+        try:
+            xlen = max(xs) - min(xs)
+        except ValueError:
+            xlen = 1
+
+        try:
+            ylen = max(ys) - min(ys)
+        except ValueError:
+            ylen = 1
 
         if xlen == 0: xlen = 1
         if ylen == 0: ylen = 1
