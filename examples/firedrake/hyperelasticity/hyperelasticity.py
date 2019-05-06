@@ -210,4 +210,4 @@ class HyperelasticityProblem(BifurcationProblem):
 if __name__ == "__main__":
     dc = DeflatedContinuation(problem=HyperelasticityProblem(), teamsize=1, verbose=True, clear_output=True)
     params = list(arange(0.0, 0.2, 0.001)) + [0.2]
-    dc.run(values={"eps": params[:3]})
+    dc.run(values={"eps": params})
