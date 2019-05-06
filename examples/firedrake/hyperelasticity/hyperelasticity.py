@@ -142,26 +142,28 @@ class HyperelasticityProblem(BifurcationProblem):
                "st_pc_type": "lu",
                "st_pc_factor_mat_solver_type": "mumps",
                }
+
+
     def compute_stability(self, params,branchid,u,hint=None):
         V = u.function_space()
         trial = TrialFunction(V)
         test = TestFunction(V)
-        
-        bcs = self.boundary_conditions(V,params)
+
+        bcs = self.boundary_conditions(V, params)
         comm = V.mesh().comm
-        
-        F = self.residual(u, list(map(Constant,params)),test)
-        J = derivative(F,u,trial)
-        
+
+        F = self.residual(u, list(map(Constant,params)), test)
+        J = derivative(F, u, trial)
+
         A = assemble(J, bcs=bcs)
-        M = assemble(inner(test,trial)*dx, bcs = bcs)
-        
+        M = assemble(inner(test,trial)*dx, bcs=bcs)
+
         # There must be a better way of doing this
         from firedrake.preconditioners.patch import bcdofs
         for bc in bcs:
             # Ensure symmetry of M
-            M.M.handle.zeroRowsColumns(bcdofs(bc),diag = 0)
-        
+            M.M.handle.zeroRowsColumns(bcdofs(bc), diag=0)
+
         # Create the SLEPc eigensolver
         eps = SLEPc.EPS().create(comm=comm)
         eps.setOperators(A.M.handle, M.M.handle)
@@ -177,17 +179,16 @@ class HyperelasticityProblem(BifurcationProblem):
                 with x.dat.vec_ro as y:
                     initial_space.append(y.copy())
             eps.setInitialSpace(initial_space)
-        
+
         eps.solve()
         eigenvalues = []
         eigenfunctions = []
-        eigenfunction = Function(V, name = "Eigenfunction")
-        
+        eigenfunction = Function(V, name="Eigenfunction")
+
         for i in range(eps.getConverged()):
             lmbda = eps.getEigenvalue(i)
             assert lmbda.imag == 0
             eigenvalues.append(lmbda.real)
-            # Write only eigenfunction
             with eigenfunction.dat.vec_wo as x:
                 eps.getEigenvector(i,x)
             eigenfunctions.append(eigenfunction.copy(deepcopy=True))
@@ -201,10 +202,8 @@ class HyperelasticityProblem(BifurcationProblem):
              "eigenvalues": eigenvalues,
              "eigenfunctions": eigenfunctions,
              "hint": eigenfunctions}
-        
+
         return d
-        
-        
 
 
 if __name__ == "__main__":
