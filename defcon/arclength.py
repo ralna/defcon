@@ -430,7 +430,9 @@ class ArclengthWorker(DefconWorker):
             rval = backend.MPI.sum(r.function_space().mesh().mpi_comm(), rval)
             return rval
         else:
-            raise NotImplementedError("Don't know how to do this in firedrake")
+            with r.dat.vec_ro as v:
+                out = v.sum()
+            return out
 
 class ArclengthMaster(DefconMaster):
     """
@@ -568,7 +570,10 @@ class ArclengthProblem(object):
         # arclength system for, return the part of it that denotes the state
         # we're solving for
         if deep:
-            return ac.split(deepcopy=True)[0]
+            if backend.__name__ == "dolfin":
+                return ac.split(deepcopy=True)[0]
+            else:
+                return ac.split()[0]
         else:
             return backend.split(ac)[0]
 
@@ -577,7 +582,10 @@ class ArclengthProblem(object):
         # arclength system for, return the part of it that denotes the parameter
         # we're solving for
         if deep:
-            return ac.split(deepcopy=True)[1]
+            if backend.__name__ == "dolfin":
+                return ac.split(deepcopy=True)[1]
+            else:
+                return ac.split()[1]
         else:
             return backend.split(ac)[1]
 
