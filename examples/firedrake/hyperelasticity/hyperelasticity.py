@@ -144,7 +144,7 @@ class HyperelasticityProblem(BifurcationProblem):
                }
 
 
-    def compute_stability(self, params,branchid,u,hint=None):
+    def compute_stability(self, params, branchid, u, hint=None):
         V = u.function_space()
         trial = TrialFunction(V)
         test = TestFunction(V)
@@ -152,7 +152,7 @@ class HyperelasticityProblem(BifurcationProblem):
         bcs = self.boundary_conditions(V, params)
         comm = V.mesh().comm
 
-        F = self.residual(u, list(map(Constant,params)), test)
+        F = self.residual(u, list(map(Constant, params)), test)
         J = derivative(F, u, trial)
 
         A = assemble(J, bcs=bcs)
