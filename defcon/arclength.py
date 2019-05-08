@@ -295,11 +295,12 @@ class ArclengthWorker(DefconWorker):
         # Data for step halving for robustness
         num_halvings = 0
 
-        arcpath = os.path.join(self.io.directory, "arclength", "params-%s-freeindex-%s-branchid-%s-ds-%.14e.xdmf" % (parameters_to_string(self.io.parameters, params), self.freeindex, branchid, self.ds))
-        arcxmf = backend.XDMFFile(make_comm(self.teamcomm), arcpath)
-        arcxmf.parameters["flush_output"] = True
-        arcxmf.parameters["functions_share_mesh"] = True
-        arcxmf.parameters["rewrite_function_mesh"] = False
+        if backend.__name__ == "dolfin":
+            arcpath = os.path.join(self.io.directory, "arclength", "params-%s-freeindex-%s-branchid-%s-ds-%.14e.xdmf" % (parameters_to_string(self.io.parameters, params), self.freeindex, branchid, self.ds))
+            arcxmf = backend.XDMFFile(make_comm(self.teamcomm), arcpath)
+            arcxmf.parameters["flush_output"] = True
+            arcxmf.parameters["functions_share_mesh"] = True
+            arcxmf.parameters["rewrite_function_mesh"] = False
 
         index = -1.0 # needs to be a float, otherwise dolfin does the Wrong Thing. Argh!
         s = 0.0
@@ -380,9 +381,10 @@ class ArclengthWorker(DefconWorker):
             z_ = problem.ac_to_state(self.state, deep=True)
             lmbda_ = problem.ac_to_parameter(self.state, deep=True)
             lmbda_.rename(paramname, paramname)
-            self.log("Saving with index = %s" % index)
-            problem.save_xmf(z_, arcxmf, index)
-            arcxmf.write(lmbda_, index)
+            if backend.__name__ == "dolfin":
+                self.log("Saving with index = %s" % index)
+                problem.save_xmf(z_, arcxmf, index)
+                arcxmf.write(lmbda_, index)
 
             functionals = self.compute_functionals(z_)
             problem.monitor_ac(branchid, task.sign, current_params, self.freeindex, z_, functionals, index, s)
@@ -649,14 +651,16 @@ class ArclengthProblem(object):
         return (bcs, hbcs)
 
     def load_solution(self, z, param, ac_state):
-        backend.assign(ac_state.sub(0), z)
 
         if backend.__name__  == "dolfin":
+            backend.assign(ac_state.sub(0), z)
             r = backend.Function(self.R)
             r.assign(param)
             backend.assign(ac_state.sub(1), r)
+
         elif backend.__name__ == "firedrake":
-            raise NotImplementedError("Don't know how to assign to subfunctions in firedrake")
+            ac_state.split()[0].assign(z)
+            ac_state.split()[1].assign(backend.Constant(param))
 
     def __getattr__(self, name):
         if name in self.passthrough:
