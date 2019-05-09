@@ -1,6 +1,9 @@
 from defcon import *
 from gerard import GerardProblem
+import pytest
+import petsc4py
 
+@pytest.mark.skip(reason="Doesn't work with old versions of petsc4py used in FEniCS docker images")
 def test_gerard():
     problem = GerardProblem()
     deflation = ShiftedDeflation(problem, power=1, shift=1)

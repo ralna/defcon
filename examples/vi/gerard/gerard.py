@@ -13,7 +13,7 @@ inf = 1e20
 N = 10
 
 def packer(vec):
-    class DolfinIsClumsySometimes(UserExpression):
+    class DolfinIsClumsySometimes(Expression):
         def eval(self, values, x):
             values[:] = vec
         def value_shape(self):
