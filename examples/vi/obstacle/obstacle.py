@@ -65,21 +65,43 @@ class ObstacleProblem(BifurcationProblem):
 
     def bounds(self, V, params):
         scale = params[1]
-        class Obstacle(Expression):
-            def eval(self, values, x):
-                if x[0] < -0.5:
-                    values[0] = scale*-0.2
-                    return
-                if -0.5 <= x[0] <= 0.0:
-                    values[0] = scale*-0.4
-                    return
-                if 0.0 <= x[0] < 0.5:
-                    values[0] = scale*-0.6
-                    return
-                if 0.5 <= x[0] <= 1.0:
-                    values[0] = scale*-0.8
-                    return
-        lb = Obstacle(degree=1)
+
+        try:
+
+            class Obstacle(Expression):
+                def eval(self, values, x):
+                    if x[0] < -0.5:
+                        values[0] = scale*-0.2
+                        return
+                    if -0.5 <= x[0] <= 0.0:
+                        values[0] = scale*-0.4
+                        return
+                    if 0.0 <= x[0] < 0.5:
+                        values[0] = scale*-0.6
+                        return
+                    if 0.5 <= x[0] <= 1.0:
+                        values[0] = scale*-0.8
+                        return
+            lb = Obstacle(degree=1)
+
+        except RuntimeError:
+
+            class Obstacle(UserExpression):
+                def eval(self, values, x):
+                    if x[0] < -0.5:
+                        values[0] = scale*-0.2
+                        return
+                    if -0.5 <= x[0] <= 0.0:
+                        values[0] = scale*-0.4
+                        return
+                    if 0.0 <= x[0] < 0.5:
+                        values[0] = scale*-0.6
+                        return
+                    if 0.5 <= x[0] <= 1.0:
+                        values[0] = scale*-0.8
+                        return
+            lb = Obstacle(degree=1)
+
         ub = Constant(1e20)
 
         l = interpolate(lb, V)
