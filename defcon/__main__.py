@@ -18,6 +18,7 @@ Commands:
   recompute-stability
   postprocess
   compute-distances
+  plot-stability
 
 Help:
   defcon <command> -h
@@ -77,6 +78,9 @@ def main(args=None):
     elif cmd == "compute-distances":
         import defcon.cli.computedistances
         return defcon.cli.computedistances.main(args)
+    elif cmd == "plot-stability":
+        import defcon.cli.plotstability
+        return defcon.cli.plotstability.main(args)
     else:
         print("Unknown command specified.")
         usage()

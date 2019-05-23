@@ -8,6 +8,7 @@ from mpi4py import MPI
 
 try:
     import matplotlib
+    __default_matplotlib_backend = matplotlib.get_backend()
     matplotlib.use('PDF')
 except ImportError:
     pass
