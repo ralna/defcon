@@ -27,8 +27,8 @@ def main(args):
     outputdir = args[2]
     if outputdir.endswith("/"): outputdir = outputdir[:-1]
     branchids = literal_eval(args[3])
-    if isinstance(branchids, int): branchids = (branchids,)
-    if not isinstance(branchids, list): branchids = [branchids]
+    if isinstance(branchids, int): branchids = [branchids]
+    if not isinstance(branchids, list): branchids = list(branchids)
 
     problem = fetch_bifurcation_problem(probpath)
     if problem is None:
@@ -62,9 +62,13 @@ def main(args):
         allparams = allparams.union(set(knownparams))
     print(allparams)
 
-    for params in allparams:
+    for params in sorted(allparams):
         stabs = io.fetch_stability(params, branchids, fetch_eigenfunctions=False)
-        for stab in stabs:
+        for (stab, branch) in zip(stabs, branchids):
+            print("Eigenvalues for branch %s at parameters %s:" % (branch, str(params)))
+            for eval_ in stab["eigenvalues"]:
+                print("  %s" % eval_)
+
             evals = map(complex, stab["eigenvalues"])
             for eval_ in evals:
                 plt.plot(eval_.real, eval_.imag, 'bo')

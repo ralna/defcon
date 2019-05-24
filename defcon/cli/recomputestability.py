@@ -70,6 +70,7 @@ def main(args):
                 opts[k] = solver_parameters[k]
 
             solution = io.fetch_solutions(floats, [branchid])[0]
+            print("Computing stability for parameters %s" % floats)
             d = problem.compute_stability(consts, branchid, solution)
             io.save_stability(d["stable"], d.get("eigenvalues", []), d.get("eigenfunctions", []), floats, branchid)
             print("parameters/branchid %s/%s: stability: %s" % (floats, branchid, d["stable"]))
