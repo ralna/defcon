@@ -374,6 +374,13 @@ class ApplicationWindow(QtGui.QMainWindow):
         self.buttonPostProcess.setFixedWidth(120)
         plotBox.addWidget(self.buttonPostProcess)
 
+        self.buttonPlotEigenvalues = QtGui.QPushButton("Plot eigenvalues")
+        self.buttonPlotEigenvalues.clicked.connect(self.ploteigenvalues)
+        self.buttonPlotEigenvalues.setEnabled(False)
+        self.buttonPlotEigenvalues.setToolTip("Plot eigenvalues")
+        self.buttonPlotEigenvalues.setFixedWidth(120)
+        plotBox.addWidget(self.buttonPlotEigenvalues)
+
         # Radio buttons
         label = QtGui.QLabel("Functionals:")
         label.setFixedHeight(20)
@@ -490,11 +497,16 @@ class ApplicationWindow(QtGui.QMainWindow):
             self.buttonPlotBranch.setEnabled(True)
             self.buttonPlotParameter.setEnabled(True)
             self.buttonPostProcess.setEnabled(True)
+            if self.pc._have_stability:
+                self.buttonPlotEigenvalues.setEnabled(True)
+            else:
+                self.buttonPlotEigenvalues.setEnabled(False)
         else:
             self.buttonPlot.setEnabled(False)
             self.buttonPlotBranch.setEnabled(False)
             self.buttonPlotParameter.setEnabled(False)
             self.buttonPostProcess.setEnabled(False)
+            self.buttonPlotEigenvalues.setEnabled(False)
 
     def start(self):
         """ Set Time=0. """
@@ -537,6 +549,9 @@ class ApplicationWindow(QtGui.QMainWindow):
     def postprocess(self):
         """ Do whatever postprocessing the user asks. """
         self.pc.postprocess()
+
+    def ploteigenvalues(self):
+        self.pc.ploteigenvalues()
 
     def set_elapsed_time(self, elapsed):
         """ Gets the amount of time that has elapsed since defcon started running. """

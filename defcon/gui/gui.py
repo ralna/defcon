@@ -420,8 +420,10 @@ class PlotConstructor():
             # Try to fetch the stability
             try:
                 stab = [d["stable"] for d in self.io.fetch_stability(xs,branchids)]
+                self._have_stability = True
             except (RuntimeError, KeyError, IOError):
                 stab = None
+                self._have_stability = False
 
             if stab is not None:
                 stabstr = "stability: %s\n" % stab
@@ -440,6 +442,32 @@ class PlotConstructor():
         self.aw.set_output_box("")
         self.changed = True
         return False
+
+    def ploteigenvalues(self):
+        if self.annotated_point is not None:
+            (params, branchids) = self.annotated_point
+            stabs = self.io.fetch_stability(params, branchids, fetch_eigenfunctions=False)
+
+            current_figure = plt.gcf()
+
+            for (stab, branchid) in zip(stabs, branchids):
+                print("Calling plt.figure for branchid = %s" % branchid)
+                plt.figure()
+
+                print("Eigenvalues for branch %s at parameters %s:" % (branchid, str(params)))
+                for eval_ in stab["eigenvalues"]:
+                    print("  %s" % eval_)
+
+                evals = map(complex, stab["eigenvalues"])
+                for eval_ in evals:
+                    plt.plot(eval_.real, eval_.imag, 'bo')
+
+                plt.title("Eigenvalues for branch %s at parameters %s" % (branchid, str(params)))
+                plt.xlabel("Real component")
+                plt.ylabel("Imaginary component")
+
+            plt.show()
+            plt.figure(current_figure.number)
 
     def postprocess(self):
         """ Fetch a solution and call the user-specified postprocessing routine. """
