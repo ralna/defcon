@@ -449,7 +449,6 @@ class PlotConstructor():
             stabs = self.io.fetch_stability(params, branchids, fetch_eigenfunctions=False)
 
             for (stab, branchid) in zip(stabs, branchids):
-                print("Calling plt.figure for branchid = %s" % branchid)
                 plt.figure()
 
                 print("Eigenvalues for branch %s at parameters %s:" % (branchid, str(params)))
