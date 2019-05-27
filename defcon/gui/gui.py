@@ -448,8 +448,6 @@ class PlotConstructor():
             (params, branchids) = self.annotated_point
             stabs = self.io.fetch_stability(params, branchids, fetch_eigenfunctions=False)
 
-            current_figure = plt.gcf()
-
             for (stab, branchid) in zip(stabs, branchids):
                 print("Calling plt.figure for branchid = %s" % branchid)
                 plt.figure()
@@ -467,7 +465,6 @@ class PlotConstructor():
                 plt.ylabel("Imaginary component")
 
             plt.show()
-            plt.figure(current_figure.number)
 
     def postprocess(self):
         """ Fetch a solution and call the user-specified postprocessing routine. """
