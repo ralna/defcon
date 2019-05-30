@@ -90,6 +90,8 @@ class PlotConstructor():
         self.start_time = 0 # The (system) time at which defcon started running.
         self.running = False # Is defcon running?
 
+        self._have_stability = False
+
     def set_app_win(self, aw):
         """Set ApplicationWindow instance we get bound to"""
         self.aw = aw
