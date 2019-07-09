@@ -551,7 +551,7 @@ class ArclengthProblem(object):
 
         # A list of functions to just call the underlying problem on
         self.passthrough = ["parameters", "functionals", "io", "solver_parameters",
-                            "nonlinear_problem", "solver", "squared_norm", "save_xmf", "monitor", "monitor_ac"]
+                            "nonlinear_problem", "solver", "squared_norm", "save_xmf","save_pvd", "monitor", "monitor_ac"]
 
     def setup_spaces(self, comm):
         self.state_residual = None
