@@ -68,7 +68,7 @@ class ObstacleProblem(BifurcationProblem):
 
         try:
 
-            class Obstacle(Expression):
+            class Obstacle(UserExpression):
                 def eval(self, values, x):
                     if x[0] < -0.5:
                         values[0] = scale*-0.2
