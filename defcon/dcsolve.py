@@ -6,7 +6,7 @@ from defcon.newton import newton
 from defcon.tasks import DeflationTask
 from defcon.mg import create_dm
 
-def dcsolve(problem, params, comm=backend.comm_world, guess=None, deflation=None):
+def dcsolve(problem, params, comm=backend.comm_world, guess=None, deflation=None, sp=None):
 
     mesh = problem.mesh(comm)
     Z = problem.function_space(mesh)
@@ -29,10 +29,13 @@ def dcsolve(problem, params, comm=backend.comm_world, guess=None, deflation=None
     dm = create_dm(Z, problem)
     teamno = 0 # FIXME: make this optional
 
+    if sp is None:
+        sp = problem.solver_parameters(params, task)
+
     (success, iters) = newton(F, J, z, bcs,
                               params,
                               problem,
-                              problem.solver_parameters(params, task),
+                              sp,
                               teamno, deflation=deflation, dm=dm)
 
     if success:
