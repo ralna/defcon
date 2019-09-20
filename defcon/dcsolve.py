@@ -11,6 +11,7 @@ def dcsolve(problem, params, comm=backend.comm_world, guess=None, deflation=None
     mesh = problem.mesh(comm)
     Z = problem.function_space(mesh)
 
+    nguesses = problem.number_initial_guesses(params)
     if guess is None:
         z = problem.initial_guess(Z, params, 0)
     elif isinstance(guess, int):
