@@ -161,19 +161,19 @@ class CustomToolbar(NavigationToolbar2QT):
         inputter.exec_()
         length = inputter.length.text()
         fps = inputter.fps.text()
+        if inputter.create_movie:
+            fname = QtGui.QFileDialog.getSaveFileName(self, "Choose a filename to save to", start, filters, selectedFilter)
+            if fname:
+                # normalise
+                if isinstance(fname, tuple):
+                    fname = fname[0]
+                fname = str(fname)
 
-        fname = QtGui.QFileDialog.getSaveFileName(self, "Choose a filename to save to", start, filters, selectedFilter)
-        if fname:
-            # normalise
-            if isinstance(fname, tuple):
-                fname = fname[0]
-            fname = str(fname)
-
-            try:
-                self.pc.save_movie(fname, int(length), int(fps))
-            # Handle any exceptions by printing a dialogue box
-            except Exception as e:
-                QtGui.QMessageBox.critical(self, "Error saving file", str(e), QtGui.QMessageBox.Ok, QtGui.QMessageBox.NoButton)
+                try:
+                    self.pc.save_movie(fname, int(length), int(fps))
+                # Handle any exceptions by printing a dialogue box
+                except Exception as e:
+                    QtGui.QMessageBox.critical(self, "Error saving file", str(e), QtGui.QMessageBox.Ok, QtGui.QMessageBox.NoButton)
 
     def save_tikz(self):
         """ A method that saves a tikz image of the bifurcation diagram. """
@@ -224,10 +224,11 @@ class MovieDialog(QtGui.QDialog):
         mainLayout.addLayout(fpsLayout)
 
         # Enter Button
+        self.create_movie = False
         layout = QtGui.QHBoxLayout()
         button = QtGui.QPushButton("Enter")
         button.setFixedWidth(80)
-        button.clicked.connect(self.close)
+        button.clicked.connect(self.save_movie)
         layout.addWidget(button)
 
         mainLayout.addLayout(layout)
@@ -235,6 +236,10 @@ class MovieDialog(QtGui.QDialog):
 
         self.resize(400, 60)
         self.setWindowTitle("Movie parameters")
+
+    def save_movie(self):
+        self.create_movie = True
+        self.close()
 
 
 ######################
