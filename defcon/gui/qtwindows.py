@@ -98,7 +98,7 @@ def teamtext(job, params, branchid):
     if job == "s": colour, label = purple, 'Computing stability of branch %s at params %s' % (branchid, params)
     if job == "i": colour, label = yellow, 'Idle'
     if job == "q": colour, label = red, 'Quit'
-    return colour, label  
+    return colour, label
 
 def issuewarning(text):
     """ Prints a red warning message to the console. """
@@ -127,9 +127,9 @@ class DynamicCanvas(FigureCanvas):
         self.timer.start()
 
 class CustomToolbar(NavigationToolbar2QT):
-    """ A custom matplotlib toolbar, so we can remove those pesky extra buttons. """  
+    """ A custom matplotlib toolbar, so we can remove those pesky extra buttons. """
     def __init__(self, canvas, parent, pc, resources_dir, working_dir):
-        # Define which buttons we want and then initialise the toolbar. 
+        # Define which buttons we want and then initialise the toolbar.
         self.toolitems = (
             ('Home', 'Reset original view', 'home', 'home'),
             ('Pan', 'Pan axes with left mouse, zoom with right', 'move', 'pan'),
@@ -137,13 +137,13 @@ class CustomToolbar(NavigationToolbar2QT):
             ('Save', 'Save the figure', 'filesave', 'save_figure'),
             )
         NavigationToolbar2QT.__init__(self, canvas, parent)
-        self.layout().takeAt(4) # This removes an annoying extra button at the end. 
+        self.layout().takeAt(4) # This removes an annoying extra button at the end.
 
         self.parent = parent
         self.pc = pc
         self.working_dir = working_dir
 
-        # Add new buttons for saving movies and saving to tikz. 
+        # Add new buttons for saving movies and saving to tikz.
         self.buttonSaveMovie = self.addAction(QtGuiVersionWorkaround.QIcon(resources_dir + "save_movie.png"), "Save Movie", self.save_movie)
         self.buttonSaveMovie.setToolTip("Save the figure as an animation")
 
@@ -152,7 +152,7 @@ class CustomToolbar(NavigationToolbar2QT):
 
     def save_movie(self):
         """ A method that saves an animation of the bifurcation diagram. """
-        start = self.working_dir + os.path.sep + "bfdiag.mp4" # default name of the file. 
+        start = self.working_dir + os.path.sep + "bfdiag.mp4" # default name of the file.
         filters = "FFMPEG Video (*.mp4)" # what kinds of file extension we allow.
         selectedFilter = filters
 
@@ -161,19 +161,19 @@ class CustomToolbar(NavigationToolbar2QT):
         inputter.exec_()
         length = inputter.length.text()
         fps = inputter.fps.text()
+        if inputter.create_movie:
+            fname = QtGui.QFileDialog.getSaveFileName(self, "Choose a filename to save to", start, filters, selectedFilter)
+            if fname:
+                # normalise
+                if isinstance(fname, tuple):
+                    fname = fname[0]
+                fname = str(fname)
 
-        fname = QtGui.QFileDialog.getSaveFileName(self, "Choose a filename to save to", start, filters, selectedFilter)
-        if fname:
-            # normalise
-            if isinstance(fname, tuple):
-                fname = fname[0]
-            fname = str(fname)
-
-            try:
-                self.pc.save_movie(fname, int(length), int(fps))
-            # Handle any exceptions by printing a dialogue box
-            except Exception as e:
-                QtGui.QMessageBox.critical(self, "Error saving file", str(e), QtGui.QMessageBox.Ok, QtGui.QMessageBox.NoButton)
+                try:
+                    self.pc.save_movie(fname, int(length), int(fps))
+                # Handle any exceptions by printing a dialogue box
+                except Exception as e:
+                    QtGui.QMessageBox.critical(self, "Error saving file", str(e), QtGui.QMessageBox.Ok, QtGui.QMessageBox.NoButton)
 
     def save_tikz(self):
         """ A method that saves a tikz image of the bifurcation diagram. """
@@ -224,10 +224,11 @@ class MovieDialog(QtGui.QDialog):
         mainLayout.addLayout(fpsLayout)
 
         # Enter Button
+        self.create_movie = False
         layout = QtGui.QHBoxLayout()
         button = QtGui.QPushButton("Enter")
         button.setFixedWidth(80)
-        button.clicked.connect(self.close)
+        button.clicked.connect(self.save_movie)
         layout.addWidget(button)
 
         mainLayout.addLayout(layout)
@@ -236,17 +237,21 @@ class MovieDialog(QtGui.QDialog):
         self.resize(400, 60)
         self.setWindowTitle("Movie parameters")
 
+    def save_movie(self):
+        self.create_movie = True
+        self.close()
+
 
 ######################
 ### Main QT Window ###
 ######################
 class ApplicationWindow(QtGui.QMainWindow):
     def __init__(self, pc, update_interval, resources_dir, working_dir):
-        QtGui.QMainWindow.__init__(self)     
+        QtGui.QMainWindow.__init__(self)
         self.setAttribute(QtCore.Qt.WA_DeleteOnClose)
         self.pc = pc
 
-        # Use this to add a toolbar, if desired. 
+        # Use this to add a toolbar, if desired.
         #self.file_menu = QtGui.QMenu('&File', self)
         #self.file_menu.addAction('&Quit', self.fileQuit, QtCore.Qt.CTRL + QtCore.Qt.Key_Q)
         #self.menuBar().addMenu(self.file_menu)
@@ -407,7 +412,7 @@ class ApplicationWindow(QtGui.QMainWindow):
         label.setAlignment(QtCore.Qt.AlignCenter)
         self.teamBox.addWidget(label)
 
-        self.teamLabels = [] # A list of labels, one for each team.     
+        self.teamLabels = [] # A list of labels, one for each team.
 
         # Elapsed time counter.
         self.elapsedTime = QtGui.QLabel("Runtime: 0:00:00")
@@ -421,7 +426,7 @@ class ApplicationWindow(QtGui.QMainWindow):
             self.time = t
             self.jumpInput.setText(str(self.time))
         # If this is larger than the current maxtime, update both the variable and the validator
-        if t > self.maxtime: 
+        if t > self.maxtime:
             self.maxtime = t
             self.inputValidator.setRange(0, self.maxtime)
 
@@ -440,7 +445,7 @@ class ApplicationWindow(QtGui.QMainWindow):
         teamno, col, row = 0, 0, 0
         while teamno < nteams:
             while col <= boxes-1 and teamno < nteams:
-                # Create a label, 
+                # Create a label,
                 label = QtGui.QLabel(str(teamno))
                 label.setAlignment(QtCore.Qt.AlignCenter)
                 label.setStyleSheet("QLabel{font-size:40px;background-color:%s;border: 2px solid %s}" % (teamtext('i', 'None', 'None')[0], BORDER))
@@ -448,17 +453,17 @@ class ApplicationWindow(QtGui.QMainWindow):
                 label.setFixedSize(size, size)
 
                 # Add this label to a list so we can access it later, then put it into the
-                # appropriate cell on the grid. 
+                # appropriate cell on the grid.
                 self.teamLabels.append(label)
                 teamGrid.addWidget(label, row, col)
                 teamno += 1
                 col += 1
-            # We got to the end of the row. Go down a row and go back to the first column. 
+            # We got to the end of the row. Go down a row and go back to the first column.
             row += 1
             col = 0
         teamGrid.setAlignment(QtCore.Qt.AlignTop | QtCore.Qt.AlignCenter)
         self.teamBox.addLayout(teamGrid)
-                        
+
 
     def update_teamstats(self, teamstats):
         """ Update the boxes that tell us what each team is doing. """
@@ -471,20 +476,20 @@ class ApplicationWindow(QtGui.QMainWindow):
     def make_radio_buttons(self, functionals):
         """ Build the radiobuttons for switching functionals. """
         for i in range(len(functionals)):
-            # For each functional, make a radio button and link it to the switch_functionals method. 
+            # For each functional, make a radio button and link it to the switch_functionals method.
             radio_button = QtGui.QRadioButton(text=functionals[i])
             radio_button.clicked.connect(lambda: self.switch_functional())
             self.functionalBox.addWidget(radio_button)
             self.radio_buttons.append(radio_button)
-        self.radio_buttons[0].setChecked(True) # Select the radio button corresponding to functional 0. 
+        self.radio_buttons[0].setChecked(True) # Select the radio button corresponding to functional 0.
 
     def switch_functional(self):
         """ Switch functionals. Which one we switch to depends on the radiobutton clicked. """
-        i = 0 # Keep track of the index of the radiobutton we're considering. 
+        i = 0 # Keep track of the index of the radiobutton we're considering.
         for rb in self.radio_buttons:
-            if rb.isChecked(): 
+            if rb.isChecked():
                 # If this is the radio button that has been clicked, switch to the appropriate functional and jump out of the loop.
-                self.pc.switch_functional(i) 
+                self.pc.switch_functional(i)
                 break
             else: i+=1
 
