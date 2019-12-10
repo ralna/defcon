@@ -197,7 +197,7 @@ class SolutionIO(IO):
         branches = [int(filename.split('-')[-1][:-3]) for filename in filenames]
         return set(branches)
 
-    def known_parameters(self, fixed, branchid):
+    def known_parameters(self, fixed, branchid, stability=False):
         fixed_indices = []
         fixed_values = []
         for key in fixed:
@@ -209,7 +209,10 @@ class SolutionIO(IO):
                     break
 
         seen = set()
-        filenames = glob.glob(self.directory + "/*/solution-%d.h5" % branchid)
+        if stability == False:
+            filenames = glob.glob(self.directory + "/*/solution-%d.h5" % branchid)
+        else:
+            filenames = glob.glob(self.directory + "/*/eigenfunctions-%d.h5" % branchid)
         saved_params = [tuple([float(x.split('=')[-1]) for x in filename.split('/')[-2].split('@')]) for filename in filenames]
 
         for param in saved_params:

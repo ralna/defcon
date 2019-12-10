@@ -58,7 +58,7 @@ def main(args):
 
     allparams = set()
     for branchid in branchids:
-        knownparams = io.known_parameters(fixed={}, branchid=branchid)
+        knownparams = io.known_parameters(fixed={}, branchid=branchid, stability=True)
         allparams = allparams.union(set(knownparams))
     print(allparams)
     
