@@ -301,10 +301,7 @@ class ArclengthWorker(DefconWorker):
             arcxmf.parameters["flush_output"] = True
             arcxmf.parameters["functions_share_mesh"] = True
             arcxmf.parameters["rewrite_function_mesh"] = False
-        elif backend.__name__ == "firedrake":
-            arcpath = os.path.join(self.io.directory, "arclength", "params-%s-freeindex-%s-branchid-%s-ds-%.14e.pvd" % (parameters_to_string(self.io.parameters, params), self.freeindex, branchid, self.ds))
-            arcpvd = backend.File(arcpath, comm=make_comm(self.teamcomm))
-
+        
         index = -1.0 # needs to be a float, otherwise dolfin does the Wrong Thing. Argh!
         s = 0.0
 
@@ -385,18 +382,22 @@ class ArclengthWorker(DefconWorker):
             lmbda_ = problem.ac_to_parameter(self.state, deep=True)
             lmbda_.rename(paramname, paramname)
 
-            self.log("Saving with index = %s" % index)
             if backend.__name__ == "dolfin":
+                self.log("Saving with index = %s" % index)
                 problem.save_xmf(z_, arcxmf, index)
                 arcxmf.write(lmbda_, index)
-            elif backend.__name__ == "firedrake":
-                problem.save_pvd(z_, arcpvd, time=index)
-
+            
             functionals = self.compute_functionals(z_)
+            
+            param = self.fetch_R(lmbda_)
+            
+            arcpath = os.path.join(self.io.directory, "arclength", "params-%s-freeindex-%s-branchid-%s-ds-%.14e-sign-%d" % (parameters_to_string(self.io.parameters, params), self.freeindex, branchid, self.ds, sign))
+            self.log("Saving solution with path = %s" % arcpath)
+            self.io.save_solution(z_, functionals, [param], branchid, save_dir=arcpath)
+            
             problem.monitor_ac(branchid, task.sign, current_params, self.freeindex, z_, functionals, index, s)
 
             del z_
-            param = self.fetch_R(lmbda_)
             del lmbda_
 
             data.append((param, functionals))
@@ -410,7 +411,7 @@ class ArclengthWorker(DefconWorker):
             # FIXME: this is quadratic in ds^-1; it's doing work of O(num_steps), O(num_steps) times
             problem.monitor(params, branchid, problem.ac_to_state(self.state, deep=True), functionals)
             self.io.save_arclength(params, self.freeindex, branchid, task.ds, task.sign, data)
-
+            
             # Finally check if we should carry on wrt the functional
             if funcbounds is not None:
                 (funcindex, funclo, funchi) = funcbounds
