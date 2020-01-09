@@ -51,6 +51,8 @@ class DeflatedContinuation(object):
             Whether profiling statistics should be collected.
           comm (MPI.Comm)
             The communicator that gathers all processes involved in this computation
+          continue_branches (:py:class:`bool`)
+            Whether defcon should continue the existing branches instead of doing deflation.
         """
 
         worldcomm = kwargs.get("comm", MPI.COMM_WORLD).Dup()

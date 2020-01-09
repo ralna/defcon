@@ -391,7 +391,8 @@ class ArclengthWorker(DefconWorker):
             
             param = self.fetch_R(lmbda_)
             
-            arcpath = os.path.join(self.io.directory, "arclength", "params-%s-freeindex-%s-branchid-%s-ds-%.14e-sign-%d" % (parameters_to_string(self.io.parameters, params), self.freeindex, branchid, self.ds, sign))
+            arcpath = os.path.join(self.io.directory, "arclength", "params-%s-freeindex-%s-branchid-%s-ds-%.14e-sign-%d" % (parameters_to_string(self.io.parameters, params), self.freeindex, branchid, ds_, sign), \
+                                   "index=%d-"%(index) + parameters_to_string(self.parameters, [param]))
             self.log("Saving solution with path = %s" % arcpath)
             self.io.save_solution(z_, functionals, [param], branchid, save_dir=arcpath)
             

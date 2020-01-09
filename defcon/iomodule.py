@@ -110,7 +110,7 @@ class IO(object):
 
     def save_solution(self, solution, funcs, params, branchid, save_dir=None):
         raise NotImplementedError
-    
+
     def fetch_solutions(self, params, branchids):
         raise NotImplementedError
 
@@ -145,7 +145,7 @@ class SolutionIO(IO):
         if save_dir is None:
             save_dir = self.dir(params)
         else:
-            save_dir = save_dir + os.path.sep + parameters_to_string(self.parameters, params) + os.path.sep
+            save_dir = save_dir + os.path.sep
         
         try:
             os.makedirs(save_dir)
