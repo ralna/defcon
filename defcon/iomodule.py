@@ -111,7 +111,7 @@ class IO(object):
     def save_solution(self, solution, funcs, params, branchid, save_dir=None):
         raise NotImplementedError
 
-    def fetch_solutions(self, params, branchids):
+    def fetch_solutions(self, params, branchids, fetch_dir=None):
         raise NotImplementedError
 
     def fetch_functionals(self, params, branchids):
@@ -165,10 +165,15 @@ class SolutionIO(IO):
         self.pcomm.Barrier()
         assert os.path.exists(save_dir + "solution-%d.h5" % branchid)
 
-    def fetch_solutions(self, params, branchids):
+    def fetch_solutions(self, params, branchids, fetch_dir=None):
+        if fetch_dir is None:
+            fetch_dir = self.dir(params)
+        else:
+            fetch_dir = fetch_dir + os.path.sep
+        
         solns = []
         for branchid in branchids:
-            filename = self.dir(params) + "solution-%d.h5" % branchid
+            filename = fetch_dir + "solution-%d.h5" % branchid
             failcount = 0
             while True:
                 try:
