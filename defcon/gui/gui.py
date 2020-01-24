@@ -241,16 +241,26 @@ class PlotConstructor():
         self.current_functional = funcindex
         if self.annotated_point is not None: self.unannotate()
         self.redraw() # wipe the diagram.
-
+        self.pointers = []
+        
         # Redraw all points up to the current time.
+        Xcont = []; Ycont = []
+        Xdef = []; Ydef = []
         for j in range(0, self.time):
             xs, ys, branchid, teamno, cont = self.points[j]
             x = float(xs[self.freeindex])
             y = float(ys[self.current_functional])
-            if cont: c, m= MAIN, CONTPLOT
-            else: c, m= DEF, DEFPLOT
-            self.pointers[j] = bfdiag.plot(x, y, marker=m, color=c, linestyle='None')
-            self.changed = True
+            if cont:
+                Xcont.append(x)
+                Ycont.append(y)
+            else:
+                Xdef.append(x)
+                Ydef.append(y)
+        if Xcont:
+            self.pointers.append(bfdiag.plot(Xcont, Ycont, marker=CONTPLOT, color=MAIN, linestyle='None'))
+        if Xdef:
+            self.pointers.append(bfdiag.plot(Xdef, Ydef, marker=DEFPLOT, color=DEF, linestyle='None'))
+        self.changed = True
 
     ## Functions for getting new points and updating the diagram ##
     def grab_data(self):
