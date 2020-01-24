@@ -313,7 +313,9 @@ class PlotConstructor():
 
                 dataList = dataList[1:] # exclude the first line from now on.
 
-                # Plot new points one at a time.
+                # Plot new points after reading the file
+                Xcont = []; Ycont = []
+                Xdef = []; Ydef = []
                 for eachLine in dataList[self.lines_read:]:
                     if len(eachLine) > 1:
                         if eachLine[0] == '$':
@@ -340,18 +342,29 @@ class PlotConstructor():
                             ys = literal_eval(functionals)
                             x = float(xs[self.freeindex])
                             y = float(ys[self.current_functional])
-
+                            
                             # Use different colours/plot styles for points found by continuation/deflation.
-                            if literal_eval(cont): c, m= MAIN, CONTPLOT
-                            else: c, m= DEF, DEFPLOT
+                            if literal_eval(cont):
+                                Xcont.append(x)
+                                Ycont.append(y)
+                            else:
+                                Xdef.append(x)
+                                Ydef.append(y)
 
                             # Keep track of the points we've discovered, as well as the matplotlib objects.
                             self.points.append((xs, ys, int(branchid), int(teamno), literal_eval(cont)))
-                            self.pointers.append(bfdiag.plot(x, y, marker=m, color=c, linestyle='None'))
+                            #self.pointers.append(bfdiag.plot(x, y, marker=m, color=c, linestyle='None'))
                             self.sweeplines.append(self.sweep)
                             self.time += 1
                         self.lines_read +=1
-
+                
+                # Plot new continuation points
+                if Xcont:
+                    self.pointers.append(bfdiag.plot(Xcont, Ycont, marker=CONTPLOT, color=MAIN, linestyle='None'))
+                # Plot new deflation points
+                if Xdef:
+                    self.pointers.append(bfdiag.plot(Xdef, Ydef, marker=DEFPLOT, color=DEF, linestyle='None'))
+                
                 # Update the current time.
                 self.changed = True
                 self.maxtime = self.time
