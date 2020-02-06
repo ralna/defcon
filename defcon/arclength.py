@@ -384,7 +384,7 @@ class ArclengthWorker(DefconWorker):
             z_ = problem.ac_to_state(self.state, deep=True)
             lmbda_ = problem.ac_to_parameter(self.state, deep=True)
             lmbda_.rename(paramname, paramname)
-            
+
             self.log("Saving with index = %s" % index)
             
             if backend.__name__ == "dolfin":
