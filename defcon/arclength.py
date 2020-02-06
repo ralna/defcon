@@ -388,7 +388,6 @@ class ArclengthWorker(DefconWorker):
             self.log("Saving with index = %s" % index)
 
             if backend.__name__ == "dolfin":
-                self.log("Saving with index = %s" % index)
                 problem.save_xmf(z_, arcxmf, index)
                 arcxmf.write(lmbda_, index)
             elif backend.__name__ == "firedrake":

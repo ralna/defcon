@@ -452,25 +452,25 @@ class DefconMaster(DefconThread):
         self.taskid_counter += 1
         self.process_user_tasks(userin)
 
-        if not self.disable_deflation:
-            # * If we want to continue backwards, well, let's add that task too
-            if self.continue_backwards:
-                newparams = self.parameters.previous(task.newparams, task.freeindex)
-                back_branchid = self.branchid_counter
-                self.branchid_counter += 1
-    
-                if newparams is not None:
-                    bconttask = ContinuationTask(taskid=self.taskid_counter,
-                                                oldparams=task.newparams,
-                                                freeindex=task.freeindex,
-                                                branchid=back_branchid,
-                                                newparams=newparams,
-                                                direction=-1)
-                    bconttask.source_branchid = branchid
-                    newpriority = self.signs[task.freeindex]*newparams[task.freeindex]
-                    self.graph.push(bconttask, newpriority)
-                    self.taskid_counter += 1
+        # * If we want to continue backwards, well, let's add that task too
+        if self.continue_backwards:
+            newparams = self.parameters.previous(task.newparams, task.freeindex)
+            back_branchid = self.branchid_counter
+            self.branchid_counter += 1
 
+            if newparams is not None:
+                bconttask = ContinuationTask(taskid=self.taskid_counter,
+                                            oldparams=task.newparams,
+                                            freeindex=task.freeindex,
+                                            branchid=back_branchid,
+                                            newparams=newparams,
+                                            direction=-1)
+                bconttask.source_branchid = branchid
+                newpriority = self.signs[task.freeindex]*newparams[task.freeindex]
+                self.graph.push(bconttask, newpriority)
+                self.taskid_counter += 1
+        
+        if not self.disable_deflation:
             # * If we've found new solutions for the initial parameters, try all of
             #   the initial guesses again (otherwise the behaviour is different
             #   between one worker and many workers if you have multiple initial
@@ -498,11 +498,11 @@ class DefconMaster(DefconThread):
         # do that.
         if self.compute_stability:
             stabtask = StabilityTask(taskid=self.taskid_counter,
-                                    oldparams=task.newparams,
-                                    freeindex=task.freeindex,
-                                    branchid=branchid,
-                                    direction=+1,
-                                    hint=None)
+                                     oldparams=task.newparams,
+                                     freeindex=task.freeindex,
+                                     branchid=branchid,
+                                     direction=+1,
+                                     hint=None)
             newpriority = self.signs[task.freeindex]*stabtask.oldparams[task.freeindex]
             self.graph.push(stabtask, newpriority)
             self.taskid_counter += 1
@@ -578,37 +578,37 @@ class DefconMaster(DefconThread):
             self.log("Waiting on response for %s" % conttask)
             self.journal.team_job(team, task_to_code(conttask), newparams, task.branchid)
 
-        if not self.disable_deflation:
-            # If the worker has instructed us to insert a continuation task
-            # going backwards, then do it. This arises if the worker thinks
-            # the solutions have changed too much -- we may have inadvertently
-            # jumped from one (mathematical) branch to another.
-    
-            if response.data["go_backwards"] and self.continue_backwards:
-                back_branchid = self.branchid_counter
-                self.branchid_counter += 1
-                backtask = ContinuationTask(taskid=self.taskid_counter,
-                                            oldparams=task.newparams,
-                                            freeindex=task.freeindex,
-                                            branchid=back_branchid,
-                                            newparams=task.oldparams,
-                                            direction=-1*task.direction)
-                backtask.source_branchid = task.branchid
+        # If the worker has instructed us to insert a continuation task
+        # going backwards, then do it. This arises if the worker thinks
+        # the solutions have changed too much -- we may have inadvertently
+        # jumped from one (mathematical) branch to another.
+
+        if response.data["go_backwards"] and self.continue_backwards:
+            back_branchid = self.branchid_counter
+            self.branchid_counter += 1
+            backtask = ContinuationTask(taskid=self.taskid_counter,
+                                        oldparams=task.newparams,
+                                        freeindex=task.freeindex,
+                                        branchid=back_branchid,
+                                        newparams=task.oldparams,
+                                        direction=-1*task.direction)
+            backtask.source_branchid = task.branchid
+            self.taskid_counter += 1
+            backpriority = self.signs[task.freeindex]*backtask.newparams[task.freeindex]
+            self.graph.push(backtask, backpriority)
+
+            if self.compute_stability:
+                backstabtask = StabilityTask(taskid=self.taskid_counter,
+                                        oldparams=task.oldparams,
+                                        freeindex=task.freeindex,
+                                        branchid=back_branchid,
+                                        direction=-1*task.direction,
+                                        hint=None)
+                backstabpriority = self.signs[task.freeindex]*backstabtask.oldparams[task.freeindex]
+                self.graph.push(backstabtask, backstabpriority)
                 self.taskid_counter += 1
-                backpriority = self.signs[task.freeindex]*backtask.newparams[task.freeindex]
-                self.graph.push(backtask, backpriority)
 
-                if self.compute_stability:
-                    backstabtask = StabilityTask(taskid=self.taskid_counter,
-                                            oldparams=task.oldparams,
-                                            freeindex=task.freeindex,
-                                            branchid=back_branchid,
-                                            direction=-1*task.direction,
-                                            hint=None)
-                    backstabpriority = self.signs[task.freeindex]*backstabtask.oldparams[task.freeindex]
-                    self.graph.push(backstabtask, backstabpriority)
-                    self.taskid_counter += 1
-
+        if not self.disable_deflation:
             # If we've found new solutions for the initial parameters, try all of
             # the initial guesses again (otherwise the behaviour is different
             # between one worker and many workers if you have multiple initial
@@ -627,17 +627,18 @@ class DefconMaster(DefconThread):
                     self.graph.push(newtask, float("-inf"))
                     self.taskid_counter += 1
 
-            # Now let's ask the user if they want to do anything special,
-            # e.g. insert new tasks going in another direction.
-            userin = ContinuationTask(taskid=self.taskid_counter,
-                                      oldparams=task.newparams,
-                                      freeindex=task.freeindex,
-                                      branchid=task.branchid,
-                                      newparams=newparams,
-                                      direction=+1)
-            self.taskid_counter += 1
-            self.process_user_tasks(userin)
+        # Now let's ask the user if they want to do anything special,
+        # e.g. insert new tasks going in another direction.
+        userin = ContinuationTask(taskid=self.taskid_counter,
+                                  oldparams=task.newparams,
+                                  freeindex=task.freeindex,
+                                  branchid=task.branchid,
+                                  newparams=newparams,
+                                  direction=+1)
+        self.taskid_counter += 1
+        self.process_user_tasks(userin)
 
+        if not self.disable_deflation:
             # Whether there is another continuation task to insert or not,
             # we have a deflation task to insert.
             if hasattr(task, 'source_branchid'):
