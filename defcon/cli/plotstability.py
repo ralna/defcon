@@ -74,7 +74,7 @@ def main(args):
             evals = list(map(complex, stab["eigenvalues"]))
             evals_real += [l.real for l in evals]
             evals_imag += [l.imag for l in evals]
-    
+
     plt.plot(evals_real, evals_imag, 'bo')
     plt.title("Eigenvalues for %s %s" % ("branch" if len(branchids) == 1 else "branches", str(args[3])))
     plt.xlabel("Real component")

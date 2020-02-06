@@ -242,7 +242,7 @@ class PlotConstructor():
         if self.annotated_point is not None: self.unannotate()
         self.redraw() # wipe the diagram.
         self.pointers = [] # create an array to handle the pointers
-        
+
         # Redraw all points up to the current time.
         Xcont = []; Ycont = []
         Xdef = []; Ydef = []
@@ -366,20 +366,19 @@ class PlotConstructor():
                             self.sweeplines.append(self.sweep)
                             self.time += 1
                         self.lines_read +=1
-                
+
                 # Plot new continuation points
                 if Xcont:
                     self.pointers.append(bfdiag.plot(Xcont, Ycont, marker=CONTPLOT, color=MAIN, linestyle='None'))
                 # Plot new deflation points
                 if Xdef:
                     self.pointers.append(bfdiag.plot(Xdef, Ydef, marker=DEFPLOT, color=DEF, linestyle='None'))
-                
+
                 # Update the current time.
                 self.changed = True
                 self.maxtime = self.time
                 self.aw.set_time(self.time)
                 return self.changed
-
 
     ## Functions for handling annotation. ##
     def annotate(self, clickX, clickY):

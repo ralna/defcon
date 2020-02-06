@@ -304,7 +304,7 @@ class ArclengthWorker(DefconWorker):
         elif backend.__name__ == "firedrake":
             arcpath = os.path.join(self.io.directory, "arclength", "params-%s-freeindex-%s-branchid-%s-ds-%.14e.pvd" % (parameters_to_string(self.io.parameters, params), self.freeindex, branchid, self.ds))
             arcpvd = backend.File(arcpath, comm=make_comm(self.teamcomm))
-        
+
         index = -1.0 # needs to be a float, otherwise dolfin does the Wrong Thing. Argh!
         s = 0.0
 
@@ -386,23 +386,23 @@ class ArclengthWorker(DefconWorker):
             lmbda_.rename(paramname, paramname)
 
             self.log("Saving with index = %s" % index)
-            
+
             if backend.__name__ == "dolfin":
                 self.log("Saving with index = %s" % index)
                 problem.save_xmf(z_, arcxmf, index)
                 arcxmf.write(lmbda_, index)
             elif backend.__name__ == "firedrake":
                 problem.save_pvd(z_, arcpvd, time=index)
-            
+
             functionals = self.compute_functionals(z_)
-            
+
             param = self.fetch_R(lmbda_)
-            
+
             arcpath = os.path.join(self.io.directory, "arclength", "params-%s-freeindex-%s-branchid-%s-ds-%.14e-sign-%d" % (parameters_to_string(self.io.parameters, params), self.freeindex, branchid, ds_, sign), \
                                    "index=%d-"%(index) + parameters_to_string(self.parameters, [param]))
             self.log("Saving solution with path = %s" % arcpath)
             self.io.save_solution(z_, functionals, [param], branchid, save_dir=arcpath)
-            
+
             problem.monitor_ac(branchid, task.sign, current_params, self.freeindex, z_, functionals, index, s)
 
             del z_

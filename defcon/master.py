@@ -30,10 +30,10 @@ class DefconMaster(DefconThread):
         # Collect profiling statistics? This decides whether we instantiate
         # a DefconGraph or a ProfiledDefconGraph.
         self.profile = kwargs.get("profile", True)
-        
+
         # Continue the existing branches (do standard deflation if False)
         self.disable_deflation = kwargs.get("disable_deflation", False)
-        
+
         # A map from the type of task we're dealing with to the code that handles it.
         self.callbacks = {DeflationTask:    self.deflation_task,
                           StabilityTask:    self.stability_task,
@@ -404,7 +404,7 @@ class DefconMaster(DefconThread):
 
         # * Record this new solution in the journal
         self.journal.entry(team, task.oldparams, branchid, task.newparams, response.data["functionals"], False)
-        
+
         if not self.disable_deflation:
             # * Insert a new deflation task, to seek again with the same settings.
             newtask = DeflationTask(taskid=self.taskid_counter,
@@ -451,7 +451,7 @@ class DefconMaster(DefconThread):
                                   direction=+1)
         self.taskid_counter += 1
         self.process_user_tasks(userin)
-        
+
         if not self.disable_deflation:
             # * If we want to continue backwards, well, let's add that task too
             if self.continue_backwards:
@@ -470,7 +470,7 @@ class DefconMaster(DefconThread):
                     newpriority = self.signs[task.freeindex]*newparams[task.freeindex]
                     self.graph.push(bconttask, newpriority)
                     self.taskid_counter += 1
-        
+
             # * If we've found new solutions for the initial parameters, try all of
             #   the initial guesses again (otherwise the behaviour is different
             #   between one worker and many workers if you have multiple initial
@@ -577,7 +577,7 @@ class DefconMaster(DefconThread):
             self.graph.wait(task.taskid, team, conttask)
             self.log("Waiting on response for %s" % conttask)
             self.journal.team_job(team, task_to_code(conttask), newparams, task.branchid)
-        
+
         if not self.disable_deflation:
             # If the worker has instructed us to insert a continuation task
             # going backwards, then do it. This arises if the worker thinks
@@ -597,7 +597,7 @@ class DefconMaster(DefconThread):
                 self.taskid_counter += 1
                 backpriority = self.signs[task.freeindex]*backtask.newparams[task.freeindex]
                 self.graph.push(backtask, backpriority)
-    
+
                 if self.compute_stability:
                     backstabtask = StabilityTask(taskid=self.taskid_counter,
                                             oldparams=task.oldparams,
@@ -608,7 +608,7 @@ class DefconMaster(DefconThread):
                     backstabpriority = self.signs[task.freeindex]*backstabtask.oldparams[task.freeindex]
                     self.graph.push(backstabtask, backstabpriority)
                     self.taskid_counter += 1
-    
+
             # If we've found new solutions for the initial parameters, try all of
             # the initial guesses again (otherwise the behaviour is different
             # between one worker and many workers if you have multiple initial
@@ -626,7 +626,7 @@ class DefconMaster(DefconThread):
                                             newparams=self.initialparams)
                     self.graph.push(newtask, float("-inf"))
                     self.taskid_counter += 1
-    
+
             # Now let's ask the user if they want to do anything special,
             # e.g. insert new tasks going in another direction.
             userin = ContinuationTask(taskid=self.taskid_counter,
@@ -637,7 +637,7 @@ class DefconMaster(DefconThread):
                                       direction=+1)
             self.taskid_counter += 1
             self.process_user_tasks(userin)
-    
+
             # Whether there is another continuation task to insert or not,
             # we have a deflation task to insert.
             if hasattr(task, 'source_branchid'):

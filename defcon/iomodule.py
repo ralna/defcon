@@ -141,7 +141,7 @@ class SolutionIO(IO):
         return self.directory + os.path.sep + parameters_to_string(self.parameters, params) + os.path.sep
 
     def save_solution(self, solution, funcs, params, branchid, save_dir=None):
-        
+
         if save_dir is None:
             save_dir = self.dir(params)
         else:
@@ -170,7 +170,7 @@ class SolutionIO(IO):
             fetch_dir = self.dir(params)
         else:
             fetch_dir = fetch_dir + os.path.sep
-        
+
         solns = []
         for branchid in branchids:
             filename = fetch_dir + "solution-%d.h5" % branchid
@@ -277,7 +277,7 @@ class SolutionIO(IO):
 
     def save_arclength(self, params, freeindex, branchid, ds, sign, data):
         dir_name = self.directory + os.path.sep + "arclength" + os.path.sep + "params-%s-freeindex-%s-branchid-%s-ds-%.14e-sign-%d" % (parameters_to_string(self.parameters, params), freeindex, branchid, ds, sign)
-        
+
         try:
             if not os.path.exists(dir_name):
                 os.makedirs(dir_name)
