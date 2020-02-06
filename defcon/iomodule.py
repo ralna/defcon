@@ -220,7 +220,7 @@ class SolutionIO(IO):
                     break
 
         seen = set()
-        if stability == False:
+        if not stability:
             filenames = glob.glob(self.directory + "/*/solution-%d.h5" % branchid)
         else:
             filenames = glob.glob(self.directory + "/*/eigenfunctions-%d.h5" % branchid)

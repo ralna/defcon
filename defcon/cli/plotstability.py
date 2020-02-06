@@ -61,7 +61,7 @@ def main(args):
         knownparams = io.known_parameters(fixed={}, branchid=branchid, stability=True)
         allparams = allparams.union(set(knownparams))
     print(allparams)
-    
+
     evals_real = []
     evals_imag = []
     for params in sorted(allparams):

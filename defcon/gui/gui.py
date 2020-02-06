@@ -241,7 +241,7 @@ class PlotConstructor():
         self.current_functional = funcindex
         if self.annotated_point is not None: self.unannotate()
         self.redraw() # wipe the diagram.
-        self.pointers = []
+        self.pointers = [] # create an array to handle the pointers
         
         # Redraw all points up to the current time.
         Xcont = []; Ycont = []
@@ -352,7 +352,7 @@ class PlotConstructor():
                             ys = literal_eval(functionals)
                             x = float(xs[self.freeindex])
                             y = float(ys[self.current_functional])
-                            
+
                             # Use different colours/plot styles for points found by continuation/deflation.
                             if literal_eval(cont):
                                 Xcont.append(x)
@@ -363,7 +363,6 @@ class PlotConstructor():
 
                             # Keep track of the points we've discovered, as well as the matplotlib objects.
                             self.points.append((xs, ys, int(branchid), int(teamno), literal_eval(cont)))
-                            #self.pointers.append(bfdiag.plot(x, y, marker=m, color=c, linestyle='None'))
                             self.sweeplines.append(self.sweep)
                             self.time += 1
                         self.lines_read +=1

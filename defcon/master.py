@@ -32,7 +32,7 @@ class DefconMaster(DefconThread):
         self.profile = kwargs.get("profile", True)
         
         # Continue the existing branches (do standard deflation if False)
-        self.continue_branches = kwargs.get("continue_branches", False)
+        self.disable_deflation = kwargs.get("disable_deflation", False)
         
         # A map from the type of task we're dealing with to the code that handles it.
         self.callbacks = {DeflationTask:    self.deflation_task,
@@ -405,7 +405,7 @@ class DefconMaster(DefconThread):
         # * Record this new solution in the journal
         self.journal.entry(team, task.oldparams, branchid, task.newparams, response.data["functionals"], False)
         
-        if not self.continue_branches:
+        if not self.disable_deflation:
             # * Insert a new deflation task, to seek again with the same settings.
             newtask = DeflationTask(taskid=self.taskid_counter,
                                     oldparams=task.oldparams,
@@ -441,8 +441,8 @@ class DefconMaster(DefconThread):
             next_known_branches = []
             self.idle_team(team)
 
-#        # * Now let's ask the user if they want to do anything special,
-#        #   e.g. insert new tasks going in another direction.
+        # * Now let's ask the user if they want to do anything special,
+        #   e.g. insert new tasks going in another direction.
         userin = ContinuationTask(taskid=self.taskid_counter,
                                   oldparams=task.newparams,
                                   freeindex=task.freeindex,
@@ -452,7 +452,7 @@ class DefconMaster(DefconThread):
         self.taskid_counter += 1
         self.process_user_tasks(userin)
         
-        if not self.continue_branches:
+        if not self.disable_deflation:
             # * If we want to continue backwards, well, let's add that task too
             if self.continue_backwards:
                 newparams = self.parameters.previous(task.newparams, task.freeindex)
@@ -578,7 +578,7 @@ class DefconMaster(DefconThread):
             self.log("Waiting on response for %s" % conttask)
             self.journal.team_job(team, task_to_code(conttask), newparams, task.branchid)
         
-        if not self.continue_branches:
+        if not self.disable_deflation:
             # If the worker has instructed us to insert a continuation task
             # going backwards, then do it. This arises if the worker thinks
             # the solutions have changed too much -- we may have inadvertently
