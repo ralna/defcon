@@ -31,6 +31,9 @@ class DefconMaster(DefconThread):
         # a DefconGraph or a ProfiledDefconGraph.
         self.profile = kwargs.get("profile", True)
 
+        # Continue the existing branches (do standard deflation if False)
+        self.disable_deflation = kwargs.get("disable_deflation", False)
+
         # A map from the type of task we're dealing with to the code that handles it.
         self.callbacks = {DeflationTask:    self.deflation_task,
                           StabilityTask:    self.stability_task,
@@ -402,19 +405,20 @@ class DefconMaster(DefconThread):
         # * Record this new solution in the journal
         self.journal.entry(team, task.oldparams, branchid, task.newparams, response.data["functionals"], False)
 
-        # * Insert a new deflation task, to seek again with the same settings.
-        newtask = DeflationTask(taskid=self.taskid_counter,
-                                oldparams=task.oldparams,
-                                freeindex=task.freeindex,
-                                branchid=task.branchid,
-                                newparams=task.newparams)
-        if task.oldparams is not None:
-            newpriority = self.signs[task.freeindex]*newtask.newparams[task.freeindex]
-        else:
-            newpriority = float("-1000000")
-
-        self.graph.push(newtask, newpriority)
-        self.taskid_counter += 1
+        if not self.disable_deflation:
+            # * Insert a new deflation task, to seek again with the same settings.
+            newtask = DeflationTask(taskid=self.taskid_counter,
+                                    oldparams=task.oldparams,
+                                    freeindex=task.freeindex,
+                                    branchid=task.branchid,
+                                    newparams=task.newparams)
+            if task.oldparams is not None:
+                newpriority = self.signs[task.freeindex]*newtask.newparams[task.freeindex]
+            else:
+                newpriority = float("-1000000")
+    
+            self.graph.push(newtask, newpriority)
+            self.taskid_counter += 1
 
         # * Record that the worker team is now continuing that branch,
         # if there's continuation to be done.
@@ -465,24 +469,25 @@ class DefconMaster(DefconThread):
                 newpriority = self.signs[task.freeindex]*newparams[task.freeindex]
                 self.graph.push(bconttask, newpriority)
                 self.taskid_counter += 1
-
-        # * If we've found new solutions for the initial parameters, try all of
-        #   the initial guesses again (otherwise the behaviour is different
-        #   between one worker and many workers if you have multiple initial
-        #   guesses)
-        if task.newparams == self.initialparams and self.used_initial_guesses:
-            nguesses = self.problem.number_initial_guesses(self.initialparams)
-            for guess in range(nguesses):
-                # skip the one we've already inserted an extra task for
-                if task.oldparams is None and task.branchid == guess: continue
-
-                newtask = DeflationTask(taskid=self.taskid_counter,
-                                        oldparams=None,
-                                        freeindex=task.freeindex,
-                                        branchid=guess,
-                                        newparams=self.initialparams)
-                self.graph.push(newtask, float("-inf"))
-                self.taskid_counter += 1
+        
+        if not self.disable_deflation:
+            # * If we've found new solutions for the initial parameters, try all of
+            #   the initial guesses again (otherwise the behaviour is different
+            #   between one worker and many workers if you have multiple initial
+            #   guesses)
+            if task.newparams == self.initialparams and self.used_initial_guesses:
+                nguesses = self.problem.number_initial_guesses(self.initialparams)
+                for guess in range(nguesses):
+                    # skip the one we've already inserted an extra task for
+                    if task.oldparams is None and task.branchid == guess: continue
+    
+                    newtask = DeflationTask(taskid=self.taskid_counter,
+                                            oldparams=None,
+                                            freeindex=task.freeindex,
+                                            branchid=guess,
+                                            newparams=self.initialparams)
+                    self.graph.push(newtask, float("-inf"))
+                    self.taskid_counter += 1
 
         # We'll also make sure that any other DeflationTasks in the queue
         # that have these parameters know about the existence of this branch.
@@ -504,11 +509,11 @@ class DefconMaster(DefconThread):
 
             if self.continue_backwards and newparams is not None:
                 stabtask = StabilityTask(taskid=self.taskid_counter,
-                                         oldparams=newparams,
-                                         freeindex=task.freeindex,
-                                         branchid=back_branchid,
-                                         direction=-1,
-                                         hint=None)
+                                        oldparams=newparams,
+                                        freeindex=task.freeindex,
+                                        branchid=back_branchid,
+                                        direction=-1,
+                                        hint=None)
                 newpriority = self.signs[task.freeindex]*stabtask.oldparams[task.freeindex]
                 self.graph.push(stabtask, newpriority)
                 self.taskid_counter += 1
@@ -594,32 +599,33 @@ class DefconMaster(DefconThread):
 
             if self.compute_stability:
                 backstabtask = StabilityTask(taskid=self.taskid_counter,
-                                         oldparams=task.oldparams,
-                                         freeindex=task.freeindex,
-                                         branchid=back_branchid,
-                                         direction=-1*task.direction,
-                                         hint=None)
+                                        oldparams=task.oldparams,
+                                        freeindex=task.freeindex,
+                                        branchid=back_branchid,
+                                        direction=-1*task.direction,
+                                        hint=None)
                 backstabpriority = self.signs[task.freeindex]*backstabtask.oldparams[task.freeindex]
                 self.graph.push(backstabtask, backstabpriority)
                 self.taskid_counter += 1
 
-        # If we've found new solutions for the initial parameters, try all of
-        # the initial guesses again (otherwise the behaviour is different
-        # between one worker and many workers if you have multiple initial
-        # guesses)
-        if task.newparams == self.initialparams and self.used_initial_guesses:
-            nguesses = self.problem.number_initial_guesses(self.initialparams)
-            for guess in range(nguesses):
-                # skip the one we've already inserted an extra task for
-                if task.oldparams is None and task.branchid == guess: continue
-
-                newtask = DeflationTask(taskid=self.taskid_counter,
-                                        oldparams=None,
-                                        freeindex=task.freeindex,
-                                        branchid=guess,
-                                        newparams=self.initialparams)
-                self.graph.push(newtask, float("-inf"))
-                self.taskid_counter += 1
+        if not self.disable_deflation:
+            # If we've found new solutions for the initial parameters, try all of
+            # the initial guesses again (otherwise the behaviour is different
+            # between one worker and many workers if you have multiple initial
+            # guesses)
+            if task.newparams == self.initialparams and self.used_initial_guesses:
+                nguesses = self.problem.number_initial_guesses(self.initialparams)
+                for guess in range(nguesses):
+                    # skip the one we've already inserted an extra task for
+                    if task.oldparams is None and task.branchid == guess: continue
+    
+                    newtask = DeflationTask(taskid=self.taskid_counter,
+                                            oldparams=None,
+                                            freeindex=task.freeindex,
+                                            branchid=guess,
+                                            newparams=self.initialparams)
+                    self.graph.push(newtask, float("-inf"))
+                    self.taskid_counter += 1
 
         # Now let's ask the user if they want to do anything special,
         # e.g. insert new tasks going in another direction.
@@ -632,20 +638,21 @@ class DefconMaster(DefconThread):
         self.taskid_counter += 1
         self.process_user_tasks(userin)
 
-        # Whether there is another continuation task to insert or not,
-        # we have a deflation task to insert.
-        if hasattr(task, 'source_branchid'):
-            new_branchid = task.source_branchid
-        else:
-            new_branchid = task.branchid
-        newtask = DeflationTask(taskid=self.taskid_counter,
-                                oldparams=task.oldparams,
-                                freeindex=task.freeindex,
-                                branchid=new_branchid,
-                                newparams=task.newparams)
-        self.taskid_counter += 1
-        newpriority = self.signs[task.freeindex]*newtask.newparams[task.freeindex]
-        self.graph.push(newtask, newpriority)
+        if not self.disable_deflation:
+            # Whether there is another continuation task to insert or not,
+            # we have a deflation task to insert.
+            if hasattr(task, 'source_branchid'):
+                new_branchid = task.source_branchid
+            else:
+                new_branchid = task.branchid
+            newtask = DeflationTask(taskid=self.taskid_counter,
+                                    oldparams=task.oldparams,
+                                    freeindex=task.freeindex,
+                                    branchid=new_branchid,
+                                    newparams=task.newparams)
+            self.taskid_counter += 1
+            newpriority = self.signs[task.freeindex]*newtask.newparams[task.freeindex]
+            self.graph.push(newtask, newpriority)
 
     def stability_task(self, task, team, response):
         if not response.success:

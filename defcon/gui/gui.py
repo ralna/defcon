@@ -241,16 +241,26 @@ class PlotConstructor():
         self.current_functional = funcindex
         if self.annotated_point is not None: self.unannotate()
         self.redraw() # wipe the diagram.
+        self.pointers = [] # create an array to handle the pointers
 
         # Redraw all points up to the current time.
+        Xcont = []; Ycont = []
+        Xdef = []; Ydef = []
         for j in range(0, self.time):
             xs, ys, branchid, teamno, cont = self.points[j]
             x = float(xs[self.freeindex])
             y = float(ys[self.current_functional])
-            if cont: c, m= MAIN, CONTPLOT
-            else: c, m= DEF, DEFPLOT
-            self.pointers[j] = bfdiag.plot(x, y, marker=m, color=c, linestyle='None')
-            self.changed = True
+            if cont:
+                Xcont.append(x)
+                Ycont.append(y)
+            else:
+                Xdef.append(x)
+                Ydef.append(y)
+        if Xcont:
+            self.pointers.append(bfdiag.plot(Xcont, Ycont, marker=CONTPLOT, color=MAIN, linestyle='None'))
+        if Xdef:
+            self.pointers.append(bfdiag.plot(Xdef, Ydef, marker=DEFPLOT, color=DEF, linestyle='None'))
+        self.changed = True
 
     ## Functions for getting new points and updating the diagram ##
     def grab_data(self):
@@ -313,7 +323,9 @@ class PlotConstructor():
 
                 dataList = dataList[1:] # exclude the first line from now on.
 
-                # Plot new points one at a time.
+                # Plot new points after reading the file
+                Xcont = []; Ycont = []
+                Xdef = []; Ydef = []
                 for eachLine in dataList[self.lines_read:]:
                     if len(eachLine) > 1:
                         if eachLine[0] == '$':
@@ -342,22 +354,31 @@ class PlotConstructor():
                             y = float(ys[self.current_functional])
 
                             # Use different colours/plot styles for points found by continuation/deflation.
-                            if literal_eval(cont): c, m= MAIN, CONTPLOT
-                            else: c, m= DEF, DEFPLOT
+                            if literal_eval(cont):
+                                Xcont.append(x)
+                                Ycont.append(y)
+                            else:
+                                Xdef.append(x)
+                                Ydef.append(y)
 
                             # Keep track of the points we've discovered, as well as the matplotlib objects.
                             self.points.append((xs, ys, int(branchid), int(teamno), literal_eval(cont)))
-                            self.pointers.append(bfdiag.plot(x, y, marker=m, color=c, linestyle='None'))
                             self.sweeplines.append(self.sweep)
                             self.time += 1
                         self.lines_read +=1
+
+                # Plot new continuation points
+                if Xcont:
+                    self.pointers.append(bfdiag.plot(Xcont, Ycont, marker=CONTPLOT, color=MAIN, linestyle='None'))
+                # Plot new deflation points
+                if Xdef:
+                    self.pointers.append(bfdiag.plot(Xdef, Ydef, marker=DEFPLOT, color=DEF, linestyle='None'))
 
                 # Update the current time.
                 self.changed = True
                 self.maxtime = self.time
                 self.aw.set_time(self.time)
                 return self.changed
-
 
     ## Functions for handling annotation. ##
     def annotate(self, clickX, clickY):

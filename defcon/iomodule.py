@@ -108,10 +108,10 @@ class IO(object):
             shutil.move(self.directory, tmpd + os.path.sep + self.directory)
             shutil.rmtree(tmpd, ignore_errors=True)
 
-    def save_solution(self, solution, funcs, params, branchid):
+    def save_solution(self, solution, funcs, params, branchid, save_dir=None):
         raise NotImplementedError
 
-    def fetch_solutions(self, params, branchids):
+    def fetch_solutions(self, params, branchids, fetch_dir=None):
         raise NotImplementedError
 
     def fetch_functionals(self, params, branchids):
@@ -120,7 +120,7 @@ class IO(object):
     def known_branches(self, params):
         raise NotImplementedError
 
-    def known_parameters(self, fixed, branchid):
+    def known_parameters(self, fixed, branchid, stability=False):
         raise NotImplementedError
 
     def max_branch(self):
@@ -140,9 +140,15 @@ class SolutionIO(IO):
     def dir(self, params):
         return self.directory + os.path.sep + parameters_to_string(self.parameters, params) + os.path.sep
 
-    def save_solution(self, solution, funcs, params, branchid):
+    def save_solution(self, solution, funcs, params, branchid, save_dir=None):
+
+        if save_dir is None:
+            save_dir = self.dir(params)
+        else:
+            save_dir = save_dir + os.path.sep
+        
         try:
-            os.makedirs(self.dir(params))
+            os.makedirs(save_dir)
         except OSError:
             pass
 
@@ -150,19 +156,24 @@ class SolutionIO(IO):
         with HDF5File(comm=self.function_space.mesh().mpi_comm(), filename=tmpname, file_mode='w') as f:
             f.write(solution, "/solution")
         if self.pcomm.rank == 0:
-            os.rename(tmpname, self.dir(params) + "solution-%d.h5" % branchid)
+            os.rename(tmpname, save_dir + "solution-%d.h5" % branchid)
 
-            f = open(self.dir(params) + "functional-%d.txt" % branchid, "w")
+            f = open(save_dir + "functional-%d.txt" % branchid, "w")
             s = parameters_to_string(self.functionals, funcs).replace('@', '\n') + '\n'
             f.write(s)
 
         self.pcomm.Barrier()
-        assert os.path.exists(self.dir(params) + "solution-%d.h5" % branchid)
+        assert os.path.exists(save_dir + "solution-%d.h5" % branchid)
 
-    def fetch_solutions(self, params, branchids):
+    def fetch_solutions(self, params, branchids, fetch_dir=None):
+        if fetch_dir is None:
+            fetch_dir = self.dir(params)
+        else:
+            fetch_dir = fetch_dir + os.path.sep
+
         solns = []
         for branchid in branchids:
-            filename = self.dir(params) + "solution-%d.h5" % branchid
+            filename = fetch_dir + "solution-%d.h5" % branchid
             failcount = 0
             while True:
                 try:
@@ -197,7 +208,7 @@ class SolutionIO(IO):
         branches = [int(filename.split('-')[-1][:-3]) for filename in filenames]
         return set(branches)
 
-    def known_parameters(self, fixed, branchid):
+    def known_parameters(self, fixed, branchid, stability=False):
         fixed_indices = []
         fixed_values = []
         for key in fixed:
@@ -209,7 +220,10 @@ class SolutionIO(IO):
                     break
 
         seen = set()
-        filenames = glob.glob(self.directory + "/*/solution-%d.h5" % branchid)
+        if not stability:
+            filenames = glob.glob(self.directory + "/*/solution-%d.h5" % branchid)
+        else:
+            filenames = glob.glob(self.directory + "/*/eigenfunctions-%d.h5" % branchid)
         saved_params = [tuple([float(x.split('=')[-1]) for x in filename.split('/')[-2].split('@')]) for filename in filenames]
 
         for param in saved_params:
@@ -262,9 +276,11 @@ class SolutionIO(IO):
             os.rename(f.name, filename)
 
     def save_arclength(self, params, freeindex, branchid, ds, sign, data):
+        dir_name = self.directory + os.path.sep + "arclength" + os.path.sep + "params-%s-freeindex-%s-branchid-%s-ds-%.14e-sign-%d" % (parameters_to_string(self.parameters, params), freeindex, branchid, ds, sign)
+
         try:
-            if not os.path.exists(self.directory + os.path.sep + "arclength"):
-                os.makedirs(self.directory + os.path.sep + "arclength")
+            if not os.path.exists(dir_name):
+                os.makedirs(dir_name)
         except OSError:
             pass
 
@@ -275,7 +291,7 @@ class SolutionIO(IO):
         os.fsync(f.file.fileno())
         f.close()
         if self.pcomm.rank == 0:
-            os.rename(f.name, self.directory + os.path.sep + "arclength/params-%s-freeindex-%s-branchid-%s-ds-%.14e-sign-%d.json" % (parameters_to_string(self.parameters, params), freeindex, branchid, ds, sign))
+            os.rename(f.name, dir_name + os.path.sep + "params-%s-freeindex-%s-branchid-%s-ds-%.14e-sign-%d.json" % (parameters_to_string(self.parameters, params), freeindex, branchid, ds, sign))
 
     def fetch_stability(self, params, branchids, fetch_eigenfunctions=False):
         stabs = []
