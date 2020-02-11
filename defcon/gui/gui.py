@@ -563,7 +563,10 @@ class PlotConstructor():
             if self.plot_with_mpl:
                 ys = self.io.fetch_solutions(params, branchids)
                 try:
-                    x = backend.interpolate(backend.Expression("x[0]", degree=1), self.V)
+                    if backend.__name__ == "dolfin":
+                        x = backend.interpolate(backend.Expression("x[0]", degree=1), self.V)
+                    elif backend.__name__ == "firedrake":
+                        x = backend.Function(self.V).interpolate(backend.SpatialCoordinate(self.mesh)[0])
                     # FIXME: For functions f other than CG1, we might need to sort both arrays so that x is increasing. Check this out!
                     for (y, branchid) in zip(ys, branchids):
                         plt.plot(x.vector().get_local(), y.vector().get_local(), '-', linewidth=3, color='b')
