@@ -58,10 +58,12 @@ def main(args):
 
     allparams = set()
     for branchid in branchids:
-        knownparams = io.known_parameters(fixed={}, branchid=branchid)
+        knownparams = io.known_parameters(fixed={}, branchid=branchid, stability=True)
         allparams = allparams.union(set(knownparams))
     print(allparams)
 
+    evals_real = []
+    evals_imag = []
     for params in sorted(allparams):
         stabs = io.fetch_stability(params, branchids, fetch_eigenfunctions=False)
         for (stab, branch) in zip(stabs, branchids):
@@ -69,10 +71,11 @@ def main(args):
             for eval_ in stab["eigenvalues"]:
                 print("  %s" % eval_)
 
-            evals = map(complex, stab["eigenvalues"])
-            for eval_ in evals:
-                plt.plot(eval_.real, eval_.imag, 'bo')
+            evals = list(map(complex, stab["eigenvalues"]))
+            evals_real += [l.real for l in evals]
+            evals_imag += [l.imag for l in evals]
 
+    plt.plot(evals_real, evals_imag, 'bo')
     plt.title("Eigenvalues for %s %s" % ("branch" if len(branchids) == 1 else "branches", str(args[3])))
     plt.xlabel("Real component")
     plt.ylabel("Imaginary component")

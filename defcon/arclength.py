@@ -386,6 +386,7 @@ class ArclengthWorker(DefconWorker):
             lmbda_.rename(paramname, paramname)
 
             self.log("Saving with index = %s" % index)
+
             if backend.__name__ == "dolfin":
                 problem.save_xmf(z_, arcxmf, index)
                 arcxmf.write(lmbda_, index)
@@ -393,10 +394,17 @@ class ArclengthWorker(DefconWorker):
                 problem.save_pvd(z_, arcpvd, time=index)
 
             functionals = self.compute_functionals(z_)
+
+            param = self.fetch_R(lmbda_)
+
+            arcpath = os.path.join(self.io.directory, "arclength", "params-%s-freeindex-%s-branchid-%s-ds-%.14e-sign-%d" % (parameters_to_string(self.io.parameters, params), self.freeindex, branchid, ds_, sign), \
+                                   "index=%d-"%(index) + parameters_to_string(self.parameters, [param]))
+            self.log("Saving solution with path = %s" % arcpath)
+            self.io.save_solution(z_, functionals, [param], branchid, save_dir=arcpath)
+
             problem.monitor_ac(branchid, task.sign, current_params, self.freeindex, z_, functionals, index, s)
 
             del z_
-            param = self.fetch_R(lmbda_)
             del lmbda_
 
             data.append((param, functionals))
