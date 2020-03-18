@@ -40,10 +40,10 @@ import matplotlib.pyplot as plt
 
 # Saving tikz pictures.
 try:
-    from matplotlib2tikz import save as tikz_save
+    from tikzplotlib import save as tikz_save
     use_tikz = True
 except Exception:
-    issuewarning("Could not import the library matplotlib2tikz. You will unable to save the file as a .tikz.\nTo use this functionality, install matplotlib2tikz, eg with:\n     # pip install matplotlib2tikz")
+    issuewarning("Could not import the library tikzplotlib. You will unable to save the file as a .tikz.\nTo use this functionality, install tikzplotlib, eg with:\n     # pip install tikzplotlib")
     use_tikz = False
 
 
@@ -666,7 +666,7 @@ class PlotConstructor():
                 ax.plot(x, y, marker=m, color=c, linestyle='None')
             tikz_save(filename)
             ax.clear()
-        else: issuewarning("matplotlib2tikz not installed. I can't save to tikz!")
+        else: issuewarning("tikzplotlib not installed. I can't save to tikz!")
 
     def save_pvd(self, paramss, branchids, pvdname):
         if self.teamsize == 1 or backend.__name__ == "dolfin":
