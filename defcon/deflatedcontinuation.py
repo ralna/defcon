@@ -126,7 +126,7 @@ Launch with mpiexec: mpiexec -n <number of processes> python %s
 
         self.thread.run(parameters, freeparam)
 
-    def bifurcation_diagram(self, functional, fixed={}, style="ok", branches=None, **kwargs):
+    def bifurcation_diagram(self, functional, fixed={}, style="ok", unstablestyle=None, branches=None, decide_stability=None, **kwargs):
         if self.thread.rank != 0:
             return
 
@@ -169,18 +169,42 @@ Launch with mpiexec: mpiexec -n <number of processes> python %s
 
         for branchid in branches:
             extent = extents[branchid]
-            xs = []
-            ys = []
             params = io.known_parameters(fixed, branchid)
             funcs = io.fetch_functionals(params, branchid)
-            for i in six.moves.xrange(0, len(params)):
-                param = params[i]
-                func = funcs[i]
 
-                if extent[0] <= param[freeindex] <= extent[1]:
-                    xs.append(param[freeindex])
-                    ys.append(func[funcindex])
-            plt.plot(xs, ys, style, **kwargs)
+            if unstablestyle is None: # don't want to plot stable or unstable points differently
+                xs = []
+                ys = []
+                for i in six.moves.xrange(0, len(params)):
+                    param = params[i]
+                    func = funcs[i]
+
+                    if extent[0] <= param[freeindex] <= extent[1]:
+                        xs.append(param[freeindex])
+                        ys.append(func[funcindex])
+
+                    plt.plot(xs, ys, style, **kwargs)
+            else:
+                # Need to partition xs and ys into stable and unstable points
+                stable_xs = []
+                stable_ys = []
+                unstable_xs = []
+                unstable_ys = []
+                for i in six.moves.xrange(0, len(params)):
+                    param = params[i]
+                    func = funcs[i]
+                    stab = io.fetch_stability(param, [branchid])[0]
+
+                    if extent[0] <= param[freeindex] <= extent[1]:
+                        if decide_stability(stab["stable"]):
+                            stable_xs.append(param[freeindex])
+                            stable_ys.append(func[funcindex])
+                        else:
+                            unstable_xs.append(param[freeindex])
+                            unstable_ys.append(func[funcindex])
+
+                plt.plot(stable_xs, stable_ys, style, **kwargs)
+                plt.plot(unstable_xs, unstable_ys, unstablestyle, **kwargs)
 
         plt.grid()
         plt.xlabel(parameters[freeindex][2])
