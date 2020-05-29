@@ -1,7 +1,8 @@
 from __future__ import absolute_import, print_function
 
 import os
-import imp
+import sys
+import importlib.util
 
 from defcon import BifurcationProblem
 from defcon import ComplementarityProblem
@@ -36,7 +37,10 @@ def fetch_bifurcation_problem(path):
 
     # Import file
     try:
-        prob = imp.load_source("prob", probpath)
+        sys.path.append(os.getcwd())
+        spec = importlib.util.spec_from_file_location("prob", probpath)
+        prob = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(prob)
     except Exception:
         print("Was not able to import '%s'" % probpath)
         print("Please provide correct problem path!")
