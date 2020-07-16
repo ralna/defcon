@@ -303,7 +303,6 @@ class ArclengthWorker(DefconWorker):
             arcxmf.parameters["rewrite_function_mesh"] = False
         elif backend.__name__ == "firedrake":
             paramspath = "params-%s-freeindex-%s-branchid-%s-ds-%.14e-sign-%d" % (parameters_to_string(self.io.parameters, params), self.freeindex, branchid, ds_, sign)
-            #paramspath = "params-%s-freeindex-%s-branchid-%s-ds-%.14e" % (parameters_to_string(self.io.parameters, params), self.freeindex, branchid, self.ds)
             arcpath = os.path.join(self.io.directory, "arclength", paramspath, "solutions", paramspath+".pvd")
             arcpvd = backend.File(arcpath, comm=make_comm(self.teamcomm))
 
