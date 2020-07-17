@@ -175,7 +175,7 @@ Launch with mpiexec: mpiexec -n <number of processes> python %s
                 break
 
         for branchid in branchids:
-            for jsonfile in glob.glob(io.directory + "/arclength/*freeindex-%s-branchid-%s-*.json" % (paramindex, branchid)):
+            for jsonfile in glob.glob(io.directory + "/arclength/*freeindex-%s-branchid-%s-*/*freeindex-%s-branchid-%s-*.json" % (paramindex, branchid, paramindex, branchid)):
                 self.thread.log("Reading JSON file %s" % jsonfile)
                 try:
                     data = json.load(open(jsonfile, "r"))
@@ -303,7 +303,8 @@ class ArclengthWorker(DefconWorker):
             arcxmf.parameters["functions_share_mesh"] = True
             arcxmf.parameters["rewrite_function_mesh"] = False
         elif backend.__name__ == "firedrake":
-            arcpath = os.path.join(self.io.directory, "arclength", "params-%s-freeindex-%s-branchid-%s-ds-%.14e.pvd" % (parameters_to_string(self.io.parameters, params), self.freeindex, branchid, self.ds))
+            paramspath = "params-%s-freeindex-%s-branchid-%s-ds-%.14e-sign-%d" % (parameters_to_string(self.io.parameters, params), self.freeindex, branchid, ds_, sign)
+            arcpath = os.path.join(self.io.directory, "arclength", paramspath, "solutions", paramspath+".pvd")
             arcpvd = backend.File(arcpath, comm=make_comm(self.teamcomm))
 
         index = -1.0 # needs to be a float, otherwise dolfin does the Wrong Thing. Argh!
