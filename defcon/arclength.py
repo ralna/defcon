@@ -5,6 +5,7 @@ import defcon
 
 from mpi4py import MPI
 from ufl.algorithms.map_integrands import map_integrands
+from ufl.algorithms import expand_derivatives
 import ufl
 
 from math import copysign, sqrt
@@ -656,7 +657,7 @@ class ArclengthProblem(object):
         return tangent_residual
 
     def tangent_jacobian(self, tangent_residual, tangent, trial):
-        return backend.derivative(tangent_residual, tangent, trial)
+        return expand_derivatives(backend.derivative(tangent_residual, tangent, trial))
 
     def boundary_conditions(self):
         # We pass in None here for the parameters because for arclength we
