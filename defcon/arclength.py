@@ -634,13 +634,13 @@ class ArclengthProblem(object):
         return ac_residual
 
     def ac_jacobian(self, ac_residual, ac, trial):
-        return backend.derivative(ac_residual, ac, trial)
+        return expand_derivatives(backend.derivative(ac_residual, ac, trial))
 
     def tangent_residual(self, ac, tangent, tangent_prev, sign, test):
         problem = self.problem
 
         if self.state_residual_derivative is None:
-            self.state_residual_derivative = backend.derivative(self.state_residual, ac, tangent)
+            self.state_residual_derivative = expand_derivatives(backend.derivative(self.state_residual, ac, tangent))
 
         lmbda_tlm = self.ac_to_parameter(tangent, deep=False)
         mu        = self.ac_to_parameter(test,    deep=False)
