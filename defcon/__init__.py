@@ -1,6 +1,6 @@
 from __future__ import absolute_import
 
-__version__ = "2017.1.0.dev0"
+__version__ = "dev"
 
 import mpi4py.rc
 mpi4py.rc.threaded = False

@@ -94,8 +94,6 @@ class MaurerProblem(BifurcationProblem):
             damping = 1
             maxit = 100
 
-        print "damping: %s" % damping
-
         return {
                "snes_max_it": maxit,
                "snes_max_funcs": 200000,

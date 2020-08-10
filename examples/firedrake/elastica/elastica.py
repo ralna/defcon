@@ -72,8 +72,51 @@ class ElasticaProblem(BifurcationProblem):
             "snes_monitor": None,
             "snes_linesearch_type": "basic",
             "ksp_type": "preonly",
-            "pc_type": "lu"
+            "pc_type": "lu",
+            "mat_mumps_icntl_24": 1,
+            "mat_mumps_icntl_13": 1,
          }
+
+    def compute_stability(self, params, branchid, theta, hint=None):
+        if params[0] == 0: return {"stable": True}
+
+        V = theta.function_space()
+        trial = TrialFunction(V)
+        test  = TestFunction(V)
+
+        bcs = self.boundary_conditions(V, params)
+        comm = V.mesh().mpi_comm()
+
+        F = self.residual(theta, map(Constant, params), test)
+        J = derivative(F, theta, trial)
+
+        # Build the LHS matrix
+        A = assemble(J, bcs=bcs)
+
+        pc = PETSc.PC().create(comm)
+        pc.setOperators(A.M.handle)
+        pc.setType("cholesky")
+        try:
+            pc.setFactorSolverPackage("mumps")
+        except:
+            pc.setFactorSolverType("mumps")
+        pc.setUp()
+
+        F = pc.getFactorMatrix()
+        (neg, zero, pos) = F.getInertia()
+
+        print("Inertia: (-: %s, 0: %s, +: %s)" % (neg, zero, pos))
+
+        expected_dim = 0
+
+        # Nocedal & Wright, theorem 16.3
+        if neg == expected_dim:
+            is_stable = True
+        else:
+            is_stable = False
+
+        d = {"stable": is_stable}
+        return d
 
 if __name__ == "__main__":
     dc = DeflatedContinuation(problem=ElasticaProblem(), teamsize=1, verbose=True, clear_output=True)
