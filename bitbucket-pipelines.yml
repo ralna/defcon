@@ -1,18 +1,11 @@
-image: quay.io/fenicsproject/dev
+image: firedrakeproject/firedrake
 
 pipelines:
   default:
     - step:
         script:
-          - pip3 install --no-cache-dir --upgrade pytest
-          - export CC=mpicc
-          - export HDF5_MPI=ON
-          - pip3 install --no-binary ":all:" --no-cache-dir h5py
-          - export HOME=/home/fenics
-          - export FENICS_PREFIX=$HOME/local
-          - export FENICS_PYTHON_MAJOR_VERSION=3
-          - export FENICS_PYTHON_MINOR_VERSION=5
-          - source /home/fenics/fenics.env.conf
+          - source /home/firedrake/firedrake/bin/activate
+          - export HOME=/home/firedrake
           - cd $BITBUCKET_CLONE_DIR
-          - pip3 install --no-cache-dir .
-          - mpiexec -n 2 python3 -m pytest -x -v .
+          - pip install .
+          - mpiexec -n 2 python -m pytest -x -v defcon/ examples/firedrake/
