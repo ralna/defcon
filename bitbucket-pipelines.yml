@@ -12,7 +12,7 @@ test: &test
       - pip install .
       - mpiexec -n 2 python -m pytest -x -v defcon/ examples/firedrake/
       - cd -
-      - python -m pybadges --left-text=pipelines --right-text=success --right-color='#c00' > status.svg
+      - python -m pybadges --left-text=pipelines --right-text=success --right-color='#0c0' > status.svg
     artifacts:
       - status.svg
 
