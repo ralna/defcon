@@ -15,8 +15,7 @@ previous state of the art:
 * Defcon can compute disconnected bifurcation diagrams as well as connected
   ones.
 * The algorithm can scale to massive discretisations of PDEs if a scalable
-  preconditioner is available (although we have not pushed in this direction
-  this yet).
+  preconditioner is available.
 
 For a full description of the algorithm, see
 
@@ -24,11 +23,11 @@ http://arxiv.org/abs/1603.00809
 
 ## Dependencies
 
-The easiest way to run defcon is inside the docker images supplied by the FEniCS
-project (http://fenicsproject.org/download); all dependencies are installed
-there. This is described in more detail below.
+Defcon can be used either with Firedrake (http://firedrakeproject.org)
+or FEniCS (http://fenicsproject.org). FEniCS-X is not yet supported.
+Development now mainly occurs with Firedrake.
 
-If you're compiling things yourself, defcon depends on
+If you're compiling FEniCS yourself, you'll need
 
 * mpi4py (http://pythonhosted.org/mpi4py/)
 * petsc4py (https://bitbucket.org/petsc/petsc4py)
@@ -40,51 +39,37 @@ Defcon recommends (and some of the examples depend on)
 * matplotlib (http://matplotlib.org, for rendering bifurcation diagrams)
 * mshr (https://bitbucket.org/fenics-project/mshr)
 * slepc4py (https://bitbucket.org/slepc/slepc4py, for computing stabilities)
-* PyQT4/PyQT5 (https://riverbankcomputing.com/software/pyqt/intro, for the GUI)
+* PyQT5/PyQT4 (https://riverbankcomputing.com/software/pyqt/intro, for the GUI)
 * latex (https://www.tug.org/texlive/, for rendering TeX strings in the GUI)
-
-Defcon adopts same versioning scheme as the FEniCS project. Development of
-defcon closely follows FEniCS and some features require also a recent version of
-PETSc. Released versions of defcon are compatible with a matching version of
-FEniCS (since version 2017.1.0).
 
 ## Current status and automated testing
 
-Defcon's serial capabilities are reasonably well tested. Its parallel features
-are experimental.
-
-Defcon is being automatically tested against a development version of FEniCS
-docker images using Bitbucket Pipelines and CircleCI. This ensures that defcon
- should always run with a recent FEniCS development version.
+Defcon is automatically tested against a development version of Firedrake,
+using Bitbucket Pipelines and CircleCI. This ensures that defcon
+should always run with a recent Firedrake development version.
 
 [![Pipelines](https://bitbucket-badges.useast.atlassian.io/badge/pefarrell/defcon.svg)](https://bitbucket.org/pefarrell/defcon/addon/pipelines/home)
 [![CircleCI](https://circleci.com/bb/pefarrell/defcon.svg?style=svg)](https://circleci.com/bb/pefarrell/defcon)
 
 To run the tests yourself, do
 
-    mpiexec -n 2 py.test-3 -x -v .
+    mpiexec -n 2 py.test -x -v examples/firedrake
 
 when everything is installed.
 
 ## Code Examples
 
 The easiest way to learn how to use it is to examine the examples in
-`examples/`. Start with `examples/elastica`, and compare to the Euler elastica
-section of the manuscript cited above.
+`examples/`. Start with `examples/firedrake/elastica` or `examples/fenics/elastica`, 
+and compare to the Euler elastica section of the manuscript cited above.
 
 ## Installation
 
-    pip3 install .
+    pip install -e .
 
-or
+## Use in anaconda environments with FEniCS
 
-    pip3 install --user -e .
-
-for *editable* installs into the user directory (typically `~/.local`).
-
-## Use in anaconda environments
-
-Here is an example of how to use defcon with anaconda:
+Here is an example of how to use defcon with anaconda and FEniCS:
 
     # Install FEniCS
     conda create -n fenicsproject -c conda-forge fenics
@@ -101,7 +86,7 @@ Here is an example of how to use defcon with anaconda:
     pip install -e .
 
     # Try it out
-    cd examples/wingedcusp
+    cd examples/fenics/wingedcusp
     mpiexec -n 2 python wingedcusp.py
     defcon gui
 
@@ -121,7 +106,7 @@ container type
 
 Then you can navigate to defcon demos and run them
 
-    cd /home/fenics/.local/share/defcon/examples/elastica
+    cd /home/fenics/.local/share/defcon/examples/fenics/elastica
     mpirun -n 2 python3 elastica.py
 
 ## Running the GUI in docker
@@ -169,7 +154,7 @@ The most convenient is
 After installing h5py and defcon as described above, one can run the gui and
 start a defcon application by
 
-    cd /home/fenics/.local/share/defcon/examples/elastica
+    cd /home/fenics/.local/share/defcon/examples/fenics/elastica
     export QT_GRAPHICSSYSTEM=native # may not be necessary on all systems
     defcon gui &
     mpirun -n 2 python3 elastica.py
@@ -182,8 +167,8 @@ http://fenics-containers.readthedocs.io/en/latest/index.html .
 
 ## Troubleshooting
 
-* Make sure all `Expressions` and `CompiledSubDomains` take in the `mpi_comm` argument
-  (see e.g. `examples/navier-stokes`). This is the most common cause of silent
+* Make sure all mesh constructors, `Expressions` and `CompiledSubDomains` take 
+  in the MPI communicator (see e.g. `examples/fenics/navier-stokes`). This is the most common cause of silent
   deadlocks.
 
 ## Contributors
