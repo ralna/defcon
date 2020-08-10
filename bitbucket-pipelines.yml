@@ -1,11 +1,35 @@
 image: firedrakeproject/firedrake
 
+test: &test
+  step:
+    name: Run the unit tests
+    script:
+      - source /home/firedrake/firedrake/bin/activate
+      - pip install pybadges
+      - export HOME=/home/firedrake
+      - python -m pybadges --left-text=test --right-text=failure --right-color='#c00' > status.svg
+      - cd $BITBUCKET_CLONE_DIR
+      - pip install .
+      - mpiexec -n 2 python -m pytest -x -v defcon/ examples/firedrake/
+      - cd -
+      - python -m pybadges --left-text=test --right-text=success --right-color='#c00' > status.svg
+    artifacts:
+      - status.svg
+
+upload-badge: &upload-badge
+  step:
+    name: Upload the build status
+    script:
+      - pipe: docker://bitbucketpipelines/bitbucket-upload-file:0.1.8
+        variables:
+          BITBUCKET_USERNAME: $BITBUCKET_USERNAME
+          BITBUCKET_APP_PASSWORD: $BITBUCKET_APP_PASSWORD
+          FILENAME: 'status.svg'
+
 pipelines:
   default:
-    - step:
-        script:
-          - source /home/firedrake/firedrake/bin/activate
-          - export HOME=/home/firedrake
-          - cd $BITBUCKET_CLONE_DIR
-          - pip install .
-          - mpiexec -n 2 python -m pytest -x -v defcon/ examples/firedrake/
+    - <<: *test
+  branches:
+    master:
+    - <<: *test
+    - <<: *upload-badge
