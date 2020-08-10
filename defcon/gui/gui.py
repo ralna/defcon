@@ -569,10 +569,11 @@ class PlotConstructor():
                         x = backend.Function(self.V).interpolate(backend.SpatialCoordinate(self.mesh)[0])
                     # FIXME: For functions f other than CG1, we might need to sort both arrays so that x is increasing. Check this out!
                     for (y, branchid) in zip(ys, branchids):
+                        plt.close() # Close existing plots
                         plt.plot(x.vector().get_local(), y.vector().get_local(), '-', linewidth=3, color='b')
                         plt.title("branch %s, params %s" % (branchid, params))
                         plt.axhline(0, color='k') # Plot a black line through the origin
-                        plt.show(False) # False here means the window is non-blocking, so we may continue using the GUI while the plot shows.
+                        plt.show(block=False) # False here means the window is non-blocking, so we may continue using the GUI while the plot shows.
                 except RuntimeError as e:
                     issuewarning("Error plotting expression. Are your solutions numbers rather than functions? If so, this is why I failed. The error was:")
                     print(str(e))
