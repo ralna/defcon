@@ -22,8 +22,8 @@ upload-badge: &upload-badge
     script:
       - pipe: atlassian/bitbucket-upload-file:0.1.8
         variables:
-          BITBUCKET_USERNAME: $BITBUCKET_USERNAME
-          BITBUCKET_APP_PASSWORD: $BITBUCKET_APP_PASSWORD
+          BITBUCKET_USERNAME: pefarrell
+          BITBUCKET_APP_PASSWORD:  Ub8DwjSWXQEDhwBNfkkX
           FILENAME: 'status.svg'
 
 pipelines:
