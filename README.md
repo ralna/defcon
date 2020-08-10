@@ -48,7 +48,7 @@ Defcon is automatically tested against a development version of Firedrake,
 using Bitbucket Pipelines and CircleCI. This ensures that defcon
 should always run with a recent Firedrake development version.
 
-[![Pipelines](https://bitbucket-badges.useast.atlassian.io/badge/pefarrell/defcon.svg)](https://bitbucket.org/pefarrell/defcon/addon/pipelines/home)
+[![Pipelines](https://bitbucket.org/pefarrell/defcon/downloads/status.svg)](https://bitbucket.org/pefarrell/defcon/addon/pipelines/home)
 [![CircleCI](https://circleci.com/bb/pefarrell/defcon.svg?style=svg)](https://circleci.com/bb/pefarrell/defcon)
 
 To run the tests yourself, do
