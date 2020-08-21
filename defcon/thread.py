@@ -7,6 +7,7 @@ import math
 import time
 import sys
 import os
+import resource
 
 from defcon.iomodule import remap_c_streams
 from defcon.parallellayout import ranktoteamno
@@ -64,10 +65,10 @@ class DefconThread(object):
         """
         Garbage collection.
         """
-        assert isinstance(self.gc_frequency, int)
         self.collect_call += 1
         if self.collect_call % self.gc_frequency == 0:
             gc.collect()
+            self.log("Called garbage collection.")
 
     def configure_io(self, parameters):
         """

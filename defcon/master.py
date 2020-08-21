@@ -5,6 +5,7 @@ from numpy  import isinf
 import six
 
 import time
+import resource
 
 from defcon.bifurcationproblem import BifurcationProblem
 from defcon.thread import DefconThread
@@ -205,6 +206,7 @@ class DefconMaster(DefconThread):
             # Dispatch any tasks that can be dispatched
             while self.graph.executable_tasks() > 0 and len(self.idle_teams) > 0:
                 self.dispatch_task()
+                self.log("Memory used: %s" % resource.getrusage(resource.RUSAGE_SELF).ru_maxrss)
 
             # We can't send out any more tasks, either because we have no
             # tasks to send out or we have no free processors.
