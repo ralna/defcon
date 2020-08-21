@@ -70,7 +70,7 @@ class Naghdi(BifurcationProblem):
 
         # Define the Function Space
         U = FunctionSpace(mesh, element)
-        print "Degrees of freedom: ", U.dim()
+        print("Degrees of freedom: ", U.dim())
         self.tfs = TensorFunctionSpace(mesh, "DG", 0)
         self.V = VectorFunctionSpace(mesh, "CG", 1, dim=3)
 
@@ -223,8 +223,6 @@ class Naghdi(BifurcationProblem):
         else:
             maxit = 20
             damping = 1.0
-
-        print "damping: ", damping
 
         return {
                "snes_max_it": maxit,

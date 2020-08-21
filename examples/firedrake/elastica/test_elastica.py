@@ -13,11 +13,7 @@ def test_elastica():
 
     io = problem.io()
 
-    # More totally unnecessary API breakages, quite frustrating
-    try:
-        V = problem.function_space(problem.mesh(PETSc.Comm(MPI.COMM_SELF)))
-    except TypeError:
-        V = problem.function_space(problem.mesh(MPI.COMM_SELF))
+    V = problem.function_space(problem.mesh(MPI.COMM_SELF))
 
     io.setup(problem.parameters(), problem.functionals(), V)
 

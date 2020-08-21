@@ -165,8 +165,6 @@ class ZeidlerProblem(BifurcationProblem):
             plt.close(h)
 
     def postprocess(self, solution, params, branchid, window):
-        #self.monitor(params, branchid, solution, None)
-        print "params[0]: ", float(params[0])
         if float(params[0]) not in [11.0] and window is None:
             return
         self.render(params, branchid, solution, window)

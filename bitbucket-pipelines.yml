@@ -1,18 +1,35 @@
-image: quay.io/fenicsproject/dev
+image: firedrakeproject/firedrake
+
+test: &test
+  step:
+    name: Run the unit tests
+    script:
+      - source /home/firedrake/firedrake/bin/activate
+      - pip install pybadges
+      - export HOME=/home/firedrake
+      - python -m pybadges --left-text=pipelines --right-text=failure --right-color='#c00' > status.svg
+      - cd $BITBUCKET_CLONE_DIR
+      - pip install .
+      - mpiexec -n 2 python -m pytest -x -v defcon/ examples/firedrake/
+      - cd -
+      - python -m pybadges --left-text=pipelines --right-text=success --right-color='#0c0' > status.svg
+    artifacts:
+      - status.svg
+
+upload-badge: &upload-badge
+  step:
+    name: Upload the build status
+    script:
+      - pipe: atlassian/bitbucket-upload-file:0.1.8
+        variables:
+          BITBUCKET_USERNAME: pefarrell
+          BITBUCKET_APP_PASSWORD:  Ub8DwjSWXQEDhwBNfkkX
+          FILENAME: 'status.svg'
 
 pipelines:
   default:
-    - step:
-        script:
-          - pip3 install --no-cache-dir --upgrade pytest
-          - export CC=mpicc
-          - export HDF5_MPI=ON
-          - pip3 install --no-binary ":all:" --no-cache-dir h5py
-          - export HOME=/home/fenics
-          - export FENICS_PREFIX=$HOME/local
-          - export FENICS_PYTHON_MAJOR_VERSION=3
-          - export FENICS_PYTHON_MINOR_VERSION=5
-          - source /home/fenics/fenics.env.conf
-          - cd $BITBUCKET_CLONE_DIR
-          - pip3 install --no-cache-dir .
-          - mpiexec -n 2 python3 -m pytest -x -v .
+    - <<: *test
+  branches:
+    master:
+    - <<: *test
+    - <<: *upload-badge
