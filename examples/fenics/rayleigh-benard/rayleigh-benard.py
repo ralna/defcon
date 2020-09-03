@@ -94,7 +94,7 @@ class RayleighBenardProblem(BifurcationProblem):
             + inner(diffp, diffp)*dx + inner(diffT, diffT)*dx
             )
 
-    def save_pvd(self, z, pvd):
+    def save_pvd(self, z, pvd, params):
         (u, p, T) = z.split()
         u.rename("Velocity", "Velocity")
         p.rename("Pressure", "Pressure")

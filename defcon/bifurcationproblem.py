@@ -318,13 +318,13 @@ class BifurcationProblem(object):
 
         return iomodule.SolutionIO(prefix)
 
-    def save_pvd(self, state, pvd, time=None):
+    def save_pvd(self, state, pvd, params, time=None):
         """
         Save the function state to a PVD file.
 
         The default is
 
-        pvd << state
+        pvd.write(state)
         """
         if 'f_' in state.name():
             state.rename("Solution", "Solution")
