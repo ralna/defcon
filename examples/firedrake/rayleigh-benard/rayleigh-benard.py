@@ -125,12 +125,12 @@ class RayleighBenardProblem(BifurcationProblem):
         diffT = zT - wT
         return inner(diffu, diffu)*dx + inner(grad(diffu), grad(diffu))*dx + inner(diffp, diffp)*dx + inner(diffT, diffT)*dx
 
-    def save_pvd(self, z, pvd):
+    def save_pvd(self, z, pvd, params):
         (u, p, T) = z.split()
         u.rename("Velocity", "Velocity")
         p.rename("Pressure", "Pressure")
         T.rename("Temperature", "Temperature")
-        pvd << u
+        pvd.write(u, p, T)
 
 if __name__ == "__main__":
     dc = DeflatedContinuation(problem=RayleighBenardProblem(), teamsize=1, verbose=True)

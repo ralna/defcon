@@ -211,7 +211,7 @@ class Naghdi(BifurcationProblem):
         (bz, btheta, _, _, _) = split(b)
         return inner(az - bz, az - bz)*dx #+ inner(atheta - btheta, atheta - btheta)*dx
 
-    def save_pvd(self, u, pvd):
+    def save_pvd(self, u, pvd, params):
         (z, _, _, _, _) = u.split()
         z.rename("Displacement", "Displacement")
         pvd << z

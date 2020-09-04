@@ -69,8 +69,8 @@ class NavierStokesProblem(BifurcationProblem):
         elif Re < 75:  return 5
         elif Re < 100: return 8
         else:          return float("inf")
-        
-    def save_pvd(self, rc, pvd):
+
+    def save_pvd(self, rc, pvd, params):
         (u, p) = rc.split()
         u.rename("Velocity", "Velocity")
         p.rename("Pressure", "Pressure")

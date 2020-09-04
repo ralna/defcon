@@ -393,7 +393,7 @@ class ArclengthWorker(DefconWorker):
                 problem.save_xmf(z_, arcxmf, index)
                 arcxmf.write(lmbda_, index)
             elif backend.__name__ == "firedrake":
-                problem.save_pvd(z_, arcpvd, time=index)
+                problem.save_pvd(z_, arcpvd, current_params, time=index)
 
             functionals = self.compute_functionals(z_)
 

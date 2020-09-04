@@ -679,7 +679,7 @@ class PlotConstructor():
                 ys = self.io.fetch_solutions(params, branchids)
                 for y in ys:
                     y.rename("Solution", "Solution")
-                    self.problem.save_pvd(y, pvd)
+                    self.problem.save_pvd(y, pvd, params)
         else:
             print("Warning: firedrake does not support I/O properly, workaround is slow")
 

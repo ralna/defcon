@@ -69,6 +69,6 @@ def main(args):
         solutions = io.fetch_solutions(value, branches)
         for solution in solutions:
             solution.rename("Solution", "Solution")
-            problem.save_pvd(solution, pvd)
+            problem.save_pvd(solution, pvd, value)
 
         print("Wrote to " + filename)

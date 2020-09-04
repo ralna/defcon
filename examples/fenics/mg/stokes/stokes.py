@@ -140,7 +140,7 @@ class StokesProblem(BifurcationProblem):
                }
         return args
 
-    def save_pvd(self, z, pvd):
+    def save_pvd(self, z, pvd, params):
         (u, p) = z.split(deepcopy=True)
         u.rename("Velocity", "Velocity")
         p.rename("Pressure", "Pressure")
