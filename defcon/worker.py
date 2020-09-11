@@ -83,6 +83,7 @@ class DefconWorker(DefconThread):
         self.determine_gc_frequency(self.function_space)
 
         self.state = backend.Function(self.function_space)
+        self.prevstate = backend.Function(self.function_space)
         self.trivial_solutions = None
         test_ = backend.TestFunction(self.function_space)
         self.residual = self.problem.residual(self.state, parameters.constants, test_)
@@ -304,10 +305,9 @@ class DefconWorker(DefconThread):
         with Event("continuation: boundary conditions"):
             bcs = self.problem.boundary_conditions(self.function_space, task.newparams)
 
+        self.prevstate.assign(self.state)
         with Event("continuation: predictor"):
             hint = self.problem.predict(self.problem, self.state, task.oldparams, task.newparams, task.hint)
-
-        ig = self.state.copy(deepcopy=True)
 
         # Try to solve it
         with Event("continuation: solve"):
@@ -322,12 +322,14 @@ class DefconWorker(DefconThread):
         if not success:
             functionals = None
             self.state_id = (None, None)
-
-            self.state.assign(ig)
-
-            # average parameters and try again
             avg = [0.5*(x + y) for (x, y) in zip(task.oldparams, task.newparams)]
             self.log("Attempting average of parameters: %s" % (avg,))
+
+            self.state.assign(self.prevstate)
+            with Event("continuation: predictor"):
+                hint = self.problem.predict(self.problem, self.state, task.oldparams, avg, task.hint)
+
+            # average parameters and try again
             self.load_parameters(avg)
             self.deflation.deflate(other_solutions + self.trivial_solutions)
             (success_, iters) = newton(self.residual, self.jacobian, self.state, bcs,
@@ -341,6 +343,9 @@ class DefconWorker(DefconThread):
                 success = False
             else:
                 self.log("Averaging half-succeeded; using as initial guess for desired step")
+                task.hint = hint
+                with Event("continuation: predictor"):
+                    hint = self.problem.predict(self.problem, self.state, avg, task.newparams, task.hint)
                 self.load_parameters(task.newparams)
                 self.deflation.deflate(other_solutions + self.trivial_solutions)
                 (success, iters) = newton(self.residual, self.jacobian, self.state, bcs,
@@ -366,10 +371,10 @@ class DefconWorker(DefconThread):
             with Event("continuation: saving"):
                 self.io.save_solution(self.state, functionals, task.newparams, task.branchid)
 
-            # Compute the distance between the initial guess (previous solution) and
+            # Compute the distance between the previous solution and
             # new solution. If it's suspiciously high, instruct the master process
             # to send a continuation backwards: we may have inadvertently jumped branch
-            sqdist = backend.assemble(self.problem.squared_norm(self.state, ig, task.newparams))
+            sqdist = backend.assemble(self.problem.squared_norm(self.state, self.prevstate, task.newparams))
             if task.prevsqdist is not None and sqdist > 5*task.prevsqdist and self.continue_backwards:
                 self.log("Size of previous update: %s" % task.prevsqdist)
                 self.log("Size of current  update: %s" % sqdist)

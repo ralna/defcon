@@ -118,6 +118,9 @@ class ElasticaProblem(BifurcationProblem):
         d = {"stable": is_stable}
         return d
 
+    def predict(self, *args, **kwargs):
+        return secant(*args, **kwargs)
+
 if __name__ == "__main__":
     dc = DeflatedContinuation(problem=ElasticaProblem(), teamsize=1, verbose=True, clear_output=True)
     dc.run(values={"lambda": linspace(0, 3.9*pi, 200), "mu": [0.5]}, freeparam="lambda")
