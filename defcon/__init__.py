@@ -23,7 +23,7 @@ from defcon.iomodule import IO, SolutionIO
 from defcon.tasks import DeflationTask, ContinuationTask, StabilityTask, ArclengthTask, TangentPredictionTask
 from defcon.operatordeflation import *
 from defcon.variationalinequalities import ComplementarityProblem
-from defcon.prediction import tangent
+from defcon.prediction import tangent, secant
 
 # This might fail because h5py is missing.
 try:

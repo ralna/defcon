@@ -77,3 +77,31 @@ def tangent(problem, solution, oldparams, newparams, hint=None):
     solution.assign(solution + du)
 
     return None
+
+
+def secant(problem, solution, oldparams, newparams, hint=None):
+    if hint is None:
+        # First time we hit the secant continuation, nothing to do
+        problem.__secant_solution = backend.Function(solution)
+        return tuple(oldparams)
+    else:
+        prevparams = hint
+        prevsolution = problem.__secant_solution
+        oldsolution = backend.Function(solution)  # for optimisation: don't malloc each time
+
+        # Find out which parameter has varied, and make sure they're all distinct
+        for (i, prevparam, oldparam) in zip(range(len(oldparams)), prevparams, oldparams):
+            if prevparam != oldparam:
+                newparam = newparams[i]
+                break
+
+        assert oldparam != prevparam
+        assert newparam != oldparam
+        assert prevparam != newparam
+
+        # Calculate the line joining (prevparam, prevsolution) and (oldparam, oldsolution)
+        m = (oldsolution - prevsolution) / (oldparam - prevparam)  # slope
+        solution.assign(m * (newparam - oldparam) + oldsolution)   # extrapolate line to newparam
+
+        problem.__secant_solution.assign(oldsolution)  # update prevsolution with oldsolution
+        return tuple(oldparams)  # hint for next time
