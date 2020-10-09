@@ -8,6 +8,8 @@ from defcon import branchio
 from defcon import nonlinearproblem
 from defcon import nonlinearsolver
 
+firedrake_solver_args = ['nullspace', 'transpose_nullspace', 'appctx', 'pre_jacobian_callback', 'post_jacobian_callback', 'pre_function_callback', 'post_function_callback']
+
 class BifurcationProblem(object):
     """
     A base class for bifurcation problems.
@@ -387,10 +389,11 @@ class BifurcationProblem(object):
                 **kwargs
             )
         else:
+            valid_kwargs = {key: value for (key, value) in kwargs.items() if key in firedrake_solver_args}
             return backend.NonlinearVariationalSolver(
                 problem, options_prefix=prefix,
                 solver_parameters=solver_params,
-                **kwargs
+                **valid_kwargs
             )
 
     def compute_stability(self, params, branchid, solution, hint=None):
