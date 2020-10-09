@@ -56,9 +56,9 @@ class DefconThread(object):
         else:
             header = "TEAM %3d: " % self.teamno
 
-        timestamp = "[%s] " % time.strftime("%H:%M:%S")
+        timestamp = time.strftime("[%d-%m-%y @ %H:%M:%S] ")
 
-        print(fmt % (timestamp + header + msg))
+        print(fmt % (timestamp + header + msg), flush=True)
         sys.stdout.flush()
 
     def collect(self):
