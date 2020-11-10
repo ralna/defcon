@@ -204,7 +204,7 @@ class SolutionIO(IO):
         return funcs
 
     def known_branches(self, params):
-        filenames = glob.glob(self.dir(params) + "solution-*.h5")
+        filenames = sorted(glob.glob(self.dir(params) + "solution-*.h5"))
         branches = [int(filename.split('-')[-1][:-3]) for filename in filenames]
         return set(branches)
 
