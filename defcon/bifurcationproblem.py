@@ -242,8 +242,9 @@ class BifurcationProblem(object):
         """
         Return the number of initial guesses we wish to search from at the
         very first deflation step, i.e. when initialising the continuation.
+        Defaults to 1.
         """
-        raise NotImplementedError
+        return 1
 
     def initial_guess(self, function_space, params, n):
         """
