@@ -18,7 +18,7 @@ from ast import literal_eval
 
 
 def usage(executable):
-    sys.exit("""A script that computes the stability of all solutions.
+    sys.exit("""A script that computes ||solution - (other solution)|| for a fixed branchid at a fixed parameter value.
 
 Use like
 
