@@ -219,19 +219,19 @@ class BifurcationProblem(object):
     def functionals(self):
         """
         This method returns a list of functionals. Each functional is a tuple
-        consisting of a callable, an ascii name, and a tex label.  The callable
-        J is called via
+        consisting of a callable, an ascii name, a tex label, and (optionally)
+        a function that returns UFL for the functional. The callable J is called via
 
           j = J(state, params)
 
-        and should return a float.
+         and should return a float.
 
         For example, this routine might consist of
 
         def functionals(self):
-            def L2norm(state, param):
-                return assemble(inner(state, state)*dx)**0.5
-            return [(L2norm, "L2norm", r"\|y\|")]
+            def squared_L2norm(state, param):
+                return assemble(inner(state, state)*dx)
+            return [(L2norm, "L2norm", r"\|y\|", lambda state: inner(state, state)*dx)]
 
         *Returns*
           functionals (list of tuples)
@@ -615,3 +615,56 @@ class BifurcationProblem(object):
 
         from subprocess import Popen
         Popen(["paraview", filename])
+
+    def estimate_error(self, F, J, state, bcs, params):
+        """
+        Compute an estimate for the error in the evaluation of the functional
+        J due to the finite element approximation.
+
+        Defcon includes a simple implementation of a standard dual-weighted
+        residual error estimator. To use this, do
+
+        def estimate_error(self, *args, **kwargs):
+            return estimate_error_dwr(self, *args, **kwargs)
+        """
+        pass
+
+    def enrich_function_space(self, V):
+        """
+        Make a richer function space. Used for
+        defining the function space in which to solve
+        the adjoint problem in the default implementation
+        of the dual-weighted residual error estimator.
+        """
+
+        from defcon.backend import MixedElement, VectorElement, TensorElement, TensorProductElement, FunctionSpace
+
+        ele = V.ufl_element()
+        if isinstance(ele, MixedElement) and not isinstance(ele, (VectorElement, TensorElement)):
+            raise NotImplementedError("Implement this method yourself")
+
+        if backend.__name__ != "firedrake":
+            raise NotImplementedError("Only implemented for Firedrake, sorry. Implement this method yourself")
+
+        N = ele.degree()
+        try:
+            N, = set(N)
+        except TypeError:
+            pass
+        except ValueError:
+            raise NotImplementedError("Different degrees on TensorProductElement")
+
+        from firedrake.preconditioners.pmg import PMGBase
+
+        if isinstance(ele, TensorElement):
+            sub = ele.sub_elements()
+            new_ele = TensorElement(PMGBase.reconstruct_degree(sub[0], N+1), shape=ele.value_shape(), symmetry=ele.symmetry())
+        elif isinstance(ele, VectorElement):
+            sub = ele.sub_elements()
+            new_ele = VectorElement(PMGBase.reconstruct_degree(sub[0], N+1), dim=len(sub))
+        elif isinstance(ele, TensorProductElement):
+            new_ele = TensorProductElement(*(PMGBase.reconstruct_degree(sub, N) for sub in ele.sub_elements()), cell=ele.cell())
+        else:
+            new_ele = ele.reconstruct(degree=N+1)
+
+        return FunctionSpace(V.mesh(), new_ele)

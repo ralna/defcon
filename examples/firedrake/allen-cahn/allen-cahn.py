@@ -33,7 +33,7 @@ class AllenCahnProblem(BifurcationProblem):
             j = assemble(y*y*dx)
             return j
 
-        return [(sqL2, "sqL2", r"$\|y\|^2$")]
+        return [(sqL2, "sqL2", r"$\|y\|^2$", lambda y: y*y*dx)]
 
     def number_initial_guesses(self, params):
         return 1
@@ -61,6 +61,9 @@ class AllenCahnProblem(BifurcationProblem):
             "pc_factor_mat_solver_type": "mumps"
         }
         return params
+
+    def estimate_error(self, *args, **kwargs):
+        return estimate_error_dwr(self, *args, **kwargs)
 
 if __name__ == "__main__":
     dc = DeflatedContinuation(problem=AllenCahnProblem(), teamsize=1, verbose=True, clear_output=True)

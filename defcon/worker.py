@@ -13,6 +13,7 @@ from defcon.thread import DefconThread
 from defcon.operatordeflation import ShiftedDeflation
 from defcon.profiling import DummyEvent
 from defcon.compatibility import function_space_dimension, make_comm
+from defcon.bifurcationproblem import BifurcationProblem
 
 
 class DefconWorker(DefconThread):
@@ -91,6 +92,20 @@ class DefconWorker(DefconThread):
 
         self.configure_io(parameters)
         self.construct_deflation(parameters)
+
+        # Should we do error estimation? Let's see if the user
+        # has overridden the estimate_error method or not
+        estimate_error = False
+
+        for klass in self.problem.__class__.__mro__:
+            if klass is BifurcationProblem:
+                break
+
+            if "estimate_error" in klass.__dict__:
+                estimate_error = True
+                break
+
+        self.estimate_error = estimate_error
 
         # We keep track of what solution we actually have in memory in self.state
         # for efficiency. FIXME: investigate if this actually saves us any
@@ -225,8 +240,24 @@ class DefconWorker(DefconThread):
             if success: functionals = self.compute_functionals(self.state)
             else: functionals = None
 
+        # If the user has supplied a method to calculate the error in a given functional,
+        # then let's do that now
+        error_estimates = [None] * len(self.functionals)
+        if self.estimate_error:
+            with Event("deflation: error estimation"):
+                for (idx, functional) in enumerate(self.functionals):
+                    try:
+                        J_ufl = functional[3]
+                    except IndexError:
+                        continue
+                    if J_ufl is None:
+                        continue
+
+                    error_estimates[idx] = self.problem.estimate_error(self.residual, J_ufl(self.state), self.state, bcs, task.newparams)
+
+
         with Event("deflation: sending"):
-            response = Response(task.taskid, success=success, data={"functionals": functionals, "iterations": iters})
+            response = Response(task.taskid, success=success, data={"functionals": functionals, "iterations": iters, "error_estimates": error_estimates})
             self.send_response(response)
 
         if not success:

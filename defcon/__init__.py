@@ -24,6 +24,7 @@ from defcon.tasks import DeflationTask, ContinuationTask, StabilityTask, Arcleng
 from defcon.operatordeflation import *
 from defcon.variationalinequalities import ComplementarityProblem
 from defcon.prediction import tangent, secant
+from defcon.dwr import estimate_error_dwr
 
 # This might fail because h5py is missing.
 try:
