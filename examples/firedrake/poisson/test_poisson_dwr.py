@@ -3,6 +3,9 @@ from defcon.newton import newton
 from firedrake import *
 from mpi4py import MPI
 
+from firedrake.petsc import PETSc
+PETSc.Sys.popErrorHandler()
+
 import poisson
 
 def test_poisson_dwr():
