@@ -22,7 +22,7 @@ def test_poisson_dwr():
     bcs = problem.boundary_conditions(Z, params)
 
     task = DeflationTask(0, None, None, 0, params)
-    teamno = 0 # FIXME: make this optional
+    teamno = 0
 
     sp = problem.solver_parameters(params, task)
 
