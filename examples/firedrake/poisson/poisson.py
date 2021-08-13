@@ -2,9 +2,12 @@
 from firedrake import *
 from defcon import *
 
-class AllenCahnProblem(BifurcationProblem):
+# Solve the Poisson equation.
+# This is to test the DWR error estimators.
+
+class PoissonProblem(BifurcationProblem):
     def mesh(self, comm):
-        return UnitSquareMesh(100, 100, diagonal="crossed", comm=comm)
+        return UnitSquareMesh(8, 8, quadrilateral=True, comm=comm)
 
     def function_space(self, mesh):
         return FunctionSpace(mesh, "CG", 1)
@@ -13,27 +16,28 @@ class AllenCahnProblem(BifurcationProblem):
         delta = Constant(0)
         return [(delta, "delta", r"$\delta$")]
 
-    def residual(self, y, params, v):
-        delta = params[0]
+    def residual(self, u, params, v):
+        (x, y) = SpatialCoordinate(u.function_space().mesh())
+        u_exact = 256*(1-x)*x*(1-y)*y*exp(-((x-0.5)**2+(y-0.5)**2)/10)
+        f = -div(grad(u_exact))
 
         F = (
-            + delta * inner(grad(v), grad(y))*dx
-            + 1.0/delta * inner(v, y**3 - y)*dx
+              inner(grad(v), grad(u))*dx
+            - inner(v, f)*dx
             )
 
         return F
 
     def boundary_conditions(self, V, params):
-        bcs = [DirichletBC(V, +1.0, (1, 2)),
-               DirichletBC(V, -1.0, (3, 4))]
+        bcs = [DirichletBC(V, 0, "on_boundary")]
         return bcs
 
     def functionals(self):
-        def sqL2(y, params):
-            j = assemble(y*y*dx)
-            return j
+        def normal_gradient(u, params):
+            n = FacetNormal(u.function_space().mesh())
+            return assemble(dot(grad(u), n)*ds)
 
-        return [(sqL2, "sqL2", r"$\|y\|^2$", lambda y, params: y*y*dx)]
+        return [(normal_gradient, "normal_graduent", r"$\int_{\partial \Omega} \nabla u \cdot n \ \mathrm{d}s$", lambda u, params: dot(grad(u), FacetNormal(u.function_space().mesh()))*ds)]
 
     def number_initial_guesses(self, params):
         return 1
@@ -42,9 +46,7 @@ class AllenCahnProblem(BifurcationProblem):
         return Function(V)
 
     def number_solutions(self, params):
-        delta = params[0]
-        if delta == 0.04: return 3
-        else:             return float("inf")
+        return 1
 
     def solver_parameters(self, params, task, **kwargs):
         params = {
@@ -66,5 +68,5 @@ class AllenCahnProblem(BifurcationProblem):
         return estimate_error_dwr(self, *args, **kwargs)
 
 if __name__ == "__main__":
-    dc = DeflatedContinuation(problem=AllenCahnProblem(), teamsize=1, verbose=True, clear_output=True)
-    dc.run(values={"delta": [0.04]})
+    dc = DeflatedContinuation(problem=PoissonProblem(), teamsize=1, verbose=True, profile=False, clear_output=True)
+    dc.run(values={"delta": 0})

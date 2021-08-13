@@ -254,7 +254,7 @@ class DefconWorker(DefconThread):
                     if J_ufl is None:
                         continue
 
-                    error_estimates[idx] = self.problem.estimate_error(self.residual, J_ufl(self.state), self.state, bcs, task.newparams)
+                    error_estimates[idx] = self.problem.estimate_error(self.residual, J_ufl(self.state, task.newparams), self.state, bcs, task.newparams)
 
 
         with Event("deflation: sending"):
@@ -430,7 +430,7 @@ class DefconWorker(DefconThread):
                     if J_ufl is None:
                         continue
 
-                    error_estimates[idx] = self.problem.estimate_error(self.residual, J_ufl(self.state), self.state, bcs, task.newparams)
+                    error_estimates[idx] = self.problem.estimate_error(self.residual, J_ufl(self.state, task.newparams), self.state, bcs, task.newparams)
 
 
         response = Response(task.taskid, success=success, data={"functionals": functionals, "go_backwards": go_backwards, "error_estimates": error_estimates})

@@ -36,7 +36,7 @@ class BratuProblem(BifurcationProblem):
             j = u((0.5,))
             return float(j)
 
-        return [(sqL2, "sqL2", r"$\|y\|^2$", lambda y: y*y*dx),
+        return [(sqL2, "sqL2", r"$\|y\|^2$", lambda y, params: y*y*dx),
                 (eval, "eval", r"$u(0.5)$")]
 
     def number_initial_guesses(self, params):
