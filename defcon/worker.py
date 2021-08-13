@@ -242,8 +242,9 @@ class DefconWorker(DefconThread):
 
         # If the user has supplied a method to calculate the error in a given functional,
         # then let's do that now
-        error_estimates = [None] * len(self.functionals)
-        if self.estimate_error:
+        error_estimates = None
+        if self.estimate_error and success:
+            error_estimates = [None] * len(self.functionals)
             with Event("deflation: error estimation"):
                 for (idx, functional) in enumerate(self.functionals):
                     try:
@@ -415,7 +416,24 @@ class DefconWorker(DefconThread):
             functionals = None
             self.state_id = (None, None)
 
-        response = Response(task.taskid, success=success, data={"functionals": functionals, "go_backwards": go_backwards})
+        # If the user has supplied a method to calculate the error in a given functional,
+        # then let's do that now
+        error_estimates = None
+        if self.estimate_error and success:
+            error_estimates = [None] * len(self.functionals)
+            with Event("deflation: error estimation"):
+                for (idx, functional) in enumerate(self.functionals):
+                    try:
+                        J_ufl = functional[3]
+                    except IndexError:
+                        continue
+                    if J_ufl is None:
+                        continue
+
+                    error_estimates[idx] = self.problem.estimate_error(self.residual, J_ufl(self.state), self.state, bcs, task.newparams)
+
+
+        response = Response(task.taskid, success=success, data={"functionals": functionals, "go_backwards": go_backwards, "error_estimates": error_estimates})
         with Event("continuation: sending"):
             self.send_response(response)
 
