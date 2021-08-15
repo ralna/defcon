@@ -37,7 +37,7 @@ class PoissonProblem(BifurcationProblem):
             n = FacetNormal(u.function_space().mesh())
             return assemble(dot(grad(u), n)*ds)
 
-        return [(normal_gradient, "normal_graduent", r"$\int_{\partial \Omega} \nabla u \cdot n \ \mathrm{d}s$", lambda u, params: dot(grad(u), FacetNormal(u.function_space().mesh()))*ds)]
+        return [(normal_gradient, "normal_gradient", r"$\int_{\partial \Omega} \nabla u \cdot n \ \mathrm{d}s$", lambda u, params: dot(grad(u), FacetNormal(u.function_space().mesh()))*ds)]
 
     def number_initial_guesses(self, params):
         return 1
