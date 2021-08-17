@@ -3,6 +3,7 @@
 from defcon.backend import Function, TestFunction, TrialFunction, action, adjoint, derivative, replace, solve, assemble, Constant
 from defcon.tasks import AdjointTask
 import ufl.algorithms
+import ufl
 
 def estimate_error_dwr(bifurcationproblem, F, J, state, bcs, params):
     V = state.function_space()
@@ -20,7 +21,7 @@ def estimate_error_dwr(bifurcationproblem, F, J, state, bcs, params):
     G = replace(G, {v: vz})
 
     # Homogenise and promote the boundary conditions
-    hbcs = [bc.reconstruct(V=Vf, g=Constant(0)) for bc in bcs]
+    hbcs = [bc.reconstruct(V=Vf, g=ufl.zero(Vf.ufl_element().value_shape())) for bc in bcs]
 
     # Get solver parameters for adjoint problem
     sp = bifurcationproblem.solver_parameters(params, AdjointTask(params))
