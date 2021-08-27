@@ -62,10 +62,14 @@ class HyperelasticityProblem(BifurcationProblem):
         return [bcl, bcr]
 
     def functionals(self):
+        def total_vertical_displacement(u, params):
+            return assemble(u[1]*dx) / 0.1
+
         def pointeval(u, params):
             return u((0.25, 0.05))[1]
 
-        return [(pointeval, "pointeval", r"$u_1(0.25, 0.05)$")]
+        return [(total_vertical_displacement, "total_vertical_displacement", r"$\frac{1}{|\Omega|} \int_\Omega u_1 \ \mathrm{d}x$", lambda u, params: Constant(10) * u[1]*dx),
+                (pointeval, "pointeval", r"$u_1(0.25, 0.05)$")]
 
     def number_initial_guesses(self, params):
         return 1
@@ -205,6 +209,9 @@ class HyperelasticityProblem(BifurcationProblem):
              "hint": eigenfunctions}
 
         return d
+
+    def estimate_error(self, *args, **kwargs):
+        return estimate_error_dwr(self, *args, **kwargs)
 
 
 if __name__ == "__main__":

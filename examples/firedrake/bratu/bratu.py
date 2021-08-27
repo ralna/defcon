@@ -28,11 +28,16 @@ class BratuProblem(BifurcationProblem):
         return [DirichletBC(V, 0.0, "on_boundary")]
 
     def functionals(self):
+        def sqL2(y, params):
+            j = assemble(y*y*dx)
+            return j
+
         def eval(u, params):
             j = u((0.5,))
             return float(j)
 
-        return [(eval, "eval", r"$u(0.5)$")]
+        return [(sqL2, "sqL2", r"$\|y\|^2$", lambda y, params: y*y*dx),
+                (eval, "eval", r"$u(0.5)$")]
 
     def number_initial_guesses(self, params):
         return 1
@@ -87,6 +92,9 @@ class BratuProblem(BifurcationProblem):
     def predict(self, problem, solution, oldparams, newparams, hint):
         # Use tangent continuation
         return tangent(problem, solution, oldparams, newparams, hint)
+
+    def estimate_error(self, *args, **kwargs):
+        return estimate_error_dwr(self, *args, **kwargs)
 
 if __name__ == "__main__":
     import matplotlib.pyplot as plt

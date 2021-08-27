@@ -35,6 +35,10 @@ jobs:
             set +e
             mkdir -p /tmp/circle
             source /home/firedrake/firedrake/bin/activate
+            mpiexec -n 1 bash -c '
+              python3 -m pytest -vxl \
+              --junitxml /tmp/circle/report-${OMPI_COMM_WORLD_RANK:-$PMI_RANK}.xml examples/firedrake/poisson
+            '
             mpiexec -n 2 bash -c '
               python3 -m pytest -vxl \
               --junitxml /tmp/circle/report-${OMPI_COMM_WORLD_RANK:-$PMI_RANK}.xml defcon/ examples/firedrake

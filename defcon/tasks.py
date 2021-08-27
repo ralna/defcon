@@ -171,6 +171,7 @@ class ArclengthTask(Task):
     def __str__(self):
         return "ArclengthTask(taskid=%s, params=%s, branchid=%s, sign=%s, ds=%s, bounds=%s, funcbounds=%s)" % (self.taskid, self.params, self.branchid, self.sign, self.ds, self.bounds, self.funcbounds)
 
+
 class TangentPredictionTask(Task):
     """
     A task that represents the computation of a linearised prediction/
@@ -187,6 +188,22 @@ class TangentPredictionTask(Task):
 
     def __str__(self):
         return "TangentPredictionTask(oldparams=%s, newparams=%s)" % (self.oldparams, self.newparams)
+
+
+class AdjointTask(Task):
+    """
+    A task that represents solving an adjoint equation
+    (usually on an enriched space).
+
+    *Arguments*
+      params (tuple)
+        Parameter values where we have the solution
+    """
+    def __init__(self, params):
+        self.params = params
+
+    def __str__(self):
+        return "AdjointTask(params=%s)" % (self.params, self.newparams)
 
 
 class Response(object):
