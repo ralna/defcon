@@ -3,6 +3,7 @@ import sys
 from   math import floor
 
 from firedrake import *
+from firedrake.petsc import PETSc
 from defcon import *
 
 import matplotlib.pyplot as plt
