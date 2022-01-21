@@ -50,7 +50,8 @@ try:
     from matplotlib import style
     style.use('ggplot')
 except AttributeError:
-    issuewarning("Update to the latest version of matplotlib to use styles.")
+    import warnings
+    warnings.warn("Update to the latest version of matplotlib to use styles.")
     pass
 
 # For plotting the bifurcation diagram.
@@ -139,7 +140,7 @@ class CustomToolbar(NavigationToolbar2QT):
         NavigationToolbar2QT.__init__(self, canvas, parent)
         self.layout().takeAt(4) # This removes an annoying extra button at the end.
 
-        self.parent = parent
+        self.setParent(parent)
         self.pc = pc
         self.working_dir = working_dir
 
