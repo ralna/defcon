@@ -2,10 +2,6 @@
 from __future__ import absolute_import
 from __future__ import print_function
 
-# Urgh. We need this to ignore matplotlibs warnings.
-import warnings
-warnings.filterwarnings("ignore", module="matplotlib")
-
 from matplotlib import rc
 rc('font', **{'family': 'serif', 'serif': ['Computer Modern']})
 rc('text', usetex=True)
