@@ -539,7 +539,7 @@ class PlotConstructor():
         known_branches = self.io.known_branches(params)
 
         # Create the file to which we will write these solutions.
-        pvd_filename = os.path.join(self.solutions_dir, "parameters=%s.pvd" % (params,)).replace(", ", "_")
+        pvd_filename = os.path.join(self.solutions_dir, "parameters=%s.pvd" % (params,)).replace(", ", "_").replace(",", "_")
         print("Rendering parameters %s to PVD ..." % (params,))
         self.save_pvd([params], known_branches, pvd_filename)
 
@@ -581,7 +581,7 @@ class PlotConstructor():
 
                 # Create the file to which we will write these solutions.
                 pvd_filename = os.path.join(self.solutions_dir, "SOLUTION$params=%s$branchids=%s.pvd" \
-                    % (parameters_to_string(self.io.parameters, params), str(branchids).replace(", ", "_")))
+                    % (parameters_to_string(self.io.parameters, params), str(branchids).replace(", ", "_"))).replace(",", "_")
                 self.save_pvd([params], branchids, pvd_filename)
 
                 # Finally, launch paraview with the newly created file.
