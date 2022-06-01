@@ -179,6 +179,7 @@ http://fenics-containers.readthedocs.io/en/latest/index.html .
 * Jan Blechta <blechta@karlin.mff.cuni.cz>
 * Matteo Croci <croci@maths.ox.ac.uk>
 * Nate J. C. Sime <njcs4@cam.ac.uk>
+* Nicolas Boullé <nicolas.boulle@maths.ox.ac.uk>
 
 ## License
 
