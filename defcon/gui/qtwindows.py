@@ -450,7 +450,7 @@ class ApplicationWindow(QtGui.QMainWindow):
                 label = QtGui.QLabel(str(teamno))
                 label.setAlignment(QtCore.Qt.AlignCenter)
                 label.setStyleSheet("QLabel{font-size:40px;background-color:%s;border: 2px solid %s}" % (teamtext('i', 'None', 'None')[0], BORDER))
-                size = floor(250.0/(1.5*boxes))
+                size = int(floor(250.0/(1.5*boxes)))
                 label.setFixedSize(size, size)
 
                 # Add this label to a list so we can access it later, then put it into the
