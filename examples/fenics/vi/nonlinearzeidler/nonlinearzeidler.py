@@ -169,7 +169,7 @@ class ZeidlerProblem(BifurcationProblem):
             return
         self.render(params, branchid, solution, window)
 
-    def boundsx(self, V, params):
+    def boundsx(self, V, params, initial_guess):
         l = interpolate(lb, V)
         u = interpolate(ub, V)
         return (l, u)

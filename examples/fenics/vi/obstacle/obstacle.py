@@ -63,7 +63,7 @@ class ObstacleProblem(BifurcationProblem):
                "pc_factor_mat_solver_type": "mumps",
                }
 
-    def bounds(self, V, params):
+    def bounds(self, V, params, initial_guess):
         scale = params[1]
 
         try:

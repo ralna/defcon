@@ -48,8 +48,8 @@ def tangent(problem, solution, oldparams, newparams, hint=None):
         # lb - u <= du <= ub - u
 
         class FixTheBounds(object):
-            def bounds(self, Z, params):
-                (lb, ub) = problem.bounds(Z, newparams)
+            def bounds(self, Z, params, initial_guess):
+                (lb, ub) = problem.bounds(Z, newparams, initial_guess)
                 lb.vector().axpy(-1.0, solution.vector())
                 ub.vector().axpy(-1.0, solution.vector())
 

@@ -291,7 +291,7 @@ class Naghdi(BifurcationProblem):
 
         File(comm, "refined-nobounds/state-%d.xml.gz" % branchid) << z
 
-    def bounds(self, Z, params):
+    def bounds(self, Z, params, initial_guess):
         # FEniCS makes this extremely hard.
         l = Function(Z)
         l.vector()[:] = -1e20

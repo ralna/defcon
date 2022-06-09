@@ -158,7 +158,7 @@ class MaurerProblem(BifurcationProblem):
         #self.monitor(params, branchid, solution, None)
         self.render(params, branchid, solution, window)
 
-    def bounds(self, Z, params):
+    def bounds(self, Z, params, initial_guess):
         inf = 1e20
         l = interpolate(Constant((-d, -inf, -inf)), Z)
         u = interpolate(Constant((+d, +inf, +inf)), Z)

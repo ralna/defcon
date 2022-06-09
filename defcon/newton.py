@@ -123,15 +123,13 @@ def newton(F, J, y, bcs, params, problem, solver_params,
     solver = problem.solver(npproblem, params, solver_params, prefix=prefix, dm=dm, deflation=deflation)
     snes = solver.snes
 
-    # all of this is likely defcon-specific and so shouldn't go
-    # into the (general-purpose) SNUFLSolver.
     snes.incrementTabLevel(teamno*2)
     setSnesMonitor(prefix)
 
     vi = "bounds" in problem.__class__.__dict__
     if vi:
         snes.setType("vinewtonrsls")
-        bounds = problem.bounds(y.function_space(), params)
+        bounds = problem.bounds(y.function_space(), params, y)
         setSnesBounds(snes, bounds)
 
     fiddle_ksp = True
