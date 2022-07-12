@@ -1,9 +1,10 @@
 # A simple example of a dual-weighted residual error estimator.
 
-from defcon.backend import Function, TestFunction, TrialFunction, action, adjoint, derivative, replace, solve, assemble, Constant
+from defcon.backend import Function, TestFunction, TrialFunction, action, adjoint, derivative, solve, assemble, Constant
 from defcon.tasks import AdjointTask
 import ufl.algorithms
 import ufl
+from ufl import replace
 
 def estimate_error_dwr(bifurcationproblem, F, J, state, bcs, params):
     V = state.function_space()
