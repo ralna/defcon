@@ -59,28 +59,23 @@ class ObstacleProblem(BifurcationProblem):
                "pc_factor_mat_solver_type": "mumps",
                }
 
-    def bounds(self, V, params):
+    def bounds(self, V, params, initial_guess):
         scale = params[1]
-        class Obstacle(Expression):
-            def eval(self, values, x):
-                if x[0] < -0.5:
-                    values[0] = scale*-0.2
-                    return
-                if -0.5 <= x[0] <= 0.0:
-                    values[0] = scale*-0.4
-                    return
-                if 0.0 <= x[0] < 0.5:
-                    values[0] = scale*-0.6
-                    return
-                if 0.5 <= x[0] <= 1.0:
-                    values[0] = scale*-0.8
-                    return
-        lb = Obstacle(degree=1)
-        ub = Constant(1e20)
+        x = SpatialCoordinate(V.mesh())[0]
+        obstacle = conditional(lt(x, +0.25), scale*-0.2,
+                   conditional(lt(x, +0.50), scale*-0.4,
+                   conditional(lt(x, +0.75), scale*-0.6,
+                                             scale*-0.8)))
 
-        l = interpolate(lb, V)
-        u = interpolate(ub, V)
+        l = interpolate(obstacle, V)
+        u = interpolate(Constant(1e20), V)
         return (l, u)
+
+    def save_pvd(self, u, pvd, params):
+        (l, _) = self.bounds(u.function_space(), params, None)
+        l.rename("LowerBound")
+        u.rename("Solution")
+        pvd.write(u, l)
 
     def predict(self, problem, solution, oldparams, newparams, hint):
         # This actually does all the work of the solver.

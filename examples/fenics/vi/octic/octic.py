@@ -78,7 +78,7 @@ class OcticProblem(BifurcationProblem):
                "pc_factor_mat_solver_type": "umfpack",
                }
 
-    def bounds(self, R, params):
+    def bounds(self, R, params, initial_guess):
         l = interpolate(Constant(-0.9), R)
         u = interpolate(Constant(+2), R)
         return (l, u)

@@ -96,7 +96,7 @@ class BratuProblem(BifurcationProblem):
                }
         return args
 
-    def bounds(self, V, params):
+    def bounds(self, V, params, initial_guess):
         lb = Constant(-1e20)
         ub = Expression("1 + 5*sqrt(x[0]*x[0] + x[1]*x[1])", degree=1, mpi_comm=V.mesh().mpi_comm())
 

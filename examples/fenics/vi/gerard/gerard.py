@@ -112,7 +112,7 @@ class GerardProblem(BifurcationProblem):
                "pc_factor_mat_solver_type": "mumps",
                }
 
-    def bounds(self, V, params):
+    def bounds(self, V, params, initial_guess):
         l = interpolate(lb, V)
         u = interpolate(ub, V)
         return (l, u)

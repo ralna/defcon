@@ -514,7 +514,7 @@ class BifurcationProblem(object):
 
         return True
 
-    def bounds(self, function_space, params):
+    def bounds(self, function_space, params, initial_guess):
         """
         This method supports the solution of variational inequalities with box constraints.
 
