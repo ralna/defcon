@@ -70,11 +70,12 @@ class DefconThread(object):
         if self.collect_call % self.gc_frequency == 0:
             gc.collect()
             if hasattr(PETSc, "_cleanup"):
-                self.log("Calling PETSc garbage collection.")
-                PETSc._print_garbage_dict(self.teamcomm)
+                #self.log("Calling PETSc garbage collection.")
+                #PETSc._print_garbage_dict(self.mesh.mpi_comm())
                 PETSc._cleanup(self.teamcomm)
+                PETSc._cleanup(self.mesh.mpi_comm())
                 self.log("Called PETSc garbage collection.")
-                PETSc._print_garbage_dict(self.teamcomm)
+                #PETSc._print_garbage_dict(self.mesh.mpi_comm())
             else:
                 self.log("Called normal garbage collection.")
 
