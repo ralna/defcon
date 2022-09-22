@@ -11,6 +11,7 @@ import resource
 
 from defcon.iomodule import remap_c_streams
 from defcon.parallellayout import ranktoteamno
+from petsc4py import PETSc
 
 
 class DefconThread(object):
@@ -68,7 +69,14 @@ class DefconThread(object):
         self.collect_call += 1
         if self.collect_call % self.gc_frequency == 0:
             gc.collect()
-            self.log("Called garbage collection.")
+            if hasattr(PETSc, "_cleanup"):
+                self.log("Calling PETSc garbage collection.")
+                PETSc._print_garbage_dict(self.teamcomm)
+                PETSc._cleanup(self.teamcomm)
+                self.log("Called PETSc garbage collection.")
+                PETSc._print_garbage_dict(self.teamcomm)
+            else:
+                self.log("Called normal garbage collection.")
 
     def configure_io(self, parameters):
         """
