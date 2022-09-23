@@ -73,7 +73,8 @@ class DefconThread(object):
                 #self.log("Calling PETSc garbage collection.")
                 #PETSc._print_garbage_dict(self.mesh.mpi_comm())
                 PETSc._cleanup(self.teamcomm)
-                PETSc._cleanup(self.mesh.mpi_comm())
+                if hasattr(self, "mesh"):
+                    PETSc._cleanup(self.mesh.mpi_comm())
                 self.log("Called PETSc garbage collection.")
                 #PETSc._print_garbage_dict(self.mesh.mpi_comm())
             else:
