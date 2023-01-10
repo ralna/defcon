@@ -39,6 +39,7 @@ if backend.__name__ == "dolfin":
 
 elif backend.__name__ == "firedrake":
     from defcon.backend import NonlinearVariationalSolver
+    from defcon.backend.petsc import PETSc
 
     def getEdy(deflation, y, dy, vi_inact):
 
@@ -56,7 +57,6 @@ elif backend.__name__ == "firedrake":
         return out
 
     def setSnesMonitor(prefix):
-        from defcon.backend.petsc import PETSc
         opts = PETSc.Options()
         opts.setValue(prefix + "snes_monitor_cancel", "")
         opts.setValue(prefix + "snes_monitor", "")
