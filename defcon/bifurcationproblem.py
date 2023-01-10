@@ -69,7 +69,7 @@ class BifurcationProblem(object):
         raise NotImplementedError
 
     def parameters(self):
-        """
+        r"""
         This method returns a list of tuples. Each tuple contains (Constant,
         asciiname, tex). For example, if there is one parameter
 
@@ -217,7 +217,7 @@ class BifurcationProblem(object):
         raise NotImplementedError
 
     def functionals(self):
-        """
+        r"""
         This method returns a list of functionals. Each functional is a tuple
         consisting of a callable, an ascii name, a tex label, and (optionally)
         a function that returns UFL for the functional. The callable J is called via
@@ -286,7 +286,7 @@ class BifurcationProblem(object):
         return backend.inner(state1 - state2, state1 - state2)*backend.dx
 
     def trivial_solutions(self, function_space, params, freeindex):
-        """
+        r"""
         This method returns any trivial solutions of the problem,
         i.e. solutions u such that f(u, \lambda) = 0 for all \lambda.
         These will be deflated at every computation.
