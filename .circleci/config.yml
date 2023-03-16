@@ -49,7 +49,7 @@ jobs:
             rc=$?
             find -name "*.pdf" -exec cp --parents {} /tmp/circle \;
             exit $rc
-
+          timeout: 2400
       - store_artifacts:
           path: /tmp/circle
           destination: build
