@@ -36,7 +36,6 @@ jobs:
             mkdir -p /tmp/circle
             source /home/firedrake/firedrake/bin/activate
             pip install pytest-timeout
-            export _PYTEST_MPI_CHILD_PROCESS=1 # Remove this
             mpiexec -n 1 bash -c '
               python3 -m pytest -vl \
               --timeout=600 --timeout-method=thread -o faulthandler_timeout=660 \
