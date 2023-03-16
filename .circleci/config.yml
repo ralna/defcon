@@ -35,18 +35,21 @@ jobs:
             set +e
             mkdir -p /tmp/circle
             source /home/firedrake/firedrake/bin/activate
+            pip install pytest-timeout
             mpiexec -n 1 bash -c '
-              python3 -m pytest -vxl \
+              python3 -m pytest -vl \
+              --timeout=600 --timeout-method=thread -o faulthandler_timeout=660 \
               --junitxml /tmp/circle/report-${OMPI_COMM_WORLD_RANK:-$PMI_RANK}.xml examples/firedrake/poisson
             '
             mpiexec -n 2 bash -c '
-              python3 -m pytest -vxl \
+              python3 -m pytest -vl \
+              --timeout=600 --timeout-method=thread -o faulthandler_timeout=660 \
               --junitxml /tmp/circle/report-${OMPI_COMM_WORLD_RANK:-$PMI_RANK}.xml defcon/ examples/firedrake
             '
             rc=$?
             find -name "*.pdf" -exec cp --parents {} /tmp/circle \;
             exit $rc
-
+          timeout: 2400
       - store_artifacts:
           path: /tmp/circle
           destination: build
