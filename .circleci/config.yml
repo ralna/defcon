@@ -2,6 +2,7 @@
 # circleci local execute --job build
 version: 2.1
 jobs:
+  # Builds defcon and runs tests:
   build:
     docker:
       - image: firedrakeproject/firedrake
@@ -57,6 +58,7 @@ jobs:
       - store_test_results:
           path: /tmp/circle
 
+  # Creates "latest" docker image and uploads to dockerhub
   docker:
     machine:
       image: ubuntu-2204:current
@@ -80,6 +82,7 @@ jobs:
             docker tag "${IMAGE_NAME}" "${IMAGE}:${VERSION}"
             docker push "${IMAGE}:${VERSION}"
 
+  # Creates monthly release docker image and uploads to dockerhub
   docker-release:
     machine:
       image: ubuntu-2204:current
@@ -105,15 +108,19 @@ jobs:
 
 workflows:
   version: 2.1
+  # Run on push
   default-workflow:
     jobs:
       - build
+      # Only build docker on master and only if build succeeds
       - docker:
           requires:
             - build
           filters:
             branches:
-              only: /master|jackbetteridge/docker_ci/
+              only:
+                - master
+  # Test master weekly, update docker image if successful
   weekly:
     triggers:
       - schedule:
@@ -127,6 +134,7 @@ workflows:
       - docker:
           requires:
             - build
+  # Test master monthly, create release docker image if successful
   monthly:
     triggers:
       - schedule:
@@ -140,5 +148,3 @@ workflows:
       - docker-release:
           requires:
             - build
-
-
