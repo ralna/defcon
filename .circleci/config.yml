@@ -1,6 +1,6 @@
 # To run locally:
 # circleci local execute --job build
-version: 2
+version: 2.1
 jobs:
   build:
     docker:
@@ -56,3 +56,39 @@ jobs:
 
       - store_test_results:
           path: /tmp/circle
+
+  docker:
+    machine:
+      image: ubuntu-2204:current
+    environment:
+      IMAGE_NAME: defcon
+      VERSION: latest
+    steps:
+      - checkout
+      - run:
+          name: Build Docker image
+          command: |
+            docker build . --file docker/Dockerfile --tag ${IMAGE_NAME}
+            docker save ${IMAGE_NAME} --output "${IMAGE_NAME}.tar"
+      - run:
+          name: Upload Docker image
+          deployment: Production
+          command: |
+            echo ${DOCKERHUB_PASSWORD} | docker login --username "$DOCKERHUB_USERNAME" --password-stdin
+            docker load --input "${IMAGE_NAME}.tar"
+            IMAGE=${DOCKERHUB_USERNAME}/${IMAGE_NAME}
+            docker tag "${IMAGE_NAME}" "${IMAGE}:${VERSION}"
+            docker push "${IMAGE}:${VERSION}"
+
+workflows:
+  version: 2.1
+  default-workflow:
+    jobs:
+      - build
+      - docker:
+          requires:
+            - build
+          filters:
+            branches:
+              only: /master|jackbetteridge/docker_ci/
+
