@@ -6,7 +6,7 @@ import matplotlib
 # Argh. What a mess QT + Python is!
 # There are three different Python libraries. Let's
 # try them in order of priority.
-qtmodules = ["PyQt5", "PyQt4", "PySide"]
+qtmodules = ["PyQt5", "PyQt4", "PySide2", "PySide"]
 mplbackends = dict(PyQt4="Qt4Agg", PyQt5="Qt5Agg", PySide="Qt4Agg")
 
 for qtmodule in qtmodules:
@@ -25,24 +25,40 @@ else:
 from matplotlib.backends import qt_compat
 
 # Decide which version of QT to use. What a mess!
-if qt_compat.QT_API == qt_compat.QT_API_PYSIDE:
-    from PySide import QtGui, QtCore
-    from PySide import QtGui as QtGuiVersionWorkaround
-    from matplotlib.backends.backend_qt4agg import FigureCanvasQTAgg as FigureCanvas
-    from matplotlib.backends.backend_qt4agg import NavigationToolbar2QT
-elif qt_compat.QT_API in [qt_compat.QT_API_PYQT, qt_compat.QT_API_PYQTv2]:
-    from PyQt4 import QtGui, QtCore
-    from PyQt4 import QtGui as QtGuiVersionWorkaround
-    from matplotlib.backends.backend_qt4agg import FigureCanvasQTAgg as FigureCanvas
-    from matplotlib.backends.backend_qt4agg import NavigationToolbar2QT
-elif qt_compat.QT_API == qt_compat.QT_API_PYQT5:
-    from PyQt5 import QtCore
-    from PyQt5 import QtWidgets as QtGui # This could get really confusing for future development
-    from PyQt5 import QtGui as QtGuiVersionWorkaround
-    from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
-    from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT
+old_qt_search = hasattr(qt_compat, "QT_API_PYSIDE")
+if old_qt_search:
+    if qt_compat.QT_API == qt_compat.QT_API_PYSIDE:
+        from PySide import QtGui, QtCore
+        from PySide import QtGui as QtGuiVersionWorkaround
+        from matplotlib.backends.backend_qt4agg import FigureCanvasQTAgg as FigureCanvas
+        from matplotlib.backends.backend_qt4agg import NavigationToolbar2QT
+    elif qt_compat.QT_API in [qt_compat.QT_API_PYQT, qt_compat.QT_API_PYQTv2]:
+        from PyQt4 import QtGui, QtCore
+        from PyQt4 import QtGui as QtGuiVersionWorkaround
+        from matplotlib.backends.backend_qt4agg import FigureCanvasQTAgg as FigureCanvas
+        from matplotlib.backends.backend_qt4agg import NavigationToolbar2QT
+    elif qt_compat.QT_API == qt_compat.QT_API_PYQT5:
+        from PyQt5 import QtCore
+        from PyQt5 import QtWidgets as QtGui # This could get really confusing for future development
+        from PyQt5 import QtGui as QtGuiVersionWorkaround
+        from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
+        from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT
+    else:
+        raise ImportError("Unknown matplotlib QT API type: %s" % qt_compat.QT_API)
 else:
-    raise ImportError("Unknown matplotlib QT API type: %s" % qt_compat.QT_API)
+    if qt_compat.QT_API == qt_compat.QT_API_PYSIDE2:
+        from PySide import QtGui, QtCore
+        from PySide import QtGui as QtGuiVersionWorkaround
+        from matplotlib.backends.backend_qt4agg import FigureCanvasQTAgg as FigureCanvas
+        from matplotlib.backends.backend_qt4agg import NavigationToolbar2QT
+    elif qt_compat.QT_API == qt_compat.QT_API_PYQT5:
+        from PyQt5 import QtCore
+        from PyQt5 import QtWidgets as QtGui # This could get really confusing for future development
+        from PyQt5 import QtGui as QtGuiVersionWorkaround
+        from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
+        from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT
+    else:
+        raise ImportError("Unknown matplotlib QT API type: %s" % qt_compat.QT_API)
 
 # Styles for matplotlib.
 # See matpoltlib.styles.available for options.
