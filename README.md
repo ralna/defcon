@@ -60,7 +60,7 @@ when everything is installed.
 ## Code Examples
 
 The easiest way to learn how to use it is to examine the examples in
-`examples/`. Start with `examples/firedrake/elastica` or `examples/fenics/elastica`, 
+`examples/`. Start with `examples/firedrake/elastica` or `examples/fenics/elastica`,
 and compare to the Euler elastica section of the manuscript cited above.
 
 ## Installation
@@ -89,6 +89,31 @@ Here is an example of how to use defcon with anaconda and FEniCS:
     cd examples/fenics/wingedcusp
     mpiexec -n 2 python wingedcusp.py
     defcon gui
+
+## The official defcon Docker container
+
+A Docker container for defcon is generated weekly as part of the CI
+pipeline. This container comes with the Firedrake backend.
+
+The defcon Docker image can be run locally on a machine with Docker
+installed by executing:
+
+    docker run -it jdbetteridge/defcon
+
+Each month a release is created and a specific release can be selected
+by adding the tag to the image name eg: `jdbetteridge/defcon:2023-04`
+will use defcon from April 2023.
+
+Inside the image defcon is installed in the
+`/home/firedrake/firedrake/src/defcon` directory. To run an example
+first activate the Firedrake virtual environment by executing:
+
+    source /home/firedrake/firedrake/bin/activate
+
+The Bratu example can be run in the activated environment by executing:
+
+    cd $VIRTUAL_ENV/src/defcon/examples/firedrake/bratu
+    mpiexec -n 2 python bratu.py
 
 ## Use in FEniCS Docker containers
 
@@ -167,7 +192,7 @@ http://fenics-containers.readthedocs.io/en/latest/index.html .
 
 ## Troubleshooting
 
-* Make sure all mesh constructors, `Expressions` and `CompiledSubDomains` take 
+* Make sure all mesh constructors, `Expressions` and `CompiledSubDomains` take
   in the MPI communicator (see e.g. `examples/fenics/navier-stokes`). This is the most common cause of silent
   deadlocks.
 
