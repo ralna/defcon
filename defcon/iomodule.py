@@ -135,200 +135,406 @@ class IO(object):
     def fetch_stability(self, params, branchids):
         raise NotImplementedError
 
-class SolutionIO(IO):
-    """An I/O class that saves one HDF5File per solution found."""
-    def dir(self, params):
-        return self.directory + os.path.sep + parameters_to_string(self.parameters, params) + os.path.sep
+if backend.__name__ == "firedrake":
+    from defcon.backend import CheckpointFile
+    print("Using CheckpointFile!")
+    class SolutionIO(IO):
+        """An I/O class that saves one CheckpointFile per solution found."""
+        def dir(self, params):
+            return self.directory + os.path.sep + parameters_to_string(self.parameters, params) + os.path.sep
 
-    def save_solution(self, solution, funcs, params, branchid, save_dir=None):
+        def save_solution(self, solution, funcs, params, branchid, save_dir=None):
 
-        if save_dir is None:
-            save_dir = self.dir(params)
-        else:
-            save_dir = save_dir + os.path.sep
-        
-        try:
-            os.makedirs(save_dir)
-        except OSError:
-            pass
-
-        tmpname = os.path.join(self.tmpdir, 'solution-%d.h5' % branchid)
-        with HDF5File(comm=self.function_space.mesh().mpi_comm(), filename=tmpname, file_mode='w') as f:
-            f.write(solution, "/solution")
-        if self.pcomm.rank == 0:
-            os.rename(tmpname, save_dir + "solution-%d.h5" % branchid)
-
-            f = open(save_dir + "functional-%d.txt" % branchid, "w")
-            s = parameters_to_string(self.functionals, funcs).replace('@', '\n') + '\n'
-            f.write(s)
-
-        self.pcomm.Barrier()
-        assert os.path.exists(save_dir + "solution-%d.h5" % branchid)
-
-    def fetch_solutions(self, params, branchids, fetch_dir=None):
-        if fetch_dir is None:
-            fetch_dir = self.dir(params)
-        else:
-            fetch_dir = fetch_dir + os.path.sep
-
-        solns = []
-        for branchid in branchids:
-            filename = fetch_dir + "solution-%d.h5" % branchid
-            failcount = 0
-            while True:
-                try:
-                    with HDF5File(comm=self.function_space.mesh().mpi_comm(), filename=filename, file_mode='r') as f:
-                        soln = Function(self.function_space)
-                        f.read(soln, "/solution")
-                        f.flush()
-                    break
-                except Exception:
-                    print("Loading file %s failed. Sleeping for 10 seconds and trying again." % filename)
-                    failcount += 1
-                    if failcount == 10:
-                        print("Tried 10 times to load file %s. Raising exception." % filename)
-                        raise
-                    time.sleep(10)
-
-            solns.append(soln)
-        return solns
-
-    def fetch_functionals(self, params, branchid):
-        funcs = []
-        for param in params:
-            f = open(self.dir(param) + "functional-%d.txt" % branchid, "r")
-            func = []
-            for line in f:
-                func.append(float(line.split('=')[-1]))
-            funcs.append(func)
-        return funcs
-
-    def known_branches(self, params):
-        filenames = sorted(glob.glob(self.dir(params) + "solution-*.h5"))
-        branches = [int(filename.split('-')[-1][:-3]) for filename in filenames]
-        return set(branches)
-
-    def known_parameters(self, fixed, branchid, stability=False):
-        fixed_indices = []
-        fixed_values = []
-        for key in fixed:
-            fixed_values.append(fixed[key])
-            # find the index
-            for (i, param) in enumerate(self.parameters):
-                if param[1] == key:
-                    fixed_indices.append(i)
-                    break
-
-        seen = set()
-        if not stability:
-            filenames = glob.glob(self.directory + "/*/solution-%d.h5" % branchid)
-        else:
-            filenames = glob.glob(self.directory + "/*/eigenfunctions-%d.h5" % branchid)
-        saved_params = [tuple([float(x.split('=')[-1]) for x in filename.split('/')[-2].split('@')]) for filename in filenames]
-
-        for param in saved_params:
-            should_add = True
-            for (index, value) in zip(fixed_indices, fixed_values):
-                if param[index] != float("%.15e" % value):
-                    should_add = False
-                    break
-
-            if should_add:
-                seen.add(param)
-
-        return sorted(list(seen))
-
-    def max_branch(self):
-        filenames = glob.glob(self.directory + "/*/solution-*.h5")
-        branches = [int(filename.split('-')[-1][:-3]) for filename in filenames]
-        return max(branches)
-
-    def save_stability(self, stable, eigenvalues, eigenfunctions, params, branchid):
-        assert len(eigenvalues) == len(eigenfunctions)
-
-        if len(eigenvalues) > 0:
-            with HDF5File(comm=self.function_space.mesh().mpi_comm(), filename=(self.dir(params) + "eigenfunctions-%d.h5" % branchid), file_mode='w') as f:
-                for (i, (eigval, eigfun)) in enumerate(zip(eigenvalues, eigenfunctions)):
-                    f.write(eigfun, "/eigenfunction-%d" % i)
-                    f.attributes("/eigenfunction-%d" % i)['eigenvalue'] = eigval
-
-                f.attributes('/eigenfunction-0')['number_eigenvalues'] = len(eigenvalues)
-
-            # wait for the file to be written
-            size = 0
-            while True:
-                try:
-                    size = os.stat(self.dir(params) + "eigenfunctions-%d.h5" % branchid).st_size
-                except OSError:
-                    pass
-                if size > 0: break
-                #print("Waiting for %s to have nonzero size" % (self.dir(params) + "solution-%d.xml.gz" % branchid))
-                time.sleep(0.1)
-
-        # Trick from Lawrence Mitchell: POSIX guarantees that mv is atomic
-        f = tempfile.NamedTemporaryFile("w", delete=False, dir=self.tmpdir)
-        s = str(stable)
-        f.write(s)
-        os.fsync(f.file.fileno())
-        f.close()
-        filename = self.dir(params) + "stability-%d.txt" % branchid
-        if self.pcomm.rank == 0:
-            os.rename(f.name, filename)
-
-    def save_arclength(self, params, freeindex, branchid, ds, sign, data):
-        dir_name = self.directory + os.path.sep + "arclength" + os.path.sep + "params-%s-freeindex-%s-branchid-%s-ds-%.14e-sign-%d" % (parameters_to_string(self.parameters, params), freeindex, branchid, ds, sign)
-
-        try:
-            if not os.path.exists(dir_name):
-                os.makedirs(dir_name)
-        except OSError:
-            pass
-
-        # Trick from Lawrence Mitchell: POSIX guarantees that mv is atomic
-        f = tempfile.NamedTemporaryFile("w", delete=False, dir=self.tmpdir)
-        json.dump(data, f.file, indent=4)
-        f.file.flush()
-        os.fsync(f.file.fileno())
-        f.close()
-        if self.pcomm.rank == 0:
-            os.rename(f.name, dir_name + os.path.sep + "params-%s-freeindex-%s-branchid-%s-ds-%.14e-sign-%d.json" % (parameters_to_string(self.parameters, params), freeindex, branchid, ds, sign))
-
-    def fetch_stability(self, params, branchids, fetch_eigenfunctions=False):
-        stabs = []
-        for branchid in branchids:
-            stab = {}
-            fs = open(self.dir(params) + "stability-%d.txt" % branchid, "r")
-            is_stable = literal_eval(fs.read())
-            stab["stable"] =  is_stable
+            if save_dir is None:
+                save_dir = self.dir(params)
+            else:
+                save_dir = save_dir + os.path.sep
 
             try:
-                filename = self.dir(params) + "eigenfunctions-%d.h5" % branchid
-                evals = []
-                eigfs = []
-
-                with HDF5File(comm=self.function_space.mesh().mpi_comm(), filename=filename, file_mode='r') as f:
-                    # get Number of Eigenvalues 
-                    num_evals= f.attributes('/eigenfunction-0')['number_eigenvalues']
-
-                    # Iterate through each eigenvalues and obtain corresponding eigenfunction
-                    for i in range(num_evals):
-                        eigval = f.attributes("/eigenfunction-%d" % i)['eigenvalue']
-                        evals.append(eigval)
-
-                        if fetch_eigenfunctions:
-                            efunc = Function(self.function_space)
-                            f.read(efunc, "/eigenfunction-%d" % i)
-                            f.flush()
-                            eigfs.append(efunc)
-
-                stab["eigenvalues"] = evals
-                stab["eigenfunctions"] = eigfs
-            except Exception:
-                # Couldn't find any eigenfunctions, OK
+                os.makedirs(save_dir)
+            except OSError:
                 pass
 
-            stabs.append(stab)
-        return stabs
+            tmpname = os.path.join(self.tmpdir, 'solution-%d.h5' % branchid)
+            with CheckpointFile(tmpname, 'w', comm=self.function_space.mesh().mpi_comm()) as f:
+                f.save_mesh(solution.function_space().mesh())
+                f.save_function(solution, name="solution")
+            if self.pcomm.rank == 0:
+                os.rename(tmpname, save_dir + "solution-%d.h5" % branchid)
+
+                f = open(save_dir + "functional-%d.txt" % branchid, "w")
+                s = parameters_to_string(self.functionals, funcs).replace('@', '\n') + '\n'
+                f.write(s)
+
+            self.pcomm.Barrier()
+            assert os.path.exists(save_dir + "solution-%d.h5" % branchid)
+
+        def fetch_solutions(self, params, branchids, fetch_dir=None):
+            if fetch_dir is None:
+                fetch_dir = self.dir(params)
+            else:
+                fetch_dir = fetch_dir + os.path.sep
+
+            solns = []
+            for branchid in branchids:
+                filename = fetch_dir + "solution-%d.h5" % branchid
+                failcount = 0
+                while True:
+                    try:
+                        with CheckpointFile(filename, 'r', comm=self.function_space.mesh().mpi_comm()) as f:
+                            # What a chore this all is
+                            saved_mesh = f.load_mesh()
+                            soln_saved = f.load_function(saved_mesh, name="solution")
+                            soln = Function(self.function_space)
+                            with soln_saved.dat.vec_ro as src, soln.dat.vec_wo as dst:
+                                src.copy(dst)
+                        break
+                    except Exception:
+                        print("Loading file %s failed. Sleeping for 10 seconds and trying again." % filename)
+                        failcount += 1
+                        if failcount == 10:
+                            print("Tried 10 times to load file %s. Raising exception." % filename)
+                            raise
+                        time.sleep(10)
+
+                solns.append(soln)
+            return solns
+
+        def fetch_functionals(self, params, branchid):
+            funcs = []
+            for param in params:
+                f = open(self.dir(param) + "functional-%d.txt" % branchid, "r")
+                func = []
+                for line in f:
+                    func.append(float(line.split('=')[-1]))
+                funcs.append(func)
+            return funcs
+
+        def known_branches(self, params):
+            filenames = sorted(glob.glob(self.dir(params) + "solution-*.h5"))
+            branches = [int(filename.split('-')[-1][:-3]) for filename in filenames]
+            return set(branches)
+
+        def known_parameters(self, fixed, branchid, stability=False):
+            fixed_indices = []
+            fixed_values = []
+            for key in fixed:
+                fixed_values.append(fixed[key])
+                # find the index
+                for (i, param) in enumerate(self.parameters):
+                    if param[1] == key:
+                        fixed_indices.append(i)
+                        break
+
+            seen = set()
+            if not stability:
+                filenames = glob.glob(self.directory + "/*/solution-%d.h5" % branchid)
+            else:
+                filenames = glob.glob(self.directory + "/*/eigenfunctions-%d.h5" % branchid)
+            saved_params = [tuple([float(x.split('=')[-1]) for x in filename.split('/')[-2].split('@')]) for filename in filenames]
+
+            for param in saved_params:
+                should_add = True
+                for (index, value) in zip(fixed_indices, fixed_values):
+                    if param[index] != float("%.15e" % value):
+                        should_add = False
+                        break
+
+                if should_add:
+                    seen.add(param)
+
+            return sorted(list(seen))
+
+        def max_branch(self):
+            filenames = glob.glob(self.directory + "/*/solution-*.h5")
+            branches = [int(filename.split('-')[-1][:-3]) for filename in filenames]
+            return max(branches)
+
+        def save_stability(self, stable, eigenvalues, eigenfunctions, params, branchid):
+            assert len(eigenvalues) == len(eigenfunctions)
+
+            if len(eigenvalues) > 0:
+                filename = self.dir(params) + "eigenfunctions-%d.h5" % branchid
+                with CheckpointFile(filename, 'w', comm=self.function_space.mesh().mpi_comm()) as f:
+                    f.save_mesh(eigenfunctions[0].function_space().mesh())
+                    for (i, (eigval, eigfun)) in enumerate(zip(eigenvalues, eigenfunctions)):
+                        f.save_function(eigfun, name="eigenfunction-%d" % i)
+                        f.write_attribute("eigenvalue-%d" % i, eigval)
+
+                    f.write_attribute("number_eigenvalues", len(eigenvalues))
+
+                # wait for the file to be written
+                size = 0
+                while True:
+                    try:
+                        size = os.stat(self.dir(params) + "eigenfunctions-%d.h5" % branchid).st_size
+                    except OSError:
+                        pass
+                    if size > 0: break
+                    #print("Waiting for %s to have nonzero size" % (self.dir(params) + "solution-%d.xml.gz" % branchid))
+                    time.sleep(0.1)
+
+            # Trick from Lawrence Mitchell: POSIX guarantees that mv is atomic
+            f = tempfile.NamedTemporaryFile("w", delete=False, dir=self.tmpdir)
+            s = str(stable)
+            f.write(s)
+            os.fsync(f.file.fileno())
+            f.close()
+            filename = self.dir(params) + "stability-%d.txt" % branchid
+            if self.pcomm.rank == 0:
+                os.rename(f.name, filename)
+
+        def save_arclength(self, params, freeindex, branchid, ds, sign, data):
+            dir_name = self.directory + os.path.sep + "arclength" + os.path.sep + "params-%s-freeindex-%s-branchid-%s-ds-%.14e-sign-%d" % (parameters_to_string(self.parameters, params), freeindex, branchid, ds, sign)
+
+            try:
+                if not os.path.exists(dir_name):
+                    os.makedirs(dir_name)
+            except OSError:
+                pass
+
+            # Trick from Lawrence Mitchell: POSIX guarantees that mv is atomic
+            f = tempfile.NamedTemporaryFile("w", delete=False, dir=self.tmpdir)
+            json.dump(data, f.file, indent=4)
+            f.file.flush()
+            os.fsync(f.file.fileno())
+            f.close()
+            if self.pcomm.rank == 0:
+                os.rename(f.name, dir_name + os.path.sep + "params-%s-freeindex-%s-branchid-%s-ds-%.14e-sign-%d.json" % (parameters_to_string(self.parameters, params), freeindex, branchid, ds, sign))
+
+        def fetch_stability(self, params, branchids, fetch_eigenfunctions=False):
+            stabs = []
+            for branchid in branchids:
+                stab = {}
+                fs = open(self.dir(params) + "stability-%d.txt" % branchid, "r")
+                is_stable = literal_eval(fs.read())
+                stab["stable"] =  is_stable
+
+                try:
+                    filename = self.dir(params) + "eigenfunctions-%d.h5" % branchid
+                    evals = []
+                    eigfs = []
+
+                    with CheckpointFile(filename, 'r', comm=self.function_space.mesh().mpi_comm()) as f:
+                        # get Number of Eigenvalues
+                        num_evals = f.read_attribute("number_eigenvalues")
+
+                        # Iterate through each eigenvalues and obtain corresponding eigenfunction
+                        for i in range(num_evals):
+                            eigval = f.read_attribute("eigenvalue-%d" % i)
+                            evals.append(eigval)
+
+                            if fetch_eigenfunctions:
+                                saved_mesh = f.load_mesh()
+                                efunc_saved = f.load_function(saved_mesh, name="eigenfunction-%d" % i)
+                                efunc = Function(self.function_space)
+                                with efunc_saved.dat.vec_ro as src, efunc.dat.vec_wo as dst:
+                                    src.copy(dst)
+                                eigfs.append(efunc)
+
+                    stab["eigenvalues"] = evals
+                    stab["eigenfunctions"] = eigfs
+                except Exception:
+                    # Couldn't find any eigenfunctions, OK
+                    pass
+
+                stabs.append(stab)
+            return stabs
+else:
+    class SolutionIO(IO):
+        """An I/O class that saves one HDF5File per solution found."""
+        def dir(self, params):
+            return self.directory + os.path.sep + parameters_to_string(self.parameters, params) + os.path.sep
+
+        def save_solution(self, solution, funcs, params, branchid, save_dir=None):
+
+            if save_dir is None:
+                save_dir = self.dir(params)
+            else:
+                save_dir = save_dir + os.path.sep
+
+            try:
+                os.makedirs(save_dir)
+            except OSError:
+                pass
+
+            tmpname = os.path.join(self.tmpdir, 'solution-%d.h5' % branchid)
+            with HDF5File(comm=self.function_space.mesh().mpi_comm(), filename=tmpname, file_mode='w') as f:
+                f.write(solution, "/solution")
+            if self.pcomm.rank == 0:
+                os.rename(tmpname, save_dir + "solution-%d.h5" % branchid)
+
+                f = open(save_dir + "functional-%d.txt" % branchid, "w")
+                s = parameters_to_string(self.functionals, funcs).replace('@', '\n') + '\n'
+                f.write(s)
+
+            self.pcomm.Barrier()
+            assert os.path.exists(save_dir + "solution-%d.h5" % branchid)
+
+        def fetch_solutions(self, params, branchids, fetch_dir=None):
+            if fetch_dir is None:
+                fetch_dir = self.dir(params)
+            else:
+                fetch_dir = fetch_dir + os.path.sep
+
+            solns = []
+            for branchid in branchids:
+                filename = fetch_dir + "solution-%d.h5" % branchid
+                failcount = 0
+                while True:
+                    try:
+                        with HDF5File(comm=self.function_space.mesh().mpi_comm(), filename=filename, file_mode='r') as f:
+                            soln = Function(self.function_space)
+                            f.read(soln, "/solution")
+                            f.flush()
+                        break
+                    except Exception:
+                        print("Loading file %s failed. Sleeping for 10 seconds and trying again." % filename)
+                        failcount += 1
+                        if failcount == 10:
+                            print("Tried 10 times to load file %s. Raising exception." % filename)
+                            raise
+                        time.sleep(10)
+
+                solns.append(soln)
+            return solns
+
+        def fetch_functionals(self, params, branchid):
+            funcs = []
+            for param in params:
+                f = open(self.dir(param) + "functional-%d.txt" % branchid, "r")
+                func = []
+                for line in f:
+                    func.append(float(line.split('=')[-1]))
+                funcs.append(func)
+            return funcs
+
+        def known_branches(self, params):
+            filenames = sorted(glob.glob(self.dir(params) + "solution-*.h5"))
+            branches = [int(filename.split('-')[-1][:-3]) for filename in filenames]
+            return set(branches)
+
+        def known_parameters(self, fixed, branchid, stability=False):
+            fixed_indices = []
+            fixed_values = []
+            for key in fixed:
+                fixed_values.append(fixed[key])
+                # find the index
+                for (i, param) in enumerate(self.parameters):
+                    if param[1] == key:
+                        fixed_indices.append(i)
+                        break
+
+            seen = set()
+            if not stability:
+                filenames = glob.glob(self.directory + "/*/solution-%d.h5" % branchid)
+            else:
+                filenames = glob.glob(self.directory + "/*/eigenfunctions-%d.h5" % branchid)
+            saved_params = [tuple([float(x.split('=')[-1]) for x in filename.split('/')[-2].split('@')]) for filename in filenames]
+
+            for param in saved_params:
+                should_add = True
+                for (index, value) in zip(fixed_indices, fixed_values):
+                    if param[index] != float("%.15e" % value):
+                        should_add = False
+                        break
+
+                if should_add:
+                    seen.add(param)
+
+            return sorted(list(seen))
+
+        def max_branch(self):
+            filenames = glob.glob(self.directory + "/*/solution-*.h5")
+            branches = [int(filename.split('-')[-1][:-3]) for filename in filenames]
+            return max(branches)
+
+        def save_stability(self, stable, eigenvalues, eigenfunctions, params, branchid):
+            assert len(eigenvalues) == len(eigenfunctions)
+
+            if len(eigenvalues) > 0:
+                with HDF5File(comm=self.function_space.mesh().mpi_comm(), filename=(self.dir(params) + "eigenfunctions-%d.h5" % branchid), file_mode='w') as f:
+                    for (i, (eigval, eigfun)) in enumerate(zip(eigenvalues, eigenfunctions)):
+                        f.write(eigfun, "/eigenfunction-%d" % i)
+                        f.attributes("/eigenfunction-%d" % i)['eigenvalue'] = eigval
+
+                    f.attributes('/eigenfunction-0')['number_eigenvalues'] = len(eigenvalues)
+
+                # wait for the file to be written
+                size = 0
+                while True:
+                    try:
+                        size = os.stat(self.dir(params) + "eigenfunctions-%d.h5" % branchid).st_size
+                    except OSError:
+                        pass
+                    if size > 0: break
+                    #print("Waiting for %s to have nonzero size" % (self.dir(params) + "solution-%d.xml.gz" % branchid))
+                    time.sleep(0.1)
+
+            # Trick from Lawrence Mitchell: POSIX guarantees that mv is atomic
+            f = tempfile.NamedTemporaryFile("w", delete=False, dir=self.tmpdir)
+            s = str(stable)
+            f.write(s)
+            os.fsync(f.file.fileno())
+            f.close()
+            filename = self.dir(params) + "stability-%d.txt" % branchid
+            if self.pcomm.rank == 0:
+                os.rename(f.name, filename)
+
+        def save_arclength(self, params, freeindex, branchid, ds, sign, data):
+            dir_name = self.directory + os.path.sep + "arclength" + os.path.sep + "params-%s-freeindex-%s-branchid-%s-ds-%.14e-sign-%d" % (parameters_to_string(self.parameters, params), freeindex, branchid, ds, sign)
+
+            try:
+                if not os.path.exists(dir_name):
+                    os.makedirs(dir_name)
+            except OSError:
+                pass
+
+            # Trick from Lawrence Mitchell: POSIX guarantees that mv is atomic
+            f = tempfile.NamedTemporaryFile("w", delete=False, dir=self.tmpdir)
+            json.dump(data, f.file, indent=4)
+            f.file.flush()
+            os.fsync(f.file.fileno())
+            f.close()
+            if self.pcomm.rank == 0:
+                os.rename(f.name, dir_name + os.path.sep + "params-%s-freeindex-%s-branchid-%s-ds-%.14e-sign-%d.json" % (parameters_to_string(self.parameters, params), freeindex, branchid, ds, sign))
+
+        def fetch_stability(self, params, branchids, fetch_eigenfunctions=False):
+            stabs = []
+            for branchid in branchids:
+                stab = {}
+                fs = open(self.dir(params) + "stability-%d.txt" % branchid, "r")
+                is_stable = literal_eval(fs.read())
+                stab["stable"] =  is_stable
+
+                try:
+                    filename = self.dir(params) + "eigenfunctions-%d.h5" % branchid
+                    evals = []
+                    eigfs = []
+
+                    with HDF5File(comm=self.function_space.mesh().mpi_comm(), filename=filename, file_mode='r') as f:
+                        # get Number of Eigenvalues
+                        num_evals= f.attributes('/eigenfunction-0')['number_eigenvalues']
+
+                        # Iterate through each eigenvalues and obtain corresponding eigenfunction
+                        for i in range(num_evals):
+                            eigval = f.attributes("/eigenfunction-%d" % i)['eigenvalue']
+                            evals.append(eigval)
+
+                            if fetch_eigenfunctions:
+                                efunc = Function(self.function_space)
+                                f.read(efunc, "/eigenfunction-%d" % i)
+                                f.flush()
+                                eigfs.append(efunc)
+
+                    stab["eigenvalues"] = evals
+                    stab["eigenfunctions"] = eigfs
+                except Exception:
+                    # Couldn't find any eigenfunctions, OK
+                    pass
+
+                stabs.append(stab)
+            return stabs
 
 # Some code to remap C- and Python-level stdout/stderr
 def remap_c_streams(stdout_filename, stderr_filename):
