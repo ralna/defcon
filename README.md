@@ -104,7 +104,7 @@ Each month a release is created and a specific release can be selected
 by adding the tag to the image name eg: `jdbetteridge/defcon:2023-04`
 will use defcon from April 2023.
 
-Inside the iamge defcon is installed in the
+Inside the image defcon is installed in the
 `/home/firedrake/firedrake/src/defcon` directory. To run an example
 first activate the Firedrake virtual environment by executing:
 
