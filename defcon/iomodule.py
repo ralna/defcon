@@ -137,7 +137,6 @@ class IO(object):
 
 if backend.__name__ == "firedrake":
     from defcon.backend import CheckpointFile
-    print("Using CheckpointFile!")
     class SolutionIO(IO):
         """An I/O class that saves one CheckpointFile per solution found."""
         def dir(self, params):
@@ -185,9 +184,7 @@ if backend.__name__ == "firedrake":
                             # What a chore this all is
                             saved_mesh = f.load_mesh()
                             soln_saved = f.load_function(saved_mesh, name="solution")
-                            soln = Function(self.function_space)
-                            with soln_saved.dat.vec_ro as src, soln.dat.vec_wo as dst:
-                                src.copy(dst)
+                            soln = Function(self.function_space, val=soln_saved.dat)
                         break
                     except Exception:
                         print("Loading file %s failed. Sleeping for 10 seconds and trying again." % filename)
@@ -327,9 +324,7 @@ if backend.__name__ == "firedrake":
                             if fetch_eigenfunctions:
                                 saved_mesh = f.load_mesh()
                                 efunc_saved = f.load_function(saved_mesh, name="eigenfunction-%d" % i)
-                                efunc = Function(self.function_space)
-                                with efunc_saved.dat.vec_ro as src, efunc.dat.vec_wo as dst:
-                                    src.copy(dst)
+                                efunc = Function(self.function_space, val=efunc_saved.dat)
                                 eigfs.append(efunc)
 
                     stab["eigenvalues"] = evals
