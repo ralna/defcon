@@ -184,6 +184,12 @@ if backend.__name__ == "firedrake":
                             # What a chore this all is
                             saved_mesh = f.load_mesh()
                             soln_saved = f.load_function(saved_mesh, name="solution")
+                            # Firedrake does not allow you to read data from one mesh to another, even if
+                            # the mesh is created identically. To work around this limitation we change
+                            # the set in the solution to be the set in the current mesh, which we are
+                            # assuming to be the same. This is normally very dangerous, but since
+                            # we know what we are doing* we do it anyway.
+                            soln_saved.dat.dataset.set = self.function_space.dof_dset.set
                             soln = Function(self.function_space, val=soln_saved.dat)
                         break
                     except Exception:
