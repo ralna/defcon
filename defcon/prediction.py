@@ -2,7 +2,6 @@
 # are intended for use in the BifurcationProblem.predict method.
 
 import defcon.backend as backend
-from ufl import derivative
 from defcon.newton import newton
 from defcon.tasks import TangentPredictionTask
 
@@ -18,7 +17,10 @@ def tangent(problem, solution, oldparams, newparams, hint=None):
     du = backend.Function(Z)
 
     F = problem.residual(solution, coldparams, v)
-    G = derivative(F, solution, du) + sum(derivative(F, oldparam, chgparam) for (oldparam, chgparam) in zip(coldparams, chgparams))
+    G = backend.derivative(F, solution, du) + sum(
+        backend.derivative(F, oldparam, chgparam)
+        for (oldparam, chgparam) in zip(coldparams, chgparams)
+    )
 
     J = problem.jacobian(G, du, chgparams, v, w)
 
