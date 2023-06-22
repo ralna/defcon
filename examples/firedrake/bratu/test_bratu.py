@@ -20,7 +20,6 @@ def test_bratu_dc(problem):
         assert len(io.known_branches((3.0,))) == 2
 
 
-@pytest.mark.skip(reason="Arclength continuation currently broken")
 def test_bratu_ac(problem):
     ac = ArclengthContinuation(problem, teamsize=1)
     ac.run(params=(0.5,), free="lambda", ds=0.5, sign=+1, bounds=(0.01, 3.6), branchids=[0])
