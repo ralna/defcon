@@ -32,7 +32,7 @@ class IO(object):
     Base class for I/O implementations.
     """
 
-    def __init__(self, directory):
+    def __init__(self, directory, comm=None):
         self.directory = directory
         try:
             if not os.path.exists(directory):
@@ -50,7 +50,15 @@ class IO(object):
             pass
         self.tmpdir = tmpdir
 
-        self.worldcomm = backend.comm_world
+        if comm:
+            self.worldcomm = comm
+        else:
+            self.log(
+                "No communicator passed to IO, defaulting to COMM_WORLD. "
+                "This is likely to break in parallel",
+                warning=True
+            )
+            self.worldcomm = backend.comm_world
 
         atexit.register(self.cleanup)
 
@@ -59,7 +67,9 @@ class IO(object):
             shutil.rmtree(self.tmpdir, ignore_errors=True)
 
     def log(self, msg, warning=False):
-        if self.pcomm.rank != 0: return
+        if hasattr(self, "pcomm"):
+            if self.pcomm.rank != 0:
+                return
 
         if warning:
             fmt = RED = "\033[1;37;31m%s\033[0m\n"
@@ -313,8 +323,8 @@ if backend.__name__ == "firedrake":
                 is_stable = literal_eval(fs.read())
                 stab["stable"] =  is_stable
 
-                try:
-                    filename = self.dir(params) + "eigenfunctions-%d.h5" % branchid
+                filename = self.dir(params) + "eigenfunctions-%d.h5" % branchid
+                if os.path.isfile(filename):
                     evals = []
                     eigfs = []
 
@@ -335,9 +345,10 @@ if backend.__name__ == "firedrake":
 
                     stab["eigenvalues"] = evals
                     stab["eigenfunctions"] = eigfs
-                except Exception:
-                    # Couldn't find any eigenfunctions, OK
-                    pass
+
+                # else:
+                # we couldn't find any eigenfunction checkpoint files,
+                # but this is OK
 
                 stabs.append(stab)
             return stabs
