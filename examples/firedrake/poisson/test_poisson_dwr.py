@@ -8,6 +8,7 @@ PETSc.Sys.popErrorHandler()
 
 import poisson
 
+
 def test_poisson_dwr():
     problem = poisson.PoissonProblem()
     params = Constant((0,))
@@ -58,6 +59,7 @@ def test_poisson_dwr():
     print(f"Error in corrected estimate: {Jcoarse - Jest - Jtrue}")
 
     assert 0.98 <= effectivity <= 1.02
+
 
 if __name__ == "__main__":
     test_poisson_dwr()
