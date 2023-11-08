@@ -32,7 +32,7 @@ class IO(object):
     Base class for I/O implementations.
     """
 
-    def __init__(self, directory, comm=None):
+    def __init__(self, directory, comm):
         self.directory = directory
         try:
             if not os.path.exists(directory):
@@ -49,16 +49,7 @@ class IO(object):
         except OSError:
             pass
         self.tmpdir = tmpdir
-
-        if comm:
-            self.worldcomm = comm
-        else:
-            self.log(
-                "No communicator passed to IO, defaulting to COMM_WORLD. "
-                "This is likely to break in parallel",
-                warning=True
-            )
-            self.worldcomm = backend.comm_world
+        self.worldcomm = comm
 
         atexit.register(self.cleanup)
 
