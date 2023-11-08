@@ -324,7 +324,7 @@ class DefconMaster(DefconThread):
             else:
                 self.journal.team_job(idleteam, task_to_code(task), task.oldparams, task.branchid)
         else:
-            # Best reschedule for later, as there is still pertinent information yet to come in. 
+            # Best reschedule for later, as there is still pertinent information yet to come in.
             self.log("Deferring task %s." % task)
             self.graph.defer(task, priority)
 
@@ -418,7 +418,7 @@ class DefconMaster(DefconThread):
                 newpriority = self.signs[task.freeindex]*newtask.newparams[task.freeindex]
             else:
                 newpriority = float("-1000000")
-    
+
             self.graph.push(newtask, newpriority)
             self.taskid_counter += 1
 
@@ -471,7 +471,7 @@ class DefconMaster(DefconThread):
                 newpriority = self.signs[task.freeindex]*newparams[task.freeindex]
                 self.graph.push(bconttask, newpriority)
                 self.taskid_counter += 1
-        
+
         if not self.disable_deflation:
             # * If we've found new solutions for the initial parameters, try all of
             #   the initial guesses again (otherwise the behaviour is different
@@ -482,7 +482,7 @@ class DefconMaster(DefconThread):
                 for guess in range(nguesses):
                     # skip the one we've already inserted an extra task for
                     if task.oldparams is None and task.branchid == guess: continue
-    
+
                     newtask = DeflationTask(taskid=self.taskid_counter,
                                             oldparams=None,
                                             freeindex=task.freeindex,
@@ -620,7 +620,7 @@ class DefconMaster(DefconThread):
                 for guess in range(nguesses):
                     # skip the one we've already inserted an extra task for
                     if task.oldparams is None and task.branchid == guess: continue
-    
+
                     newtask = DeflationTask(taskid=self.taskid_counter,
                                             oldparams=None,
                                             freeindex=task.freeindex,
