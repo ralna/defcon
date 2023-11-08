@@ -260,12 +260,13 @@ if backend.__name__ == "firedrake":
             if len(eigenvalues) > 0:
                 filename = self.dir(params) + "eigenfunctions-%d.h5" % branchid
                 with CheckpointFile(filename, 'w', comm=self.function_space.mesh().mpi_comm()) as f:
+                    f.require_group("/defcon")
                     f.save_mesh(eigenfunctions[0].function_space().mesh())
                     for (i, (eigval, eigfun)) in enumerate(zip(eigenvalues, eigenfunctions)):
                         f.save_function(eigfun, name="eigenfunction-%d" % i)
-                        f.write_attribute("eigenvalue-%d" % i, eigval)
+                        f.set_attr("/defcon", "eigenvalue-%d" % i, eigval)
 
-                    f.write_attribute("number_eigenvalues", len(eigenvalues))
+                    f.set_attr("/defcon", "number_eigenvalues", len(eigenvalues))
 
                 # wait for the file to be written
                 size = 0
@@ -321,11 +322,11 @@ if backend.__name__ == "firedrake":
 
                     with CheckpointFile(filename, 'r', comm=self.function_space.mesh().mpi_comm()) as f:
                         # get Number of Eigenvalues
-                        num_evals = f.read_attribute("number_eigenvalues")
+                        num_evals = f.get_attr("/defcon", "number_eigenvalues")
 
                         # Iterate through each eigenvalues and obtain corresponding eigenfunction
                         for i in range(num_evals):
-                            eigval = f.read_attribute("eigenvalue-%d" % i)
+                            eigval = f.get_attr("/defcon", "eigenvalue-%d" % i)
                             evals.append(eigval)
 
                             if fetch_eigenfunctions:
