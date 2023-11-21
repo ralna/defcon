@@ -6,25 +6,17 @@ from defcon.newton import newton
 from defcon.tasks import DeflationTask
 from defcon.mg import create_dm
 
-def dcsolve(problem, params, comm=backend.comm_world, guess=None, deflation=None, sp=None):
+
+def dcsolve(problem, params, comm, guess=None, deflation=None, sp=None):
 
     if isinstance(guess, backend.Function):
         mesh = guess.function_space().mesh()
+        Z = guess.function_space()
+        z = guess.copy(deepcopy=True)
     else:
         mesh = problem.mesh(comm)
-
-    if isinstance(guess, backend.Function):
-        Z = guess.function_space()
-    else:
         Z = problem.function_space(mesh)
-
-    nguesses = problem.number_initial_guesses(params)
-    if guess is None:
-        z = problem.initial_guess(Z, params, 0)
-    elif isinstance(guess, int):
-        z = problem.initial_guess(Z, params, guess)
-    elif isinstance(guess, backend.Function):
-        z = guess.copy(deepcopy=True)
+        z = problem.initial_guess(Z, params, guess or 0)
 
     v = backend.TestFunction(Z)
     w = backend.TrialFunction(Z)
@@ -35,7 +27,7 @@ def dcsolve(problem, params, comm=backend.comm_world, guess=None, deflation=None
 
     task = DeflationTask(0, None, None, 0, params)
     dm = create_dm(Z, problem)
-    teamno = 0 # FIXME: make this optional
+    teamno = 0  # FIXME: make this optional
 
     if sp is None:
         sp = problem.solver_parameters(params, task)
