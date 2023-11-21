@@ -8,8 +8,15 @@ from defcon.mg import create_dm
 
 def dcsolve(problem, params, comm=backend.comm_world, guess=None, deflation=None, sp=None):
 
-    mesh = problem.mesh(comm)
-    Z = problem.function_space(mesh)
+    if isinstance(guess, backend.Function):
+        mesh = guess.function_space().mesh()
+    else:
+        mesh = problem.mesh(comm)
+
+    if isinstance(guess, backend.Function):
+        Z = guess.function_space()
+    else:
+        Z = problem.function_space(mesh)
 
     nguesses = problem.number_initial_guesses(params)
     if guess is None:
