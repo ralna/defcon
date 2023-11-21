@@ -22,7 +22,7 @@ def estimate_error_dwr(bifurcationproblem, F, J, state, bcs, params):
     G = replace(G, {v: vz})
 
     # Homogenise and promote the boundary conditions
-    hbcs = [bc.reconstruct(V=Vf, g=ufl.zero(Vf.ufl_element().value_shape())) for bc in bcs]
+    hbcs = [bc.reconstruct(V=Vf, g=ufl.zero(Vf.ufl_element().value_shape)) for bc in bcs]
 
     # Get solver parameters for adjoint problem
     sp = bifurcationproblem.solver_parameters(params, AdjointTask(params))

@@ -573,7 +573,7 @@ class ArclengthProblem(object):
         self.state_space = problem.function_space(mesh)
         state_element = self.state_space.ufl_element()
 
-        R_element = backend.FiniteElement("R", state_element.cell(), 0)
+        R_element = backend.FiniteElement("R", state_element.cell, 0)
         self.R = backend.FunctionSpace(mesh, R_element)
 
         ac_element = backend.MixedElement([state_element, R_element])
