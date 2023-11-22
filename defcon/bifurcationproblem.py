@@ -657,13 +657,13 @@ class BifurcationProblem(object):
         from firedrake.preconditioners.pmg import PMGBase
 
         if isinstance(ele, TensorElement):
-            sub = ele.sub_elements()
-            new_ele = TensorElement(PMGBase.reconstruct_degree(sub[0], N+1), shape=ele.value_shape(), symmetry=ele.symmetry())
+            sub = ele.sub_elements
+            new_ele = TensorElement(PMGBase.reconstruct_degree(sub[0], N+1), shape=ele.value_shape, symmetry=ele.symmetry())
         elif isinstance(ele, VectorElement):
-            sub = ele.sub_elements()
+            sub = ele.sub_elements
             new_ele = VectorElement(PMGBase.reconstruct_degree(sub[0], N+1), dim=len(sub))
         elif isinstance(ele, TensorProductElement):
-            new_ele = TensorProductElement(*(PMGBase.reconstruct_degree(sub, N) for sub in ele.sub_elements()), cell=ele.cell())
+            new_ele = TensorProductElement(*(PMGBase.reconstruct_degree(sub, N) for sub in ele.sub_elements), cell=ele.cell)
         else:
             new_ele = ele.reconstruct(degree=N+1)
 
