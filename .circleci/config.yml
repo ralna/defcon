@@ -12,10 +12,16 @@ jobs:
       - checkout
 
       - run:
-          name: Environment and firedrake version info
+          name: Activate environment and firedrake version info
           command: |
             source /home/firedrake/firedrake/bin/activate
             firedrake-status
+
+      - run:
+          name: Update Firedrake to include SLEPc
+          command: |
+            source /home/firedrake/firedrake/bin/activate
+            firedrake-update --slepc
 
       - run:
           name: Install defcon

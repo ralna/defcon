@@ -9,6 +9,9 @@ USER firedrake
 
 WORKDIR /home/firedrake
 
+# Install SLEPc
+RUN bash -c "source /home/firedrake/firedrake/bin/activate && firedrake-update --slepc"
+
 # Clone defcon
 RUN bash -c "cd /home/firedrake/firedrake/src && git clone https://bitbucket.org/pefarrell/defcon.git"
 
