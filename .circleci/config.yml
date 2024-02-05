@@ -5,17 +5,23 @@ jobs:
   # Builds defcon and runs tests:
   build:
     docker:
-      - image: firedrakeproject/firedrake
+      - image: firedrakeproject/firedrake-vanilla
         user: firedrake
     working_directory: /home/firedrake/defcon
     steps:
       - checkout
 
       - run:
-          name: Environment and firedrake version info
+          name: Activate environment and firedrake version info
           command: |
             source /home/firedrake/firedrake/bin/activate
             firedrake-status
+
+      - run:
+          name: Update Firedrake to include SLEPc
+          command: |
+            source /home/firedrake/firedrake/bin/activate
+            firedrake-update --slepc
 
       - run:
           name: Install defcon

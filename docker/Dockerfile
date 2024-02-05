@@ -1,6 +1,6 @@
 # Creates a Firedrake defcon container
 
-FROM firedrakeproject/firedrake
+FROM firedrakeproject/firedrake-vanilla
 
 # This DockerFile is looked after by
 MAINTAINER Jack Betteridge <j.betteridge@imperial.ac.uk>
@@ -8,6 +8,9 @@ MAINTAINER Jack Betteridge <j.betteridge@imperial.ac.uk>
 USER firedrake
 
 WORKDIR /home/firedrake
+
+# Install SLEPc
+RUN bash -c "source /home/firedrake/firedrake/bin/activate && firedrake-update --slepc"
 
 # Clone defcon
 RUN bash -c "cd /home/firedrake/firedrake/src && git clone https://bitbucket.org/pefarrell/defcon.git"
