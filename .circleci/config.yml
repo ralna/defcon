@@ -5,7 +5,7 @@ jobs:
   # Builds defcon and runs tests:
   build:
     docker:
-      - image: firedrakeproject/firedrake
+      - image: firedrakeproject/firedrake-vanilla
         user: firedrake
     working_directory: /home/firedrake/defcon
     steps:

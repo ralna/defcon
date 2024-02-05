@@ -1,6 +1,6 @@
 # Creates a Firedrake defcon container
 
-FROM firedrakeproject/firedrake
+FROM firedrakeproject/firedrake-vanilla
 
 # This DockerFile is looked after by
 MAINTAINER Jack Betteridge <j.betteridge@imperial.ac.uk>
