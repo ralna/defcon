@@ -259,6 +259,8 @@ if backend.__name__ == "firedrake":
 
             if len(eigenvalues) > 0:
                 filename = self.dir(params) + "eigenfunctions-%d.h5" % branchid
+                if not os.path.exists(self.dir(params)):
+                   os.makedirs(self.dir(params),exist_ok=True)
                 with CheckpointFile(filename, 'w', comm=self.function_space.mesh().mpi_comm()) as f:
                     f.require_group("/defcon")
                     f.save_mesh(eigenfunctions[0].function_space().mesh())
@@ -323,6 +325,7 @@ if backend.__name__ == "firedrake":
                     with CheckpointFile(filename, 'r', comm=self.function_space.mesh().mpi_comm()) as f:
                         # get Number of Eigenvalues
                         num_evals = f.get_attr("/defcon", "number_eigenvalues")
+                        saved_mesh = f.load_mesh()
 
                         # Iterate through each eigenvalues and obtain corresponding eigenfunction
                         for i in range(num_evals):
@@ -330,7 +333,6 @@ if backend.__name__ == "firedrake":
                             evals.append(eigval)
 
                             if fetch_eigenfunctions:
-                                saved_mesh = f.load_mesh()
                                 efunc_saved = f.load_function(saved_mesh, name="eigenfunction-%d" % i)
                                 efunc = Function(self.function_space, val=efunc_saved.dat)
                                 eigfs.append(efunc)
