@@ -1,3 +1,6 @@
+This is a fork of https://bitbucket.org/pefarrell/defcon for the
+purposes of the ExCALIBUR Project NEPTUNE.
+
 ## Synopsis
 
 The defcon library implements the deflated continuation algorithm of
