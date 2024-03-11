@@ -162,9 +162,9 @@ if backend.__name__ == "firedrake":
             if self.pcomm.rank == 0:
                 os.rename(tmpname, save_dir + "solution-%d.h5" % branchid)
 
-                f = open(save_dir + "functional-%d.txt" % branchid, "w")
-                s = parameters_to_string(self.functionals, funcs).replace('@', '\n') + '\n'
-                f.write(s)
+                with open(save_dir + "functional-%d.txt" % branchid, "w") as f:
+                    s = parameters_to_string(self.functionals, funcs).replace('@', '\n') + '\n'
+                    f.write(s)
 
             self.pcomm.Barrier()
             assert os.path.exists(save_dir + "solution-%d.h5" % branchid)
@@ -207,10 +207,10 @@ if backend.__name__ == "firedrake":
         def fetch_functionals(self, params, branchid):
             funcs = []
             for param in params:
-                f = open(self.dir(param) + "functional-%d.txt" % branchid, "r")
-                func = []
-                for line in f:
-                    func.append(float(line.split('=')[-1]))
+                with open(self.dir(param) + "functional-%d.txt" % branchid, "r") as f:
+                    func = []
+                    for line in f:
+                        func.append(float(line.split('=')[-1]))
                 funcs.append(func)
             return funcs
 
@@ -313,8 +313,8 @@ if backend.__name__ == "firedrake":
             stabs = []
             for branchid in branchids:
                 stab = {}
-                fs = open(self.dir(params) + "stability-%d.txt" % branchid, "r")
-                is_stable = literal_eval(fs.read())
+                with open(self.dir(params) + "stability-%d.txt" % branchid, "r") as fs:
+                    is_stable = literal_eval(fs.read())
                 stab["stable"] =  is_stable
 
                 filename = self.dir(params) + "eigenfunctions-%d.h5" % branchid
@@ -370,9 +370,9 @@ else:
             if self.pcomm.rank == 0:
                 os.rename(tmpname, save_dir + "solution-%d.h5" % branchid)
 
-                f = open(save_dir + "functional-%d.txt" % branchid, "w")
-                s = parameters_to_string(self.functionals, funcs).replace('@', '\n') + '\n'
-                f.write(s)
+                with open(save_dir + "functional-%d.txt" % branchid, "w") as f:
+                    s = parameters_to_string(self.functionals, funcs).replace('@', '\n') + '\n'
+                    f.write(s)
 
             self.pcomm.Barrier()
             assert os.path.exists(save_dir + "solution-%d.h5" % branchid)
@@ -408,10 +408,10 @@ else:
         def fetch_functionals(self, params, branchid):
             funcs = []
             for param in params:
-                f = open(self.dir(param) + "functional-%d.txt" % branchid, "r")
-                func = []
-                for line in f:
-                    func.append(float(line.split('=')[-1]))
+                with open(self.dir(param) + "functional-%d.txt" % branchid, "r") as f:
+                    func = []
+                    for line in f:
+                        func.append(float(line.split('=')[-1]))
                 funcs.append(func)
             return funcs
 
@@ -509,8 +509,8 @@ else:
             stabs = []
             for branchid in branchids:
                 stab = {}
-                fs = open(self.dir(params) + "stability-%d.txt" % branchid, "r")
-                is_stable = literal_eval(fs.read())
+                with open(self.dir(params) + "stability-%d.txt" % branchid, "r") as fs:
+                    is_stable = literal_eval(fs.read())
                 stab["stable"] =  is_stable
 
                 try:
